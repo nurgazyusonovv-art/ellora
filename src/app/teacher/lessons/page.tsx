@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { addLibraryLesson } from "@/app/actions/teacher";
-import { Button, Card, Chip, PageTitle } from "@/components/ui";
+import { Button, ButtonLink, Card, Chip, PageTitle } from "@/components/ui";
 import { LIBRARY } from "@/content/python-if";
 import { requireRole } from "@/lib/auth";
 
@@ -16,12 +16,14 @@ export default async function LessonsPage() {
 
   return (
     <>
-      <PageTitle title="Сабактар" />
+      <PageTitle title="Сабактар">
+        <ButtonLink href="/teacher/lessons/new">Жаңы сабак</ButtonLink>
+      </PageTitle>
 
       <section className="flex flex-col gap-3">
         <h2 className="font-display text-lg font-medium">Менин сабактарым</h2>
         {(lessons?.length ?? 0) === 0 ? (
-          <p className="text-muted">Азырынча сабак жок. Төмөнкү китепканадан даяр сабакты алып баштаңыз.</p>
+          <p className="text-muted">Азырынча сабак жок. «Жаңы сабак» баскычы менен өзүңүз түзүңүз же төмөнкү китепканадан даяр сабакты алыңыз.</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             {lessons!.map((l) => (
@@ -56,7 +58,6 @@ export default async function LessonsPage() {
             </Card>
           ))}
         </div>
-        <p className="text-sm text-muted">Сабак конструктору кийинки этапта кошулат.</p>
       </section>
     </>
   );

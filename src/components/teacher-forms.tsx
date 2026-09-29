@@ -2,8 +2,11 @@
 
 import { useActionState, useState } from "react";
 import type { FormState } from "@/app/actions/auth";
-import { assignLesson, createClass, resetStudentPassword } from "@/app/actions/teacher";
+import { assignLesson, createClass, createLesson, resetStudentPassword } from "@/app/actions/teacher";
 import { Button, Field, FormError } from "@/components/ui";
+import { TopicPicker } from "@/components/topic-picker";
+import type { Ktp } from "@/content/ktp";
+import { DEFAULT_DURATION, DURATION_OPTIONS } from "@/lib/lesson-edit";
 
 export function CreateClassForm() {
   const [state, act, pending] = useActionState<FormState, FormData>(createClass, undefined);
@@ -85,5 +88,70 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
     >
       {done ? "Көчүрүлдү" : label}
     </Button>
+  );
+}
+
+export function NewLessonForm({ plans }: { plans: Record<number, Ktp> }) {
+  const [state, act, pending] = useActionState<FormState, FormData>(createLesson, undefined);
+  const [title, setTitle] = useState("");
+  const [grade, setGrade] = useState<number | null>(7);
+  const [topic, setTopic] = useState("");
+  // Мугалим атты өзү жазбаса — КТП'ден тандалган тема сабактын аты болот.
+  const [autoTitle, setAutoTitle] = useState(true);
+  return (
+    <form action={act} className="flex flex-col gap-4">
+      <div className="grid gap-4 sm:grid-cols-[110px_150px]">
+        <Field
+          label="Класс"
+          name="grade"
+          type="number"
+          min={1}
+          max={11}
+          inputMode="numeric"
+          value={grade ?? ""}
+          onChange={(e) => setGrade(e.target.value ? Number(e.target.value) : null)}
+        />
+        <label className="flex flex-col gap-1.5 text-sm font-semibold">
+          Узактыгы
+          <select
+            name="duration"
+            defaultValue={DEFAULT_DURATION}
+            className="rounded-[10px] border border-line bg-surface px-3 py-2.5 text-base font-normal"
+          >
+            {DURATION_OPTIONS.map((m) => (
+              <option key={m} value={m}>
+                {m} мүнөт
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <TopicPicker
+        plans={plans}
+        grade={grade}
+        value={topic}
+        name="topic"
+        onChange={(t) => {
+          setTopic(t);
+          if (autoTitle) setTitle(t);
+        }}
+      />
+      <Field
+        label="Сабактын аты"
+        name="title"
+        placeholder="Мисалы: Python: for цикли"
+        maxLength={120}
+        required
+        value={title}
+        onChange={(e) => {
+          setTitle(e.target.value);
+          setAutoTitle(e.target.value === "");
+        }}
+      />
+      <FormError message={state?.error} />
+      <Button disabled={pending} className="self-start">
+        {pending ? "Түзүлүүдө…" : "Сабакты түзүү"}
+      </Button>
+    </form>
   );
 }

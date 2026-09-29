@@ -80,7 +80,8 @@ export type Block =
 
 export type Stage = { key: StageKey; title: string; intro?: string; minutes: number; blocks: Block[] };
 
-export type LessonContent = { version: 1; stages: Stage[] };
+/** `duration` — мугалим тандаган сабактын жалпы узактыгы (мүнөт). Жок болсо 45 деп эсептелет. */
+export type LessonContent = { version: 1; duration?: number; stages: Stage[] };
 
 /** Бул блок стадияны бүтүрүү үчүн жооп талап кылабы. */
 export function isInteractive(b: Block) {

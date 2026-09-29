@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { LIBRARY } from "@/content/python-if";
 import { makeJoinCode, requireRole } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkStructure, DURATION_OPTIONS, DEFAULT_DURATION, emptyLesson, validateLesson } from "@/lib/lesson-edit";
+import type { LessonContent } from "@/lib/lesson-types";
 import type { FormState } from "./auth";
 
 export async function createClass(_: FormState, fd: FormData): Promise<FormState> {
@@ -52,6 +54,8 @@ export async function assignLesson(_: FormState, fd: FormData): Promise<FormStat
   const class_id = String(fd.get("class_id") ?? "");
   const due = String(fd.get("due_at") ?? "");
   if (!class_id) return { error: "Классты тандаңыз." };
+  const { data: lesson } = await supabase.from("lessons").select("status").eq("id", lesson_id).maybeSingle();
+  if (lesson?.status !== "published") return { error: "Адегенде сабакты жарыялаңыз (конструктордо «Жарыялоо»)." };
   const { data, error } = await supabase
     .from("assignments")
     .insert({ lesson_id, class_id, due_at: due ? new Date(`${due}T23:59:00+06:00`).toISOString() : null })
@@ -80,4 +84,89 @@ export async function removeStudent(classId: string, studentId: string) {
   const { supabase } = await requireRole("teacher");
   await supabase.from("class_members").delete().eq("class_id", classId).eq("student_id", studentId);
   revalidatePath(`/teacher/classes/${classId}`);
+}
+
+/* ─────────────────────────── Сабак конструктору ─────────────────────────── */
+
+function parseGrade(v: FormDataEntryValue | null) {
+  const n = Number(String(v ?? "").trim());
+  return Number.isInteger(n) && n >= 1 && n <= 11 ? n : null;
+}
+
+export async function createLesson(_: FormState, fd: FormData): Promise<FormState> {
+  const { supabase, profile } = await requireRole("teacher");
+  const title = String(fd.get("title") ?? "").trim();
+  if (!title) return { error: "Сабактын атын жазыңыз." };
+  const { data, error } = await supabase
+    .from("lessons")
+    .insert({
+      author_id: profile.id,
+      title,
+      grade: parseGrade(fd.get("grade")),
+      topic: String(fd.get("topic") ?? "").trim() || null,
+      content: emptyLesson(DURATION_OPTIONS.includes(Number(fd.get("duration"))) ? Number(fd.get("duration")) : DEFAULT_DURATION),
+      status: "draft",
+    })
+    .select("id")
+    .single();
+  if (error || !data) return { error: "Сабак түзүлгөн жок: " + (error?.message ?? "") };
+  revalidatePath("/teacher/lessons");
+  redirect(`/teacher/lessons/${data.id}/edit`);
+}
+
+export type LessonDraft = { title: string; grade: number | null; topic: string; content: LessonContent };
+export type SaveResult = { error?: string; savedAt?: string };
+
+/** Конструктордун автосактоосу. Жарыяланган сабак толук текшерүүдөн өтпөсө сакталбайт. */
+export async function saveLesson(id: string, draft: LessonDraft): Promise<SaveResult> {
+  const { supabase } = await requireRole("teacher");
+  const bad = checkStructure(draft.content);
+  if (bad) return { error: bad };
+  const { data: cur } = await supabase.from("lessons").select("status").eq("id", id).maybeSingle();
+  if (!cur) return { error: "Сабак табылган жок." };
+  if (cur.status === "published") {
+    const issues = validateLesson(draft.title, draft.content);
+    if (issues.length) return { error: `Сабак жарыяланган, ошондуктан ${issues.length} ката оңдолмоюнча сакталбайт.` };
+  }
+  const updated_at = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("lessons")
+    .update({
+      title: draft.title.trim() || "Аталышы жок сабак",
+      grade: draft.grade && draft.grade >= 1 && draft.grade <= 11 ? Math.round(draft.grade) : null,
+      topic: draft.topic.trim() || null,
+      content: draft.content,
+      updated_at,
+    })
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error || !data) return { error: "Сакталган жок: " + (error?.message ?? "укук жок") };
+  return { savedAt: updated_at };
+}
+
+export async function publishLesson(id: string): Promise<SaveResult> {
+  const { supabase } = await requireRole("teacher");
+  const { data: lesson } = await supabase.from("lessons").select("title, content").eq("id", id).maybeSingle();
+  if (!lesson) return { error: "Сабак табылган жок." };
+  const issues = validateLesson(lesson.title, lesson.content as LessonContent);
+  if (issues.length) return { error: `Жарыялоого чейин ${issues.length} катаны оңдоңуз.` };
+  const { error } = await supabase.from("lessons").update({ status: "published" }).eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/teacher/lessons");
+  revalidatePath(`/teacher/lessons/${id}`);
+  return {};
+}
+
+export async function duplicateLesson(id: string) {
+  const { supabase, profile } = await requireRole("teacher");
+  const { data: src } = await supabase.from("lessons").select("title, grade, topic, content").eq("id", id).maybeSingle();
+  if (!src) return;
+  const { data } = await supabase
+    .from("lessons")
+    .insert({ author_id: profile.id, title: `${src.title} (көчүрмө)`, grade: src.grade, topic: src.topic, content: src.content, status: "draft" })
+    .select("id")
+    .single();
+  revalidatePath("/teacher/lessons");
+  if (data) redirect(`/teacher/lessons/${data.id}/edit`);
 }

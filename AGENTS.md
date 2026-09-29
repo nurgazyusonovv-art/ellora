@@ -27,6 +27,7 @@ ellora — информатика мугалимдери 5 бөлүктүү ин
 npm install
 npm run dev      # http://localhost:3000
 npm run lint     # ESLint — ар бир өзгөртүүдөн кийин
+npm test         # Vitest: баалоо, сервер аракеттери, конструктор, КТП (src/**/*.test.ts)
 npm run build    # ар бир тапшырманын аягында сөзсүз өтүшү керек
 ```
 
@@ -68,7 +69,7 @@ docs/                     пландар жана спецификациялар
 6. Жаңы блок түрү кошуу тартиби: `lesson-types.ts` → `player/blocks.tsx` → `lesson-player.tsx`тагы `renderBlock`
    → `docs/LESSON_FORMAT.md`.
 7. Server Actions `"use server"` файлдарында, формалар `useActionState` менен. Каталар `{ error: "кыргызча текст" }`.
-8. Кичинекей, текшерилген кадамдар. Ар бир тапшырманын аягында `npm run lint && npm run build`.
+8. Кичинекей, текшерилген кадамдар. Ар бир тапшырманын аягында `npm run lint && npm test && npm run build`.
 9. Коммит билдирүүлөрү кыргызча же англисче, кыска: `Сабак конструктору: блок кошуу`.
 
 ## Азыркы абалы

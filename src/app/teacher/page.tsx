@@ -151,103 +151,99 @@ export default async function TeacherHome() {
         <Stat label="Бүткөн сабак" value={finishedTotal} sub="окуучулардын аракети" />
       </div>
 
-      {rows.length === 0 && (
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr] lg:items-start">
         <Card className="flex flex-col gap-4">
-          <h2 className="font-display text-lg font-medium">Баштоо үчүн үч кадам</h2>
-          <ol className="flex flex-col gap-3">
-            <Step n={1} done={hasClasses} href="/teacher/classes" text="Класс ачып, окуучуларга кошулуу кодун бериңиз" />
-            <Step n={2} done={published > 0} href="/teacher/lessons" text="Китепканадан даяр сабакты алыңыз же өзүңүз түзүңүз" />
-            <Step n={3} href="/teacher/lessons" text="Сабакты класска жөнөтүп, натыйжаны көрүңүз" />
-          </ol>
-        </Card>
-      )}
-
-      {rows.length > 0 && (
-        <div className="grid gap-6 lg:grid-cols-[2fr_1fr] lg:items-start">
-          <Card className="flex flex-col gap-4">
-            <h2 className="font-display text-lg font-medium">Жүрүп жаткан тапшырмалар</h2>
-            {rows.map((r) => (
-              <Link key={r.id} href={`/teacher/assignments/${r.id}`} className="flex flex-col gap-2.5 rounded-xl border border-line p-4 hover:border-accent">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-col">
-                    <span className="font-semibold">{r.lessons?.title}</span>
-                    <span className="text-sm text-muted">
-                      {r.classes?.name} · {r.due_at ? `Мөөнөт: ${formatDate(r.due_at)}` : "Мөөнөтсүз"}
-                    </span>
-                  </div>
-                  {r.help > 0 ? (
-                    <Chip tone="bad">{r.help} окуучуга жардам керек</Chip>
-                  ) : r.notStarted.length > 0 ? (
-                    <Chip tone="warn">{r.notStarted.length} окуучу баштай элек</Chip>
-                  ) : r.total > 0 && r.done >= r.total ? (
-                    <Chip tone="good">Баары бүтүрдү</Chip>
-                  ) : r.total === 0 ? (
-                    <Chip>Класста окуучу жок</Chip>
-                  ) : (
-                    <Chip tone="good">Жакшы жүрүүдө</Chip>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <Progress value={r.total ? (r.done / r.total) * 100 : 0} />
-                  </div>
-                  <span className="font-mono text-sm text-muted tabular-nums">
-                    {r.done}/{r.total} бүттү
+          <h2 className="font-display text-lg font-medium">Жүрүп жаткан тапшырмалар</h2>
+          {rows.length === 0 && (
+            <p className="text-sm text-muted">
+              Азырынча тапшырма жок.{" "}
+              <Link href="/teacher/lessons" className="font-semibold text-accent hover:underline">
+                Сабакты класска жөнөтүңүз
+              </Link>{" "}
+              — окуучулардын жүрүшү ушул жерде көрүнөт.
+            </p>
+          )}
+          {rows.map((r) => (
+            <Link key={r.id} href={`/teacher/assignments/${r.id}`} className="flex flex-col gap-2.5 rounded-xl border border-line p-4 hover:border-accent">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-col">
+                  <span className="font-semibold">{r.lessons?.title}</span>
+                  <span className="text-sm text-muted">
+                    {r.classes?.name} · {r.due_at ? `Мөөнөт: ${formatDate(r.due_at)}` : "Мөөнөтсүз"}
                   </span>
                 </div>
-              </Link>
-            ))}
-          </Card>
-
-          <Card className="flex flex-col gap-3">
-            <h2 className="font-display text-lg font-medium">Көңүл буруңуз</h2>
-            {attentionEmpty && <p className="text-sm text-muted">Азырынча баары жакшы: жардамга муктаж окуучу жок.</p>}
-
-            {needHelp.map((t) => (
-              <Link
-                key={t.id}
-                href={`/teacher/assignments/${t.assignment_id}`}
-                className="flex flex-col gap-0.5 border-b border-surface-2 pb-3 last:border-0 hover:text-accent"
-              >
-                <span className="font-semibold">
-                  {t.name} · {t.a?.classes?.name}
-                </span>
-                <span className="text-sm text-muted">
-                  {t.status === "stuck"
-                    ? `«${t.a?.lessons?.title}» сабагын баштап, бир суткадан ашык бүтүргөн жок.`
-                    : `«${t.a?.lessons?.title}»: exit ticket ${t.exit_score}/${t.exit_total}` +
-                      (t.confidence ? `, ишеними ${t.confidence}/4` : "") +
-                      ". Жеке сүйлөшүү сунушталат."}
-                </span>
-              </Link>
-            ))}
-
-            {hardest && (
-              <Link href={`/teacher/assignments/${hardest.a.id}`} className="flex flex-col gap-0.5 border-b border-surface-2 pb-3 last:border-0 hover:text-accent">
-                <span className="font-semibold">Эң кыйын суроо</span>
-                <span className="text-sm text-muted">
-                  «{hardest.prompt}» · {hardest.a.classes?.name} класстын {hardest.pct}%ы гана биринчи аракетте туура жооп берди ({hardest.n}{" "}
-                  окуучу).
-                </span>
-              </Link>
-            )}
-
-            {reminders.map((r) => (
-              <div key={r.id} className="flex flex-col gap-0.5 border-b border-surface-2 pb-3 last:border-0">
-                <span className="font-semibold">
-                  {r.classes?.name} · {r.notStarted.length} окуучу баштай элек
-                </span>
-                <span className="text-sm text-muted">
-                  «{r.lessons?.title}». {dueLabel(r.due_at)}.
-                </span>
-                <div className="mt-1.5">
-                  <CopyButton text={r.text} label="Эскертме көчүрүү" />
-                </div>
+                {r.help > 0 ? (
+                  <Chip tone="bad">{r.help} окуучуга жардам керек</Chip>
+                ) : r.notStarted.length > 0 ? (
+                  <Chip tone="warn">{r.notStarted.length} окуучу баштай элек</Chip>
+                ) : r.total > 0 && r.done >= r.total ? (
+                  <Chip tone="good">Баары бүтүрдү</Chip>
+                ) : r.total === 0 ? (
+                  <Chip>Класста окуучу жок</Chip>
+                ) : (
+                  <Chip tone="good">Жакшы жүрүүдө</Chip>
+                )}
               </div>
-            ))}
-          </Card>
-        </div>
-      )}
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <Progress value={r.total ? (r.done / r.total) * 100 : 0} />
+                </div>
+                <span className="font-mono text-sm text-muted tabular-nums">
+                  {r.done}/{r.total} бүттү
+                </span>
+              </div>
+            </Link>
+          ))}
+        </Card>
+
+        <Card className="flex flex-col gap-3">
+          <h2 className="font-display text-lg font-medium">Көңүл буруңуз</h2>
+          {attentionEmpty && <p className="text-sm text-muted">Азырынча баары жакшы: жардамга муктаж окуучу жок.</p>}
+
+          {needHelp.map((t) => (
+            <Link
+              key={t.id}
+              href={`/teacher/assignments/${t.assignment_id}`}
+              className="flex flex-col gap-0.5 border-b border-surface-2 pb-3 last:border-0 hover:text-accent"
+            >
+              <span className="font-semibold">
+                {t.name} · {t.a?.classes?.name}
+              </span>
+              <span className="text-sm text-muted">
+                {t.status === "stuck"
+                  ? `«${t.a?.lessons?.title}» сабагын баштап, бир суткадан ашык бүтүргөн жок.`
+                  : `«${t.a?.lessons?.title}»: exit ticket ${t.exit_score}/${t.exit_total}` +
+                    (t.confidence ? `, ишеними ${t.confidence}/4` : "") +
+                    ". Жеке сүйлөшүү сунушталат."}
+              </span>
+            </Link>
+          ))}
+
+          {hardest && (
+            <Link href={`/teacher/assignments/${hardest.a.id}`} className="flex flex-col gap-0.5 border-b border-surface-2 pb-3 last:border-0 hover:text-accent">
+              <span className="font-semibold">Эң кыйын суроо</span>
+              <span className="text-sm text-muted">
+                «{hardest.prompt}» · {hardest.a.classes?.name} класстын {hardest.pct}%ы гана биринчи аракетте туура жооп берди ({hardest.n}{" "}
+                окуучу).
+              </span>
+            </Link>
+          )}
+
+          {reminders.map((r) => (
+            <div key={r.id} className="flex flex-col gap-0.5 border-b border-surface-2 pb-3 last:border-0">
+              <span className="font-semibold">
+                {r.classes?.name} · {r.notStarted.length} окуучу баштай элек
+              </span>
+              <span className="text-sm text-muted">
+                «{r.lessons?.title}». {dueLabel(r.due_at)}.
+              </span>
+              <div className="mt-1.5">
+                <CopyButton text={r.text} label="Эскертме көчүрүү" />
+              </div>
+            </div>
+          ))}
+        </Card>
+      </div>
 
       {hasClasses && (
         <section className="flex flex-col gap-3">
@@ -302,18 +298,5 @@ function Stat({ label, value, sub, href }: { label: string; value: number; sub?:
     </Link>
   ) : (
     <div className={cls}>{body}</div>
-  );
-}
-
-function Step({ n, text, href, done }: { n: number; text: string; href: string; done?: boolean }) {
-  return (
-    <li>
-      <Link href={href} className="flex items-center gap-3 rounded-xl border border-line p-3.5 hover:border-accent">
-        <span className={`grid size-8 shrink-0 place-items-center rounded-full font-mono text-sm ${done ? "bg-good text-white" : "bg-accent-soft text-accent-dark"}`}>
-          {done ? "✓" : n}
-        </span>
-        <span className={done ? "text-muted line-through" : ""}>{text}</span>
-      </Link>
-    </li>
   );
 }

@@ -1,5 +1,6 @@
 /** КТП үлгүлөрү (расмий пландар). Мугалим үлгүнү өзүнө көчүрүп, «КТП» барагында түзөтөт (ktp_plans таблицасы). */
 import { ktpGrade7 } from "@/content/ktp/grade7";
+import { ktpGrade8 } from "@/content/ktp/grade8";
 
 export type KtpTopic = { title: string; hours?: number };
 export type KtpSection = { title: string; hours: number; topics: KtpTopic[] };
@@ -8,6 +9,7 @@ export type Ktp = { grade: number; year: string; hoursPerWeek?: number; source?:
 /** Жаңы класстын үлгүсүн кошуу: `gradeN.ts` файлын түзүп, ушул жерге каттаңыз. */
 export const KTP_TEMPLATES: Record<number, Ktp> = {
   7: ktpGrade7,
+  8: ktpGrade8,
 };
 
 /** Тема КТП'дегилердин бирине дал келсе — анын орду (бөлүм, тема). */

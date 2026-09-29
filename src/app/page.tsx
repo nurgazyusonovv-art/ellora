@@ -57,10 +57,10 @@ export default async function Home() {
           </nav>
           <div className="flex items-center gap-2">
             <Link href="/login" className="hidden min-h-11 items-center px-2 text-sm font-semibold text-accent sm:inline-flex">
-              Мугалим кирүү
+              Мугалим катары кирүү
             </Link>
             <ButtonLink href="/student-login" variant="secondary" className="min-h-11 px-3.5 text-sm">
-              Окуучу кирүү
+              Окуучу катары кирүү
             </ButtonLink>
           </div>
         </div>
@@ -169,10 +169,10 @@ export default async function Home() {
           <span>Информатика сабактары кыргыз тилинде · 5–9-класстар</span>
           <div className="flex gap-4">
             <Link href="/student-login" className="font-semibold text-accent">
-              Окуучу кирүү
+              Окуучу катары кирүү
             </Link>
             <Link href="/login" className="font-semibold text-accent">
-              Мугалим кирүү
+              Мугалим катары кирүү
             </Link>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { assignLesson, createClass, createLesson, deleteLesson, resetStudentPass
 import { Button, Field, FormError } from "@/components/ui";
 import { TopicPicker } from "@/components/topic-picker";
 import type { Ktp } from "@/content/ktp";
+import { GRADES } from "@/lib/grades";
 import { DEFAULT_DURATION, DURATION_OPTIONS } from "@/lib/lesson-edit";
 
 export function CreateClassForm() {
@@ -100,17 +101,22 @@ export function NewLessonForm({ plans }: { plans: Record<number, Ktp> }) {
   const [autoTitle, setAutoTitle] = useState(true);
   return (
     <form action={act} className="flex flex-col gap-4">
-      <div className="grid gap-4 sm:grid-cols-[110px_150px]">
-        <Field
-          label="Класс"
-          name="grade"
-          type="number"
-          min={1}
-          max={11}
-          inputMode="numeric"
-          value={grade ?? ""}
-          onChange={(e) => setGrade(e.target.value ? Number(e.target.value) : null)}
-        />
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-[140px_150px]">
+        <label className="flex flex-col gap-1.5 text-sm font-semibold">
+          Класс
+          <select
+            name="grade"
+            value={grade ?? ""}
+            onChange={(e) => setGrade(e.target.value ? Number(e.target.value) : null)}
+            className="rounded-[10px] border border-line bg-surface px-3 py-2.5 text-base font-normal"
+          >
+            {GRADES.map((g) => (
+              <option key={g} value={g}>
+                {g}-класс
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           Узактыгы
           <select

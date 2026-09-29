@@ -6,6 +6,7 @@ import { LIBRARY } from "@/content/python-if";
 import { makeJoinCode, requireRole } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkStructure, DURATION_OPTIONS, DEFAULT_DURATION, emptyLesson, validateLesson } from "@/lib/lesson-edit";
+import { isGrade } from "@/lib/grades";
 import type { LessonContent } from "@/lib/lesson-types";
 import type { FormState } from "./auth";
 
@@ -90,7 +91,7 @@ export async function removeStudent(classId: string, studentId: string) {
 
 function parseGrade(v: FormDataEntryValue | null) {
   const n = Number(String(v ?? "").trim());
-  return Number.isInteger(n) && n >= 1 && n <= 11 ? n : null;
+  return isGrade(n) ? n : null;
 }
 
 export async function createLesson(_: FormState, fd: FormData): Promise<FormState> {
@@ -133,7 +134,7 @@ export async function saveLesson(id: string, draft: LessonDraft): Promise<SaveRe
     .from("lessons")
     .update({
       title: draft.title.trim() || "Аталышы жок сабак",
-      grade: draft.grade && draft.grade >= 1 && draft.grade <= 11 ? Math.round(draft.grade) : null,
+      grade: isGrade(draft.grade) ? draft.grade : null,
       topic: draft.topic.trim() || null,
       content: draft.content,
       updated_at,

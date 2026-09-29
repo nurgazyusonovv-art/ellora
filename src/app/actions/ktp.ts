@@ -4,15 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { checkKtpSections, KTP_TEMPLATES, type KtpSection } from "@/content/ktp";
 import { requireRole } from "@/lib/auth";
+import { isGrade } from "@/lib/grades";
 
 export type KtpSaveResult = { error?: string; savedAt?: string };
 
-const validGrade = (g: number) => Number.isInteger(g) && g >= 1 && g <= 11;
 
 /** Мугалимдин КТП'син сактайт. Биринчи сактоодо көчүрмө түзүлөт (класс боюнча бирөө). */
 export async function saveKtp(grade: number, draft: { year: string; sections: KtpSection[] }): Promise<KtpSaveResult> {
   const { supabase, profile } = await requireRole("teacher");
-  if (!validGrade(grade)) return { error: "Класс туура эмес." };
+  if (!isGrade(grade)) return { error: "Класс туура эмес." };
   const bad = checkKtpSections(draft.sections);
   if (bad) return { error: bad };
   const updated_at = new Date().toISOString();

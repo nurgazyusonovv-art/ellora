@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { publishLesson, saveLesson, type LessonDraft } from "@/app/actions/teacher";
 import { BlockEditor } from "@/components/builder/block-editors";
 import { TopicPicker } from "@/components/topic-picker";
+import { GRADES } from "@/lib/grades";
 import type { Ktp } from "@/content/ktp";
 import { Button, ButtonLink, Chip, cx, Eyebrow } from "@/components/ui";
 import {
@@ -384,15 +385,18 @@ export function LessonBuilder({
             <Eyebrow>Сабак жөнүндө</Eyebrow>
             <label className="flex flex-col gap-1.5 text-sm font-semibold">
               Класс
-              <input
+              <select
                 className={inputCls}
-                type="number"
-                min={1}
-                max={11}
-                inputMode="numeric"
                 value={draft.grade ?? ""}
                 onChange={(e) => update((d) => ({ ...d, grade: e.target.value ? Number(e.target.value) : null }))}
-              />
+              >
+                <option value="">Тандалган жок</option>
+                {GRADES.map((g) => (
+                  <option key={g} value={g}>
+                    {g}-класс
+                  </option>
+                ))}
+              </select>
             </label>
             <TopicPicker plans={plans} grade={draft.grade} value={draft.topic} onChange={(topic) => update((d) => ({ ...d, topic }))} />
             {issues.length > 0 && (

@@ -3,19 +3,18 @@ import { KtpEditor } from "@/components/ktp-editor";
 import { cx, PageTitle } from "@/components/ui";
 import { KTP_TEMPLATES } from "@/content/ktp";
 import { requireRole } from "@/lib/auth";
+import { GRADES } from "@/lib/grades";
 import { getTeacherPlans } from "@/lib/ktp";
 
 export const metadata = { title: "КТП" };
 
-/** Информатика 5-класстан окутулат. Мугалим башка класска план түзсө, ал да көрүнөт. */
-const BASE_GRADES = [5, 6, 7, 8, 9, 10, 11];
 
 export default async function KtpPage({ searchParams }: { searchParams: Promise<{ grade?: string }> }) {
   const { supabase } = await requireRole("teacher");
   const [{ grade: g }, plans] = await Promise.all([searchParams, getTeacherPlans(supabase)]);
 
   const own = new Set(plans.map((p) => p.grade));
-  const grades = [...new Set([...BASE_GRADES, ...own])].sort((a, b) => a - b);
+  const grades: number[] = [...GRADES];
   const asked = Number(g);
   const grade = grades.includes(asked) ? asked : (plans[0]?.grade ?? 7);
   const plan = plans.find((p) => p.grade === grade);

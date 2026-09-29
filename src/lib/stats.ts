@@ -42,3 +42,25 @@ export function formatDate(iso: string | null | undefined) {
   const local = new Date(d.getTime() + 6 * 36e5); // Бишкек, UTC+6
   return `${local.getUTCDate()}-${months[local.getUTCMonth()]}`;
 }
+
+const DAY = 864e5;
+const bishkek = (d: Date) => new Date(d.getTime() + 6 * 36e5); // Бишкек, UTC+6
+
+/** «Шейшемби, 29-сентябрь» — Бишкек убактысы менен. */
+export function todayLabel(now = new Date()) {
+  const days = ["Жекшемби", "Дүйшөмбү", "Шейшемби", "Шаршемби", "Бейшемби", "Жума", "Ишемби"];
+  const l = bishkek(now);
+  return `${days[l.getUTCDay()]}, ${formatDate(now.toISOString())}`;
+}
+
+/** Мөөнөткө чейинки календардык күндөр (Бишкек убактысы менен): 0 — бүгүн, терс — өтүп кетти. */
+export function daysUntil(iso: string, now = new Date()) {
+  const day = (d: Date) => Math.floor(bishkek(d).getTime() / DAY);
+  return day(new Date(iso)) - day(now);
+}
+
+export function dueLabel(iso: string | null) {
+  if (!iso) return "Мөөнөтсүз";
+  const n = daysUntil(iso);
+  return n > 1 ? `Мөөнөткө ${n} күн калды` : n === 1 ? "Мөөнөт эртең" : n === 0 ? "Мөөнөт бүгүн" : `Мөөнөт ${-n} күн мурун өттү`;
+}

@@ -64,6 +64,20 @@ export async function studentJoin(_: FormState, fd: FormData): Promise<FormState
   const { data: cls } = await admin.from("classes").select("id").eq("join_code", code).maybeSingle();
   if (!cls) return { error: "Мындай коду бар класс табылган жок. Кодду мугалимиңден текшер." };
 
+  // Окуучу /join'га кайра кирсе, экинчи аккаунт түзүлбөсүн — логини менен кирсин.
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ");
+  const { data: members } = await admin
+    .from("class_members")
+    .select("profiles(full_name, username)")
+    .eq("class_id", cls.id);
+  const same = members
+    ?.flatMap((m) => m.profiles ?? [])
+    .find((p) => norm(p.full_name) === norm(full_name));
+  if (same)
+    return {
+      error: `Бул класста «${same.full_name}» мурунтан бар, логини: ${same.username}. «Кирүү» баскычын басып, ошол логин менен кир. Сырсөздү унутсаң, мугалимиңе кайрыл. Эгер сен башка окуучу болсоң, атыңа атаңдын атынын биринчи тамгасын кош.`,
+    };
+
   let username = "";
   let userId = "";
   for (let i = 0; i < 5 && !userId; i++) {

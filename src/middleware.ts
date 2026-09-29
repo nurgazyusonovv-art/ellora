@@ -29,10 +29,12 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const needsAuth = path.startsWith("/teacher") || path.startsWith("/student");
+  // "/student-login" да "/student" менен башталат — ошондуктан сегментти так текшеребиз.
+  const under = (base: string) => path === base || path.startsWith(`${base}/`);
+  const needsAuth = under("/teacher") || under("/student");
   if (needsAuth && !user) {
     const url = request.nextUrl.clone();
-    url.pathname = path.startsWith("/teacher") ? "/login" : "/student-login";
+    url.pathname = under("/teacher") ? "/login" : "/student-login";
     url.search = "";
     return NextResponse.redirect(url);
   }

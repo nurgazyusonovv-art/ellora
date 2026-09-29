@@ -2,37 +2,41 @@
 
 import { requireRole } from "@/lib/auth";
 import { computeXp, exitResult, findBlock, gradeAnswer, stageDone, type Answers, type SavedAnswer } from "@/lib/grading";
-import type { LessonContent } from "@/lib/lesson-types";
+import type { Block } from "@/lib/lesson-types";
+import { lessonContent } from "@/lib/student-lessons";
+import { parsonsSeed, shufflePerm, studentBlock } from "@/lib/student-view";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type Progress = {
   error?: string;
   answer?: SavedAnswer;
+  /** Жооптон кийинки блоктун көрүнүшү (мисалы, чечилгенде туура жооп ачылат). */
+  block?: Block;
   xp?: number;
   current_stage?: number;
   finished?: { score: number; total: number };
 };
 
-type Row = { id: string; current_stage: number; finished_at: string | null; assignments: { lessons: { content: LessonContent } | null } | null };
-
 /**
- * Аракетти окуучунун өз укугу менен окуйт (RLS: өз аракети, өз классынын сабагы).
- * Жазуу admin клиент менен гана — окуучу answers/attempts таблицаларына түз жаза албайт (0003 миграция).
+ * Аракетти окуучунун өз укугу менен окуйт (RLS: өз аракети, өз классынын тапшырмасы), андан кийин гана сабакты.
+ * Жазуу admin клиент менен гана — окуучу answers/attempts таблицаларына түз жаза албайт (0003).
  */
 async function load(attemptId: string) {
   const { supabase, profile } = await requireRole("student");
-  const { data } = await supabase
+  const { data: attempt } = await supabase
     .from("attempts")
-    .select("id, current_stage, finished_at, assignments(lessons(content))")
+    .select("id, assignment_id, current_stage, finished_at")
     .eq("id", attemptId)
     .eq("student_id", profile.id)
-    .maybeSingle<Row>();
-  const content = data?.assignments?.lessons?.content;
-  if (!data || !content) return null;
+    .maybeSingle<{ id: string; assignment_id: string; current_stage: number; finished_at: string | null }>();
+  if (!attempt) return null;
+  const { data: assignment } = await supabase.from("assignments").select("lesson_id").eq("id", attempt.assignment_id).maybeSingle();
+  const lesson = assignment ? await lessonContent(assignment.lesson_id) : null;
+  if (!lesson) return null;
   const { data: rows } = await supabase.from("answers").select("block_id, response, is_correct, tries").eq("attempt_id", attemptId);
   const answers: Answers = {};
   for (const r of rows ?? []) answers[r.block_id] = { response: r.response ?? {}, is_correct: r.is_correct, tries: r.tries };
-  return { attempt: data, content, answers };
+  return { attempt, content: lesson.content, answers };
 }
 
 const SAVE_ERROR = "Жооп сакталган жок. Интернетти текшерип, кайра аракет кыл.";
@@ -50,7 +54,13 @@ export async function submitAnswer(attemptId: string, blockId: string, response:
 
   const stage = content.stages[stageIdx];
   const prev = answers[blockId];
-  const g = gradeAnswer(block, response ?? {}, prev, stage.key === "exit");
+  let raw = response ?? {};
+  // Окуучу серверде аралаштырылган саптарды көрөт — анын тартибин баштапкы индекстерге которобуз.
+  if (block.type === "parsons" && Array.isArray(raw.order)) {
+    const perm = shufflePerm(block.lines.length, parsonsSeed(block.id, attemptId));
+    raw = { order: (raw.order as unknown[]).map((k) => (Number.isInteger(k) ? perm[k as number] : k)) };
+  }
+  const g = gradeAnswer(block, raw, prev, stage.key === "exit");
   if ("error" in g) return { error: g.error };
 
   const answer: SavedAnswer = { response: g.response, is_correct: g.is_correct, tries: (prev?.tries ?? 0) + 1 };
@@ -74,7 +84,7 @@ export async function submitAnswer(attemptId: string, blockId: string, response:
   const { error: e2 } = await admin.from("attempts").update({ xp, current_stage }).eq("id", attemptId);
   if (e2) return { error: SAVE_ERROR };
 
-  return { answer, xp, current_stage };
+  return { answer, xp, current_stage, block: studentBlock(block, answer, stage.key === "exit", attemptId) };
 }
 
 /** Интерактивдүү блогу жок бөлүктү («Түшүндүм, улантуу») же exit ticket'ти («Билетти тапшыруу») бүтүрөт. */

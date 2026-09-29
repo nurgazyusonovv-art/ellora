@@ -5,7 +5,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pythonIf } from "@/content/python-if";
-import type { McqBlock } from "@/lib/lesson-types";
+import type { Block, McqBlock, ParsonsBlock } from "@/lib/lesson-types";
+import { studentBlock } from "@/lib/student-view";
 import { correctResponse } from "@/test/helpers";
 
 const content = pythonIf.content;
@@ -14,6 +15,7 @@ const ME = "student-1";
 type AttemptRec = {
   id: string;
   student_id: string;
+  assignment_id: string;
   current_stage: number;
   xp: number;
   exit_score: number | null;
@@ -29,16 +31,16 @@ const writes: string[] = [];
 /** Окуучунун клиенти: окуй гана алат, RLS: өз аракети жана анын жооптору. */
 function userClient() {
   return {
-    from(table: "attempts" | "answers") {
+    from(table: "attempts" | "answers" | "assignments" | "lessons") {
+      if (table === "lessons") throw new Error("окуучу lessons таблицасын түз окубайт (0004)");
       const filters: [string, unknown][] = [];
-      const visible = () =>
+      const visible = (): object[] =>
         table === "attempts"
           ? db.attempts.filter((a) => a.student_id === ME)
-          : db.answers.filter((r) => db.attempts.some((a) => a.id === r.attempt_id && a.student_id === ME));
-      const rows = () =>
-        visible()
-          .filter((r) => filters.every(([k, v]) => (r as Record<string, unknown>)[k] === v))
-          .map((r) => (table === "attempts" ? { ...r, assignments: { lessons: { content } } } : { ...r }));
+          : table === "assignments"
+            ? [{ id: "asg", lesson_id: "L1" }] // окуучунун классынын тапшырмасы
+            : db.answers.filter((r) => db.attempts.some((a) => a.id === r.attempt_id && a.student_id === ME));
+      const rows = () => visible().filter((r) => filters.every(([k, v]) => (r as Record<string, unknown>)[k] === v)).map((r) => ({ ...r }));
       const q = {
         select: () => q,
         eq: (k: string, v: unknown) => (filters.push([k, v]), q),
@@ -86,12 +88,16 @@ vi.mock("@/lib/auth", () => ({
   requireRole: async () => ({ supabase: userClient(), profile: { id: ME, role: "student" } }),
 }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => adminClient() }));
+vi.mock("@/lib/student-lessons", () => ({
+  lessonContent: async (id: string) => (id === "L1" ? { title: pythonIf.title, content } : null),
+}));
 
 const { submitAnswer, completeStage } = await import("@/app/actions/student");
 
 const attempt = (id: string, student_id = ME): AttemptRec => ({
   id,
   student_id,
+  assignment_id: "asg",
   current_stage: 0,
   xp: 0,
   exit_score: null,
@@ -107,10 +113,24 @@ beforeEach(() => {
 });
 
 /** Окуучу ойноткучтагыдай жооп берет: интерактивдүү блоктор, анан керек болсо баскыч. */
+/** Окуучу көргөн (аралаштырылган) саптардын ичинен туура тартипти курат. */
+function studentResponse(b: Block) {
+  if (b.type !== "parsons") return correctResponse(b);
+  const view = studentBlock(b, undefined, false, "a1");
+  if (view.type !== "parsons") throw new Error();
+  const used = new Set<number>();
+  const order = b.lines.map((line) => {
+    const k = view.lines.findIndex((l, i) => l === line && !used.has(i));
+    used.add(k);
+    return k;
+  });
+  return { order };
+}
+
 async function playStage(si: number) {
   const st = content.stages[si];
   for (const b of st.blocks) {
-    const r = correctResponse(b);
+    const r = studentResponse(b);
     if (r) expect((await submitAnswer("a1", b.id, r)).error).toBeUndefined();
   }
   const a = db.attempts[0];
@@ -191,5 +211,46 @@ describe("submitAnswer / completeStage", () => {
     const b = content.stages[0].blocks.find((x) => correctResponse(x))!;
     await submitAnswer("a1", b.id, correctResponse(b)!);
     expect(writes).toEqual([`answers.upsert:${b.id}`, "attempts.update"]);
+  });
+});
+
+describe("туура жооптор браузерге жетпейт", () => {
+  it("чечилмейинче mcq'нын туура жообу жана түшүндүрмөсү жашырылат, чечилгенде ачылат", async () => {
+    await playStage(0);
+    const m = content.stages[1].blocks.find((b) => b.type === "mcq") as McqBlock;
+    expect(studentBlock(m, undefined, false, "a1")).toMatchObject({ correct: -1, explain: undefined });
+    const wrong = await submitAnswer("a1", m.id, { picked: (m.correct + 1) % m.options.length });
+    expect(wrong.block).toMatchObject({ correct: -1 });
+    const right = await submitAnswer("a1", m.id, { picked: m.correct });
+    expect(right.block).toMatchObject({ correct: m.correct, explain: m.explain });
+  });
+
+  it("exit ticket'те туура жооп эч качан ачылбайт", async () => {
+    for (let si = 0; si < 4; si++) await playStage(si);
+    const m = content.stages[4].blocks.find((b) => b.type === "mcq") as McqBlock;
+    const r = await submitAnswer("a1", m.id, { picked: m.correct });
+    expect(r.answer?.is_correct).toBe(true);
+    expect(r.block).toMatchObject({ correct: -1 });
+  });
+
+  it("саптар аралаштырылат; баштапкы тартипти жиберсе — ката, көргөнүнөн туура курса — туура", async () => {
+    for (let si = 0; si < 2; si++) await playStage(si);
+    const p = content.stages.flatMap((s) => s.blocks).find((b) => b.type === "parsons") as ParsonsBlock;
+    const view = studentBlock(p, undefined, false, "a1") as ParsonsBlock;
+    expect(view.shuffled).toBe(true);
+    expect(view.lines).not.toEqual(p.lines);
+    expect([...view.lines].sort()).toEqual([...p.lines].sort());
+    const naive = await submitAnswer("a1", p.id, { order: p.lines.map((_, i) => i) });
+    expect(naive.answer?.is_correct).toBe(false);
+    const good = await submitAnswer("a1", p.id, studentResponse(p)!);
+    expect(good.answer?.is_correct).toBe(true);
+    expect(good.block).toEqual(p); // чечилгенде туура тартип ачылат
+  });
+
+  it("bug_hunt: табыла элек каталар жана оңдолгон код жашырылат", () => {
+    const b = content.stages.flatMap((s) => s.blocks).find((x) => x.type === "bug_hunt");
+    if (!b || b.type !== "bug_hunt") return;
+    const view = studentBlock(b, undefined, false, "a1");
+    expect(view).toMatchObject({ bugs: [], bugCount: b.bugs.length, fixed: undefined });
   });
 });

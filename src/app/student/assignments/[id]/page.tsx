@@ -2,18 +2,17 @@ import { notFound } from "next/navigation";
 import type { SavedAnswer } from "@/components/player/blocks";
 import { LessonPlayer } from "@/components/player/lesson-player";
 import { requireRole } from "@/lib/auth";
-import type { LessonContent } from "@/lib/lesson-types";
+import { lessonContent } from "@/lib/student-lessons";
+import { studentContent } from "@/lib/student-view";
 
 export default async function AssignmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { supabase, profile } = await requireRole("student");
 
-  const { data: a } = await supabase
-    .from("assignments")
-    .select("id, opens_at, lessons(title, content)")
-    .eq("id", id)
-    .maybeSingle<{ id: string; opens_at: string; lessons: { title: string; content: LessonContent } | null }>();
-  if (!a || !a.lessons) notFound();
+  // RLS: окуучу өз классынын тапшырмасын гана көрөт. Сабактын өзү — ошондон кийин, серверде.
+  const { data: a } = await supabase.from("assignments").select("id, lesson_id").eq("id", id).maybeSingle();
+  const lesson = a ? await lessonContent(a.lesson_id) : null;
+  if (!a || !lesson) notFound();
 
   // Аракет жок болсо — түзөбүз (бир окуучуга бир дайындамада бир гана аракет).
   let { data: attempt } = await supabase
@@ -45,5 +44,7 @@ export default async function AssignmentPage({ params }: { params: Promise<{ id:
   const answers: Record<string, SavedAnswer> = {};
   for (const r of rows ?? []) answers[r.block_id] = { response: r.response ?? {}, is_correct: r.is_correct, tries: r.tries };
 
-  return <LessonPlayer title={a.lessons.title} content={a.lessons.content} backHref="/student" attempt={attempt} initialAnswers={answers} />;
+  // Туура жооптор браузерге чечилгенден кийин гана жөнөтүлөт.
+  const content = studentContent(lesson.content, answers, attempt.id);
+  return <LessonPlayer title={lesson.title} content={content} backHref="/student" attempt={attempt} initialAnswers={answers} />;
 }

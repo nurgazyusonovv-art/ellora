@@ -34,9 +34,9 @@ export function gradeAnswer(block: Block, raw: Record<string, unknown>, prev: Sa
       const n = block.lines.length;
       if (!order || order.length !== n || new Set(order).size !== n || order.some((i) => i < 0 || i >= n))
         return { error: "Жооп туура эмес форматта." };
-      // Бирдей саптар болсо да текст боюнча салыштырабыз.
-      const ok = order.every((i, pos) => block.lines[i] === block.lines[pos]);
-      return { response: { order }, is_correct: wasCorrect || ok };
+      // Бирдей саптар болсо да текст боюнча салыштырабыз. positions — ар бир орун туурабы (окуучуга көрсөтүү үчүн).
+      const positions = order.map((i, pos) => block.lines[i] === block.lines[pos]);
+      return { response: { order, positions }, is_correct: wasCorrect || positions.every(Boolean) };
     }
     case "bug_hunt": {
       const clicked = ints(raw.found);

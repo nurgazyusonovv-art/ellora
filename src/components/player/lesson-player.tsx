@@ -16,7 +16,7 @@ import {
 } from "@/components/player/blocks";
 import { Button, cx, RichText } from "@/components/ui";
 import { EXIT_BONUS_XP, exitResult, stageDone } from "@/lib/grading";
-import { isInteractive, STAGE_META, type Block, type LessonContent } from "@/lib/lesson-types";
+import { isGraded, isInteractive, STAGE_META, type Block, type LessonContent } from "@/lib/lesson-types";
 import { warmUpPython } from "@/lib/python";
 
 type Attempt = { id: string; current_stage: number; xp: number; exit_score: number | null; exit_total: number | null };
@@ -32,12 +32,14 @@ type Props = {
 
 export function LessonPlayer({ title, content, backHref, attempt, initialAnswers = {} }: Props) {
   const preview = !attempt;
-  const stages = content.stages;
+  // Окуучу режиминде блоктор жооптон кийин серверден жаңыланат (туура жооп ачылат).
+  const [stages, setStages] = useState(content.stages);
   const [answers, setAnswers] = useState<Record<string, SavedAnswer>>(initialAnswers);
   const [unlocked, setUnlocked] = useState(attempt?.current_stage ?? 0); // 5 = бүттү
   const [xp, setXp] = useState(attempt?.xp ?? 0);
   const [view, setView] = useState(Math.min(attempt?.current_stage ?? 0, stages.length - 1));
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [failed, setFailed] = useState<Record<string, number>>({});
   const [finished, setFinished] = useState<{ score: number; total: number } | null>(
     attempt && attempt.current_stage >= stages.length ? { score: attempt.exit_score ?? 0, total: attempt.exit_total ?? 0 } : null,
   );
@@ -47,11 +49,11 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
   const unlockedRef = useRef(unlocked);
 
   useEffect(() => {
-    if (stages.some((s) => s.blocks.some((b) => b.type === "code_task" || (b.type === "code_example" && b.runnable)))) {
+    if (content.stages.some((s) => s.blocks.some((b) => b.type === "code_task" || (b.type === "code_example" && b.runnable)))) {
       const t = setTimeout(warmUpPython, 1500);
       return () => clearTimeout(t);
     }
-  }, [stages]);
+  }, [content.stages]);
 
   const go = (i: number) => {
     setView(i);
@@ -62,9 +64,17 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
   const send = (blockId: string | null, fn: () => Promise<Progress>) => {
     queue.current = queue.current.then(async () => {
       const r = await fn().catch((): Progress => ({ error: "Жооп сакталган жок. Интернетти текшерип, кайра аракет кыл." }));
-      if (r.error) return setSaveError(r.error);
+      if (r.error) {
+        if (blockId) setFailed((f) => ({ ...f, [blockId]: (f[blockId] ?? 0) + 1 }));
+        return setSaveError(r.error);
+      }
       setSaveError(null);
       if (blockId && r.answer) setAnswers((a) => ({ ...a, [blockId]: r.answer! }));
+      // Чечилгенде сервер блоктун ачык көрүнүшүн жиберет (туура жооп, түшүндүрмө…).
+      if (r.block) {
+        const nb = r.block;
+        setStages((all) => all.map((st) => ({ ...st, blocks: st.blocks.map((b) => (b.id === nb.id ? nb : b)) })));
+      }
       if (r.xp !== undefined) setXp(r.xp);
       if (r.finished) setFinished(r.finished);
       if (r.current_stage !== undefined) {
@@ -81,7 +91,7 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
     const newStage = stageIdx + 1;
     setUnlocked(newStage);
     if (newStage >= stages.length) {
-      const r = exitResult(content, all);
+      const r = exitResult({ ...content, stages }, all);
       setXp(currentXp + EXIT_BONUS_XP);
       setFinished({ score: r.score, total: r.total });
     } else if (newStage > view) setTimeout(() => go(newStage), 900);
@@ -90,9 +100,13 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
   const onAnswer = (stageIdx: number, block: Block): AnswerFn => (response, isCorrect) => {
     const prev = answers[block.id];
     const all = { ...answers, [block.id]: { response, is_correct: isCorrect, tries: (prev?.tries ?? 0) + 1 } };
-    setAnswers(all); // дароо көрсөтүү; окуучу режиминде сервер кийин тактайт
 
-    if (attempt) return send(block.id, () => submitAnswer(attempt.id, block.id, response));
+    if (attempt) {
+      // Туура жообу жашырылган блокто сервердин чечимин күтөбүз; калгандарын дароо көрсөтөбүз.
+      if (!(isGraded(block) && isCorrect === null)) setAnswers(all);
+      return send(block.id, () => submitAnswer(attempt.id, block.id, response));
+    }
+    setAnswers(all);
 
     const gained = isCorrect && !prev?.is_correct && "xp" in block && block.xp && stages[stageIdx].key !== "exit" ? block.xp : 0;
     const newXp = xp + gained;
@@ -177,7 +191,7 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
 
           {st.blocks.map((b) => (
             <div key={b.id} className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4 sm:p-5">
-              {renderBlock(b, answers[b.id], onAnswer(view, b), isExit)}
+              {renderBlock(b, answers[b.id], onAnswer(view, b), isExit, failed[b.id])}
             </div>
           ))}
 
@@ -206,7 +220,7 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
   );
 }
 
-function renderBlock(b: Block, saved: SavedAnswer | undefined, onAnswer: AnswerFn, exitMode: boolean) {
+function renderBlock(b: Block, saved: SavedAnswer | undefined, onAnswer: AnswerFn, exitMode: boolean, failed?: number) {
   switch (b.type) {
     case "text":
       return (
@@ -218,13 +232,13 @@ function renderBlock(b: Block, saved: SavedAnswer | undefined, onAnswer: AnswerF
     case "code_example":
       return <CodeExample block={b} />;
     case "mcq":
-      return <Mcq block={b} saved={saved} onAnswer={onAnswer} exitMode={exitMode} />;
+      return <Mcq block={b} saved={saved} onAnswer={onAnswer} exitMode={exitMode} failed={failed} />;
     case "code_task":
       return <CodeTask block={b} saved={saved} onAnswer={onAnswer} />;
     case "parsons":
-      return <Parsons block={b} saved={saved} onAnswer={onAnswer} />;
+      return <Parsons block={b} saved={saved} onAnswer={onAnswer} failed={failed} />;
     case "bug_hunt":
-      return <BugHunt block={b} saved={saved} onAnswer={onAnswer} />;
+      return <BugHunt block={b} saved={saved} onAnswer={onAnswer} failed={failed} />;
     case "open":
       return <Open block={b} saved={saved} onAnswer={onAnswer} />;
     case "confidence":

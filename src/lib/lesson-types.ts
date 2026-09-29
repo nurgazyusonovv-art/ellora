@@ -25,6 +25,7 @@ export type McqBlock = Base & {
   prompt: string;
   code?: string;
   options: string[];
+  /** Туура варианттын индекси. Окуучуга жөнөтүлгөн көрүнүштө чечилмейинче -1. */
   correct: number;
   mono?: boolean;
   explain?: string;
@@ -43,7 +44,14 @@ export type CodeTaskBlock = Base & {
 };
 
 /** Аралашкан саптарды туура иретке коюу. `lines` — туура тартипте. */
-export type ParsonsBlock = Base & { type: "parsons"; prompt: string; lines: string[]; xp?: number };
+export type ParsonsBlock = Base & {
+  type: "parsons";
+  prompt: string;
+  lines: string[];
+  xp?: number;
+  /** Окуучуга жөнөтүлгөн көрүнүштө гана: саптар серверде аралаштырылган (src/lib/student-view.ts). */
+  shuffled?: boolean;
+};
 
 /** Коддогу каталуу саптарды табуу. `bugs[].line` — 1ден башталган сап номери. */
 export type BugHuntBlock = Base & {
@@ -53,6 +61,8 @@ export type BugHuntBlock = Base & {
   bugs: { line: number; explain: string }[];
   fixed?: string;
   xp?: number;
+  /** Окуучуга жөнөтүлгөн көрүнүштө гана: каталардын жалпы саны (`bugs`те табылгандары гана турат). */
+  bugCount?: number;
 };
 
 /** Ачык жооп. Туура/туура эмес деп бааланбайт. `feedback` жооп берилгенден кийин көрсөтүлөт. */

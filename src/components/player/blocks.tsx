@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CodeEditor, CodeView, Console, highlight } from "@/components/code";
 import { Button, cx, RichText } from "@/components/ui";
 import type {
@@ -14,11 +14,13 @@ import type {
 } from "@/lib/lesson-types";
 import { CONFIDENCE_LABELS } from "@/lib/lesson-types";
 import { explainError, outputMatches, runPython, type RunResult } from "@/lib/python";
+import { shufflePerm } from "@/lib/student-view";
 
 import type { SavedAnswer } from "@/lib/grading";
 export type { SavedAnswer };
 export type AnswerFn = (response: Record<string, unknown>, isCorrect: boolean | null) => void;
-type Props<B> = { block: B; saved?: SavedAnswer; onAnswer: AnswerFn; exitMode?: boolean };
+/** `failed` — сервер жоопту кабыл албаганда көбөйөт: блок «текшерилүүдө» абалынан чыгып, кайра аракет кылууга болот. */
+type Props<B> = { block: B; saved?: SavedAnswer; onAnswer: AnswerFn; exitMode?: boolean; failed?: number };
 
 function Feedback({ tone, title, text }: { tone: "good" | "bad" | "info"; title?: string; text?: string }) {
   const cls = tone === "good" ? "bg-good-soft text-good" : tone === "bad" ? "bg-bad-soft text-bad" : "bg-accent-soft text-ink";
@@ -31,13 +33,27 @@ function Feedback({ tone, title, text }: { tone: "good" | "bad" | "info"; title?
 }
 
 /* ─────────────── Тест ─────────────── */
-export function Mcq({ block, saved, onAnswer, exitMode }: Props<McqBlock>) {
+/** Жооп серверге кетти, натыйжасы келе элек. `saved` өзгөргөндө тазаланат. */
+function usePending<T>(saved: SavedAnswer | undefined, failed: number | undefined) {
+  const [pending, setPending] = useState<T | null>(null);
+  useEffect(() => setPending(null), [saved, failed]);
+  return [pending, setPending] as const;
+}
+
+export function Mcq({ block, saved, onAnswer, exitMode, failed }: Props<McqBlock>) {
   const wrong = (saved?.response.wrong as number[] | undefined) ?? [];
   const picked = saved?.response.picked as number | undefined;
   const solved = exitMode ? picked !== undefined : saved?.is_correct === true;
+  // Окуучу режиминде туура жооп жашырылган (correct = -1) — баалоону сервер кылат.
+  const hidden = block.correct < 0;
+  const [pending, setPending] = usePending<number>(saved, failed);
 
   const pick = (i: number) => {
-    if (solved) return;
+    if (solved || pending !== null) return;
+    if (hidden) {
+      setPending(i);
+      return onAnswer(exitMode ? { picked: i } : { picked: i, wrong }, null);
+    }
     if (exitMode) return onAnswer({ picked: i }, i === block.correct);
     if (i === block.correct) onAnswer({ picked: i, wrong }, true);
     else onAnswer({ picked: i, wrong: [...wrong, i] }, false);
@@ -51,12 +67,13 @@ export function Mcq({ block, saved, onAnswer, exitMode }: Props<McqBlock>) {
         {block.options.map((o, i) => {
           const isRight = !exitMode && solved && i === block.correct;
           const isWrong = !exitMode && wrong.includes(i);
-          const isPicked = exitMode && picked === i;
+          const isPicked = (exitMode && picked === i) || pending === i;
           return (
             <button
               key={i}
               type="button"
-              disabled={solved || isWrong}
+              aria-busy={pending === i}
+              disabled={solved || isWrong || (pending !== null && pending !== i)}
               onClick={() => pick(i)}
               className={cx(
                 "min-h-11 rounded-[10px] border px-4 py-2.5 text-left transition",
@@ -199,35 +216,42 @@ export function CodeTask({ block, saved, onAnswer }: Props<CodeTaskBlock>) {
 }
 
 /* ─────────────── Саптарды иреттөө ─────────────── */
-function shuffled(lines: string[], seed: string) {
-  const idx = lines.map((_, i) => i);
-  let h = [...seed].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7);
-  for (let i = idx.length - 1; i > 0; i--) {
-    h = (h * 1103515245 + 12345) & 0x7fffffff;
-    const j = h % (i + 1);
-    [idx[i], idx[j]] = [idx[j], idx[i]];
-  }
-  if (idx.every((v, i) => v === i)) idx.reverse();
-  return idx;
-}
-
-export function Parsons({ block, saved, onAnswer }: Props<ParsonsBlock>) {
+export function Parsons({ block, saved, onAnswer, failed }: Props<ParsonsBlock>) {
   const solved = saved?.is_correct === true;
-  const initialPool = useMemo(() => shuffled(block.lines, block.id), [block]);
-  const [answer, setAnswer] = useState<number[]>(solved ? block.lines.map((_, i) => i) : []);
+  // Окуучу режиминде саптар серверде аралаштырылып келет, туура тартибин сервер гана билет.
+  const hidden = !!block.shuffled;
+  const initialPool = useMemo(
+    () => (block.shuffled ? block.lines.map((_, i) => i) : shufflePerm(block.lines.length, block.id)),
+    [block],
+  );
+  const [answer, setAnswer] = useState<number[]>([]);
   const [checked, setChecked] = useState<boolean[] | null>(null);
+  const [pending, setPending] = usePending<true>(saved, failed);
   const pool = initialPool.filter((i) => !answer.includes(i));
+  // Чечилгенде блок туура тартиптеги саптар менен келет.
+  const shown = solved ? block.lines.map((_, i) => i) : answer;
+
+  useEffect(() => {
+    const positions = saved?.response.positions as boolean[] | undefined;
+    if (hidden && pending === null && positions && positions.length === answer.length) setChecked(positions);
+    // жооп келгенде гана (saved) — саптарды жылдырганда эмес
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved]);
 
   const move = (i: number) => {
-    if (solved) return;
+    if (solved || pending) return;
     setChecked(null);
     setAnswer((a) => (a.includes(i) ? a.filter((x) => x !== i) : [...a, i]));
   };
-  // Бирдей саптар болсо да текст боюнча салыштырабыз.
   const check = () => {
+    if (hidden) {
+      setPending(true);
+      return onAnswer({ order: answer }, null);
+    }
+    // Бирдей саптар болсо да текст боюнча салыштырабыз.
     const res = answer.map((i, pos) => block.lines[i] === block.lines[pos]);
     setChecked(res);
-    onAnswer({ order: answer }, answer.length === block.lines.length && res.every(Boolean));
+    onAnswer({ order: answer, positions: res }, answer.length === block.lines.length && res.every(Boolean));
   };
 
   const lineBtn = (i: number, pos?: number) => (
@@ -257,13 +281,13 @@ export function Parsons({ block, saved, onAnswer }: Props<ParsonsBlock>) {
         )}
         <div className="flex min-h-28 flex-col gap-1.5 rounded-xl border border-dashed border-line p-2.5">
           <span className="text-xs font-semibold tracking-[0.06em] text-muted uppercase">Сенин программаң</span>
-          {answer.map((i, pos) => lineBtn(i, pos))}
+          {shown.map((i, pos) => lineBtn(i, pos))}
         </div>
       </div>
       {!solved && (
         <div className="flex gap-2">
-          <Button type="button" onClick={check} disabled={answer.length < block.lines.length}>
-            Текшерүү
+          <Button type="button" onClick={check} disabled={answer.length < block.lines.length || !!pending}>
+            {pending ? "Текшерилүүдө…" : "Текшерүү"}
           </Button>
           <Button type="button" variant="secondary" onClick={() => (setAnswer([]), setChecked(null))}>
             Башынан
@@ -279,13 +303,31 @@ export function Parsons({ block, saved, onAnswer }: Props<ParsonsBlock>) {
 }
 
 /* ─────────────── Катаны тап ─────────────── */
-export function BugHunt({ block, saved, onAnswer }: Props<BugHuntBlock>) {
+export function BugHunt({ block, saved, onAnswer, failed }: Props<BugHuntBlock>) {
   const found = new Set((saved?.response.found as number[] | undefined) ?? []);
   const [miss, setMiss] = useState<number | null>(null);
-  const solved = found.size === block.bugs.length;
+  // Окуучу режиминде `bugs`те табылгандары гана турат, жалпы саны — `bugCount`.
+  const hidden = block.bugCount !== undefined;
+  const total = block.bugCount ?? block.bugs.length;
+  const solved = found.size === total;
+  const [pending, setPending] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (pending === null) return;
+    const now = new Set((saved?.response.found as number[] | undefined) ?? []);
+    if (!now.has(pending) && now.size >= found.size) setMiss(pending);
+    setPending(null);
+    // жооп келгенде (же сервер ката бергенде) гана
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved, failed]);
 
   const click = (n: number) => {
-    if (solved) return;
+    if (solved || pending !== null || found.has(n)) return;
+    if (hidden) {
+      setMiss(null);
+      setPending(n);
+      return onAnswer({ found: [...found, n] }, null);
+    }
     if (block.bugs.some((b) => b.line === n)) {
       if (found.has(n)) return;
       const next = [...found, n];
@@ -299,13 +341,13 @@ export function BugHunt({ block, saved, onAnswer }: Props<BugHuntBlock>) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <RichText text={block.prompt} className="font-semibold" />
         <span className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold text-muted">
-          {found.size} / {block.bugs.length} табылды
+          {found.size} / {total} табылды
         </span>
       </div>
       <CodeView
         code={block.code}
         onLineClick={click}
-        lineClass={(n) => (found.has(n) ? "!border-[#f07a70] bg-[#4a1f1c]" : undefined)}
+        lineClass={(n) => (found.has(n) ? "!border-[#f07a70] bg-[#4a1f1c]" : n === pending ? "bg-code-hl" : undefined)}
       />
       {block.bugs
         .filter((b) => found.has(b.line))

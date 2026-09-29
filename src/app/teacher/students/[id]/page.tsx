@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { CodeView } from "@/components/code";
 import { AccuracyBars, ExitTrendChart, Icon, StatTile, StatusBadge } from "@/components/report";
 import { ButtonLink, Card, cx, PageTitle } from "@/components/ui";
+import { BadgeGrid } from "@/components/gamification";
 import { requireRole } from "@/lib/auth";
+import { computeBadges } from "@/lib/badges";
 import { formatDate } from "@/lib/stats";
 import { getStudentReport } from "@/lib/student-report";
 
@@ -15,6 +17,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   const r = await getStudentReport(supabase, profile.id, id);
   if (!r) notFound();
   const s = r.summary;
+  const badges = computeBadges(r);
   const trend = r.lessons
     .map((l, i) => ({ n: i + 1, title: l.title, pct: l.exitPct }))
     .filter((p): p is { n: number; title: string; pct: number } => p.pct !== null);
@@ -49,6 +52,13 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           </Card>
         </div>
       )}
+
+      <section className="flex flex-col gap-3">
+        <h2 className="font-display text-lg font-medium">
+          Бейдждер <span className="font-mono text-sm text-muted">{badges.filter((b) => b.earned).length}/{badges.length}</span>
+        </h2>
+        <BadgeGrid badges={badges} collapseLocked />
+      </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="font-display text-lg font-medium">Сабактар жана жооптор</h2>

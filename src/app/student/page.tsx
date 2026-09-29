@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { JoinAnotherClassForm } from "@/components/auth-forms";
+import { BadgeGrid, Leaderboard } from "@/components/gamification";
 import { InstallButton, SignOutButton } from "@/components/pwa";
 import { Card, Chip, Logo, Progress } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
+import { computeBadges } from "@/lib/badges";
+import { classLeaderboard, shortName } from "@/lib/leaderboard";
 import { lessonTitles } from "@/lib/student-lessons";
 import { formatDate, type AttemptRow } from "@/lib/stats";
+import { getOwnReport } from "@/lib/student-report";
 
 export const metadata = { title: "Менин сабактарым" };
 
@@ -16,7 +20,7 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
   const [{ data: assignments }, { data: attempts }, { data: classes }] = await Promise.all([
     supabase.from("assignments").select("id, due_at, lesson_id, classes(name)").order("created_at", { ascending: false }).returns<A[]>(),
     supabase.from("attempts").select("*").eq("student_id", profile.id).returns<AttemptRow[]>(),
-    supabase.from("classes").select("name"),
+    supabase.from("classes").select("*"),
   ]);
   const totalXp = (attempts ?? []).reduce((s, a) => s + a.xp, 0);
   const attemptOf = (id: string) => attempts?.find((a) => a.assignment_id === id);
@@ -25,6 +29,25 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
   const list = (assignments ?? []).map((a) => ({ ...a, title: titles.get(a.lesson_id) ?? "Сабак", t: attemptOf(a.id) }));
   const todo = list.filter((a) => !a.t?.finished_at);
   const done = list.filter((a) => a.t?.finished_at);
+
+  // Бейдждер — окуучунун өз жыйынтыгынан (туура жооптор кирбейт).
+  const badges = computeBadges(await getOwnReport(supabase, profile));
+  // Рейтинг — мугалим жашырбаган класстар үчүн (0006 иштетилбесе — көрсөтүлөт). RLS: окуучу өз класстарын гана көрөт.
+  const boards = await Promise.all(
+    (classes ?? [])
+      .filter((c) => c.show_leaderboard !== false)
+      .map(async (c) => {
+        const all = await classLeaderboard(c.id as string);
+        const me = all.find((r) => r.id === profile.id);
+        const top = all.slice(0, 5);
+        const rows = [...top, ...(me && !top.includes(me) ? [me] : [])].map((r) => ({
+          ...r,
+          name: r.id === profile.id ? r.name : shortName(r.name),
+          me: r.id === profile.id,
+        }));
+        return { id: c.id as string, name: c.name as string, rows, total: all.length };
+      }),
+  );
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
@@ -90,6 +113,25 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
           ))}
         </section>
       )}
+
+      <section className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-display text-lg font-medium">Менин бейдждерим</h2>
+          <span className="font-mono text-sm text-muted">
+            {badges.filter((b) => b.earned).length}/{badges.length}
+          </span>
+        </div>
+        <BadgeGrid badges={badges} seenKey={`ellora:badges:${profile.id}`} collapseLocked />
+      </section>
+
+      {boards.map((b) => (
+        <section key={b.id} className="flex flex-col gap-3">
+          <h2 className="font-display text-lg font-medium">Класстын рейтинги · {b.name}</h2>
+          <Card className="p-3 sm:p-4">
+            <Leaderboard rows={b.rows} total={b.total} />
+          </Card>
+        </section>
+      ))}
 
       <InstallButton />
 

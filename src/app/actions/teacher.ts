@@ -211,3 +211,10 @@ export async function deleteAssignment(id: string, classId: string) {
   revalidatePath(`/teacher/classes/${classId}`);
   redirect(`/teacher/classes/${classId}`);
 }
+
+/** Класстык рейтингди окуучуларга көрсөтүү/жашыруу (0006). */
+export async function setLeaderboardVisible(classId: string, visible: boolean) {
+  const { supabase } = await requireRole("teacher");
+  await supabase.from("classes").update({ show_leaderboard: visible }).eq("id", classId);
+  revalidatePath(`/teacher/classes/${classId}`);
+}

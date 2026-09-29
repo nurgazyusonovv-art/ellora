@@ -55,6 +55,8 @@ export type StudentReport = {
   student: { id: string; name: string; username: string | null };
   classes: string[];
   lessons: LessonResult[];
+  /** Бааланган ар бир жооп: түрү, туурабы, канча аракетте. Суроолор жана туура жооптор кирбейт (окуучуга коопсуз). */
+  graded: { type: Block["type"]; correct: boolean; tries: number }[];
   summary: {
     assigned: number;
     finished: number;
@@ -114,6 +116,7 @@ type Input = {
 export function buildReport({ student, classNames, classIds, assignments, attempts, answers, details }: Input): StudentReport {
   const lessons: LessonResult[] = [];
   const typeStats = new Map<Block["type"], { n: number; ok: number }>();
+  const graded: StudentReport["graded"] = [];
   let gradedN = 0;
   let firstTryOk = 0;
 
@@ -126,8 +129,9 @@ export function buildReport({ student, classNames, classIds, assignments, attemp
       for (const b of st.blocks) {
         if (!isInteractive(b) && !(b.type === "open")) continue;
         const ans = mine.find((x) => x.block_id === b.id);
-        const graded = isGraded(b);
-        if (graded && ans) {
+        const isGradedBlock = isGraded(b);
+        if (isGradedBlock && ans) {
+          graded.push({ type: b.type, correct: ans.is_correct === true, tries: ans.tries });
           gradedN++;
           const first = ans.is_correct === true && ans.tries === 1;
           if (first) firstTryOk++;
@@ -144,7 +148,7 @@ export function buildReport({ student, classNames, classIds, assignments, attemp
           typeLabel: BLOCK_LABELS[b.type],
           prompt: plain(blockSummary(b)),
           answered: !!ans,
-          graded,
+          graded: isGradedBlock,
           isCorrect: ans?.is_correct ?? null,
           tries: ans?.tries ?? 0,
           ...describe(b, ans),
@@ -180,6 +184,7 @@ export function buildReport({ student, classNames, classIds, assignments, attemp
     student: { id: student.id, name: student.full_name, username: student.username },
     classes: classIds.map((id) => classNames.get(id)!).filter(Boolean),
     lessons,
+    graded,
     summary: {
       assigned: lessons.length,
       finished: finished.length,

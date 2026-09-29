@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { removeStudent } from "@/app/actions/teacher";
-import { ButtonLink, Card, PageTitle } from "@/components/ui";
+import { removeStudent, setLeaderboardVisible } from "@/app/actions/teacher";
+import { Leaderboard } from "@/components/gamification";
+import { Button, ButtonLink, Card, PageTitle } from "@/components/ui";
 import { CopyButton, ResetPasswordForm } from "@/components/teacher-forms";
 import { requireRole } from "@/lib/auth";
+import { classLeaderboard } from "@/lib/leaderboard";
 import { formatDate } from "@/lib/stats";
 
 export default async function ClassPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { supabase } = await requireRole("teacher");
-  const { data: cls } = await supabase.from("classes").select("id, name, join_code").eq("id", id).maybeSingle();
+  const { data: cls } = await supabase.from("classes").select("*").eq("id", id).maybeSingle();
   if (!cls) notFound();
 
   const [{ data: members }, { data: assignments }] = await Promise.all([
@@ -21,6 +23,10 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
       { id: string; due_at: string | null; lessons: { title: string } | null }[]
     >(),
   ]);
+
+  // RLS мугалимге өз классын гана кайтарды (cls) — рейтингди эсептөөгө болот.
+  const board = await classLeaderboard(cls.id);
+  const visible = cls.show_leaderboard !== false;
 
   const h = await headers();
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
@@ -83,6 +89,22 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
           ))}
         </Card>
       </div>
+
+      <Card className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-lg font-medium">Класстын рейтинги</h2>
+          <form action={setLeaderboardVisible.bind(null, cls.id, !visible)} className="flex items-center gap-3">
+            <span className="text-sm text-muted">{visible ? "Окуучуларга көрүнөт" : "Окуучулардан жашырылган"}</span>
+            <Button variant="secondary" className="min-h-11 text-sm">
+              {visible ? "Жашыруу" : "Көрсөтүү"}
+            </Button>
+          </form>
+        </div>
+        <p className="text-sm text-muted">
+          Окуучулар алгачкы 5 орунду жана өз ордун гана көрөт, башкалардын аты кыскартылат (мисалы, «Айбек М.»).
+        </p>
+        <Leaderboard rows={board} total={board.length} />
+      </Card>
     </>
   );
 }

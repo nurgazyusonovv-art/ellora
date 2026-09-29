@@ -144,7 +144,11 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
           <tbody>
             {students.map((s) => (
               <tr key={s.id} className="border-t border-surface-2">
-                <td className="px-5 py-3 font-semibold">{s.name}</td>
+                <td className="px-5 py-3 font-semibold">
+                  <Link href={`/teacher/students/${s.id}`} className="hover:text-accent hover:underline">
+                    {s.name}
+                  </Link>
+                </td>
                 <td className="px-3 py-3 tabular-nums">{s.t ? `${Math.min(s.t.current_stage, 5)}/5` : "—"}</td>
                 <td className="px-3 py-3 font-mono tabular-nums">{s.t?.xp ?? "—"}</td>
                 <td className="px-3 py-3 font-mono tabular-nums">{s.t?.finished_at ? `${s.t.exit_score}/${s.t.exit_total}` : "—"}</td>

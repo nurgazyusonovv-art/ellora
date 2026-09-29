@@ -15,7 +15,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
           { href: "/teacher/classes", label: "Класстар", icon: "classes" },
         ]}
       />
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-7 px-4 pt-6 pb-24 sm:px-8 lg:py-9">{children}</main>
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-7 px-4 pt-6 pb-24 sm:px-8 lg:py-9 print:max-w-none print:p-0">{children}</main>
     </div>
   );
 }

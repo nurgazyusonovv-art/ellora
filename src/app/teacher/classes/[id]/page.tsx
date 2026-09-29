@@ -56,7 +56,9 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
             {sorted.map((m) => (
               <li key={m.student_id} className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-2 py-3 last:border-0">
                 <div className="flex flex-col">
-                  <span className="font-semibold">{m.profiles?.full_name}</span>
+                  <Link href={`/teacher/students/${m.student_id}`} className="font-semibold hover:text-accent hover:underline">
+                    {m.profiles?.full_name}
+                  </Link>
                   <span className="font-mono text-sm text-muted">{m.profiles?.username}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-4">

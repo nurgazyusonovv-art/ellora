@@ -54,3 +54,19 @@ h3 {
     animation: none !important;
   }
 }
+
+/* PDF отчет: браузердин «PDF катары сактоо» — A4, түстөр сакталат */
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+  html,
+  body {
+    background: #fff;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

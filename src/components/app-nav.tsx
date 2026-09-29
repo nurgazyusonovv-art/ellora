@@ -46,7 +46,7 @@ export function AppNav({ items, name, sub }: { items: Item[]; name: string; sub:
   return (
     <>
       {/* Компьютер: капталдагы меню */}
-      <nav aria-label="Негизги меню" className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-7 bg-nav px-4 py-7 text-[#e5eeec] lg:flex">
+      <nav aria-label="Негизги меню" className="sticky top-0 hidden print:!hidden h-dvh w-60 shrink-0 flex-col gap-7 bg-nav px-4 py-7 text-[#e5eeec] lg:flex">
         <div className="px-2">
           <Logo light />
         </div>
@@ -76,13 +76,13 @@ export function AppNav({ items, name, sub }: { items: Item[]; name: string; sub:
       </nav>
 
       {/* Телефон: үстүнкү жана астыңкы тилке */}
-      <header className="sticky top-0 z-10 flex items-center justify-between bg-nav px-4 py-3 lg:hidden">
+      <header className="sticky top-0 z-10 flex items-center justify-between bg-nav px-4 py-3 lg:hidden print:hidden">
         <Logo light />
         <form action={signOut}>
           <button className="text-sm font-semibold text-[#7fd8c3]">Чыгуу</button>
         </form>
       </header>
-      <nav aria-label="Негизги меню" className="fixed inset-x-0 bottom-0 z-10 flex border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
+      <nav aria-label="Негизги меню" className="fixed inset-x-0 bottom-0 print:hidden z-10 flex border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
         {items.map((it) => (
           <Link
             key={it.href}

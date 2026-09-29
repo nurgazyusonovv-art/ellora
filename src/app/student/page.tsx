@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { signOut } from "@/app/actions/auth";
 import { JoinAnotherClassForm } from "@/components/auth-forms";
+import { InstallButton, SignOutButton } from "@/components/pwa";
 import { Card, Chip, Logo, Progress } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { lessonTitles } from "@/lib/student-lessons";
@@ -30,9 +30,7 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
       <header className="flex items-center justify-between gap-3">
         <Logo />
-        <form action={signOut}>
-          <button className="text-sm font-semibold text-accent">Чыгуу</button>
-        </form>
+        <SignOutButton className="min-h-11 text-sm font-semibold text-accent" />
       </header>
 
       {welcome && (
@@ -92,6 +90,8 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
           ))}
         </section>
       )}
+
+      <InstallButton />
 
       <Card>
         <JoinAnotherClassForm />

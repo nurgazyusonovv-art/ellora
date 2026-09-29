@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/actions/auth";
+import { clearOfflinePages } from "@/components/pwa";
 import { cx, Logo } from "@/components/ui";
 
 type Item = { href: string; label: string; icon: keyof typeof ICONS; exact?: boolean };
@@ -69,7 +70,7 @@ export function AppNav({ items, name, sub }: { items: Item[]; name: string; sub:
         <div className="flex flex-col gap-2 rounded-xl bg-[#1d2f35] p-3">
           <span className="text-sm font-semibold">{name}</span>
           <span className="text-xs text-[#93a6a9]">{sub}</span>
-          <form action={signOut}>
+          <form action={signOut} onSubmit={clearOfflinePages}>
             <button className="mt-1 text-xs font-semibold text-[#7fd8c3] hover:underline">Чыгуу</button>
           </form>
         </div>
@@ -78,7 +79,7 @@ export function AppNav({ items, name, sub }: { items: Item[]; name: string; sub:
       {/* Телефон: үстүнкү жана астыңкы тилке */}
       <header className="sticky top-0 z-10 flex items-center justify-between bg-nav px-4 py-3 lg:hidden print:hidden">
         <Logo light />
-        <form action={signOut}>
+        <form action={signOut} onSubmit={clearOfflinePages}>
           <button className="text-sm font-semibold text-[#7fd8c3]">Чыгуу</button>
         </form>
       </header>

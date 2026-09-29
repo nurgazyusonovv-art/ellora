@@ -21,6 +21,9 @@ import { warmUpPython } from "@/lib/python";
 
 type Attempt = { id: string; current_stage: number; xp: number; exit_score: number | null; exit_total: number | null };
 
+/** Серверге жөнөтүлө турган иш (интернет жок болсо кезекте сакталат). */
+type Job = { kind: "answer"; blockId: string; response: Record<string, unknown> } | { kind: "complete"; stageIdx: number };
+
 type Props = {
   title: string;
   content: LessonContent;
@@ -60,31 +63,95 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
     topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  /* ───── Серверге жөнөтүү. Интернет жок болсо — кезекке (localStorage), байланыш келгенде жөнөтүлөт ───── */
+  const jobsKey = attempt ? `ellora:queue:${attempt.id}` : "";
+  const readJobs = (): Job[] => {
+    try {
+      return JSON.parse(localStorage.getItem(jobsKey) ?? "[]") as Job[];
+    } catch {
+      return [];
+    }
+  };
+  const writeJobs = (jobs: Job[]) => {
+    try {
+      if (jobs.length) localStorage.setItem(jobsKey, JSON.stringify(jobs));
+      else localStorage.removeItem(jobsKey);
+    } catch {
+      /* localStorage жок — кезек ушул барак ачык турганда гана сакталат */
+      memJobs.current = jobs;
+    }
+  };
+  const memJobs = useRef<Job[]>([]);
+  const offlineRef = useRef(false);
+  const [offline, setOffline] = useState(false);
+
+  const exec = (job: Job) =>
+    job.kind === "answer" ? submitAnswer(attempt!.id, job.blockId, job.response) : completeStage(attempt!.id, job.stageIdx);
+
   /** Сервердин жообу — чечүүчү: XP, ачылган бөлүк жана натыйжа ушундан алынат. */
-  const send = (blockId: string | null, fn: () => Promise<Progress>) => {
+  const apply = (job: Job, r: Progress) => {
+    const blockId = job.kind === "answer" ? job.blockId : null;
+    if (r.error) {
+      if (blockId) setFailed((f) => ({ ...f, [blockId]: (f[blockId] ?? 0) + 1 }));
+      return setSaveError(r.error);
+    }
+    setSaveError(null);
+    if (blockId && r.answer) setAnswers((a) => ({ ...a, [blockId]: r.answer! }));
+    // Чечилгенде сервер блоктун ачык көрүнүшүн жиберет (туура жооп, түшүндүрмө…).
+    if (r.block) {
+      const nb = r.block;
+      setStages((all) => all.map((st) => ({ ...st, blocks: st.blocks.map((b) => (b.id === nb.id ? nb : b)) })));
+    }
+    if (r.xp !== undefined) setXp(r.xp);
+    if (r.finished) setFinished(r.finished);
+    if (r.current_stage !== undefined) {
+      const next = r.current_stage;
+      if (next > unlockedRef.current && next < stages.length) setTimeout(() => go(next), 900);
+      unlockedRef.current = next;
+      setUnlocked(next);
+    }
+  };
+
+  /** Жооптор ирети менен жөнөтүлөт. Тармак катасы — кезекке; сервердин катасы — көрсөтүлөт. */
+  const send = (job: Job) => {
     queue.current = queue.current.then(async () => {
-      const r = await fn().catch((): Progress => ({ error: "Жооп сакталган жок. Интернетти текшерип, кайра аракет кыл." }));
-      if (r.error) {
-        if (blockId) setFailed((f) => ({ ...f, [blockId]: (f[blockId] ?? 0) + 1 }));
-        return setSaveError(r.error);
+      if (offlineRef.current) return writeJobs([...readJobs(), job]);
+      let r: Progress;
+      try {
+        r = await exec(job);
+      } catch {
+        offlineRef.current = true;
+        setOffline(true);
+        return writeJobs([...readJobs(), job]);
       }
-      setSaveError(null);
-      if (blockId && r.answer) setAnswers((a) => ({ ...a, [blockId]: r.answer! }));
-      // Чечилгенде сервер блоктун ачык көрүнүшүн жиберет (туура жооп, түшүндүрмө…).
-      if (r.block) {
-        const nb = r.block;
-        setStages((all) => all.map((st) => ({ ...st, blocks: st.blocks.map((b) => (b.id === nb.id ? nb : b)) })));
-      }
-      if (r.xp !== undefined) setXp(r.xp);
-      if (r.finished) setFinished(r.finished);
-      if (r.current_stage !== undefined) {
-        const next = r.current_stage;
-        if (next > unlockedRef.current && next < stages.length) setTimeout(() => go(next), 900);
-        unlockedRef.current = next;
-        setUnlocked(next);
-      }
+      apply(job, r);
     });
   };
+
+  const flush = () => {
+    const jobs = readJobs().length ? readJobs() : memJobs.current;
+    memJobs.current = [];
+    writeJobs([]);
+    offlineRef.current = false;
+    setOffline(false);
+    jobs.forEach(send);
+  };
+
+  useEffect(() => {
+    if (!attempt) return;
+    // Мурунку жолу интернетсиз калган жооптор — жөнөтөбүз.
+    if (readJobs().length) flush();
+    const onOnline = () => flush();
+    window.addEventListener("online", onOnline);
+    // «online» окуясы дайыма эле келбейт (тармак бар, бирок сервер жеткиликсиз) — ошондуктан мезгил-мезгили менен да.
+    const t = setInterval(() => offlineRef.current && flush(), 15000);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      clearInterval(t);
+    };
+    // бир жолу, аракет ачылганда
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt?.id]);
 
   /* ───── Алдын ала көрүү: баары браузерде, эч нерсе сакталбайт ───── */
   const previewAdvance = (stageIdx: number, all: Record<string, SavedAnswer>, currentXp: number) => {
@@ -104,7 +171,7 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
     if (attempt) {
       // Туура жообу жашырылган блокто сервердин чечимин күтөбүз; калгандарын дароо көрсөтөбүз.
       if (!(isGraded(block) && isCorrect === null)) setAnswers(all);
-      return send(block.id, () => submitAnswer(attempt.id, block.id, response));
+      return send({ kind: "answer", blockId: block.id, response });
     }
     setAnswers(all);
 
@@ -116,7 +183,7 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
 
   /** Интерактивдүү блогу жок бөлүк же exit ticket'ти тапшыруу баскычы үчүн. */
   const manualComplete = () => {
-    if (attempt) return send(null, () => completeStage(attempt.id, view));
+    if (attempt) return send({ kind: "complete", stageIdx: view });
     previewAdvance(view, answers, xp);
   };
 
@@ -171,7 +238,15 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
         </div>
       </nav>
 
-      {saveError && (
+      {offline && (
+        <p role="status" className="flex items-center gap-2 rounded-[10px] bg-amber-soft px-4 py-2.5 text-sm text-amber">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <path d="M2 8.8a15 15 0 0 1 4.2-2.6M9.5 5.2A15 15 0 0 1 22 8.8M5 12.9a10 10 0 0 1 3.2-2M13 10.1a10 10 0 0 1 6 2.8M8.5 16.4a5 5 0 0 1 7 0M12 20h.01M3 3l18 18" />
+          </svg>
+          Интернет жок. Жоопторуң сакталып турат — байланыш калыбына келгенде өзү жөнөтүлөт.
+        </p>
+      )}
+      {saveError && !offline && (
         <p role="alert" className="rounded-[10px] bg-bad-soft px-4 py-2.5 text-sm text-bad">
           {saveError}
         </p>

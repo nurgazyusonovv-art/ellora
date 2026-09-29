@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { AssignmentControls } from "@/components/teacher-forms";
 import { Card, Chip, PageTitle, Progress } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { CONFIDENCE_LABELS, STAGE_META, type LessonContent, type McqBlock } from "@/lib/lesson-types";
@@ -76,6 +77,7 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
           <Link href={`/teacher/classes/${a.class_id}`} className="text-accent">{a.classes?.name}</Link> · Мөөнөт: {formatDate(a.due_at)}
         </span>
         <PageTitle title={a.lessons.title} />
+        <AssignmentControls id={a.id} classId={a.class_id} dueDate={dueInput(a.due_at)} started={atts.length} />
         <span className="text-muted">
           {total} окуучунун {finished.length}и бүттү
           {avgExit !== null && ` · орточо exit ticket ${avgExit.toFixed(1)} / ${exitMcqs.length}`}
@@ -175,4 +177,10 @@ function FunnelRow({ label, n, total }: { label: string; n: number; total: numbe
       <span className="text-right font-mono tabular-nums">{n}</span>
     </>
   );
+}
+
+/** Сактоодогу мөөнөт (Бишкек 23:59) → <input type="date"> мааниси. */
+function dueInput(iso: string | null) {
+  if (!iso) return "";
+  return new Date(new Date(iso).getTime() + 6 * 36e5).toISOString().slice(0, 10);
 }

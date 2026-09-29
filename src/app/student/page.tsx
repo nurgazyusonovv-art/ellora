@@ -48,7 +48,18 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
           <span className="text-sm text-muted">{(classes ?? []).map((c) => c.name).join(", ") || "Класс жок"}</span>
           <h1 className="font-display text-2xl font-bold">Салам, {profile.full_name.split(" ")[0]}!</h1>
         </div>
-        <span className="rounded-full bg-amber-soft px-3 py-1 font-mono text-sm font-semibold text-amber">{totalXp} XP</span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-amber-soft px-3 py-1 font-mono text-sm font-semibold text-amber">{totalXp} XP</span>
+          <Link
+            href="/student/report"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-[10px] border border-line bg-surface px-3.5 text-sm font-semibold hover:bg-surface-2"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+            </svg>
+            Менин жыйынтыгым
+          </Link>
+        </div>
       </div>
 
       <section className="flex flex-col gap-3">

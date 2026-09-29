@@ -3,6 +3,7 @@ import type { createClient } from "@/lib/supabase/server";
 import { BLOCK_LABELS, blockSummary } from "@/lib/lesson-edit";
 import { CONFIDENCE_LABELS, isGraded, isInteractive, STAGE_META, type Block, type LessonContent } from "@/lib/lesson-types";
 import { studentStatus, type AttemptRow, type StudentStatus } from "@/lib/stats";
+import { lessonsByIds } from "@/lib/student-lessons";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -99,43 +100,27 @@ function describe(b: Block, a: AnswerRow | undefined): Pick<BlockResult, "answer
   }
 }
 
-/** Мугалимдин өз укугу менен (RLS): өз класстарындагы окуучу гана. Табылбаса — null. */
-export async function getStudentReport(supabase: Supabase, teacherId: string, studentId: string): Promise<StudentReport | null> {
-  const { data: student } = await supabase.from("profiles").select("id, full_name, username").eq("id", studentId).eq("role", "student").maybeSingle();
-  if (!student) return null;
+type Input = {
+  student: { id: string; full_name: string; username: string | null };
+  classNames: Map<string, string>;
+  classIds: string[];
+  assignments: AssignmentRow[];
+  attempts: AttemptRow[];
+  answers: AnswerRow[];
+  /** false — окуучунун өзүнө: суроолор боюнча деталдар (туура жооптор менен) кошулбайт. */
+  details: boolean;
+};
 
-  const [{ data: classes }, { data: memberships }] = await Promise.all([
-    supabase.from("classes").select("id, name").eq("teacher_id", teacherId),
-    supabase.from("class_members").select("class_id").eq("student_id", studentId),
-  ]);
-  const myClasses = new Map((classes ?? []).map((c) => [c.id as string, c.name as string]));
-  const classIds = (memberships ?? []).map((m) => m.class_id as string).filter((id) => myClasses.has(id));
-  if (!classIds.length) return null;
-
-  const { data: assignments } = await supabase
-    .from("assignments")
-    .select("id, class_id, created_at, due_at, lessons(title, topic, content)")
-    .in("class_id", classIds)
-    .order("created_at", { ascending: true })
-    .returns<AssignmentRow[]>();
-  const aIds = (assignments ?? []).map((a) => a.id);
-  const { data: attempts } = aIds.length
-    ? await supabase.from("attempts").select("*").eq("student_id", studentId).in("assignment_id", aIds).returns<AttemptRow[]>()
-    : { data: [] as AttemptRow[] };
-  const tIds = (attempts ?? []).map((t) => t.id);
-  const { data: answers } = tIds.length
-    ? await supabase.from("answers").select("attempt_id, block_id, stage, response, is_correct, tries").in("attempt_id", tIds).returns<AnswerRow[]>()
-    : { data: [] as AnswerRow[] };
-
+export function buildReport({ student, classNames, classIds, assignments, attempts, answers, details }: Input): StudentReport {
   const lessons: LessonResult[] = [];
   const typeStats = new Map<Block["type"], { n: number; ok: number }>();
   let gradedN = 0;
   let firstTryOk = 0;
 
-  for (const a of assignments ?? []) {
+  for (const a of assignments) {
     if (!a.lessons) continue;
-    const t = (attempts ?? []).find((x) => x.assignment_id === a.id);
-    const mine = (answers ?? []).filter((x) => x.attempt_id === t?.id);
+    const t = attempts.find((x) => x.assignment_id === a.id);
+    const mine = answers.filter((x) => x.attempt_id === t?.id);
     const blocks: BlockResult[] = [];
     for (const st of a.lessons.content.stages) {
       for (const b of st.blocks) {
@@ -151,6 +136,7 @@ export async function getStudentReport(supabase: Supabase, teacherId: string, st
           if (first) s.ok++;
           typeStats.set(b.type, s);
         }
+        if (!details) continue;
         blocks.push({
           id: b.id,
           stageLabel: STAGE_META[st.key].label,
@@ -170,7 +156,7 @@ export async function getStudentReport(supabase: Supabase, teacherId: string, st
       assignmentId: a.id,
       title: a.lessons.title,
       topic: a.lessons.topic,
-      className: myClasses.get(a.class_id) ?? "",
+      className: classNames.get(a.class_id) ?? "",
       assignedAt: a.created_at,
       dueAt: a.due_at,
       status: studentStatus(t),
@@ -192,7 +178,7 @@ export async function getStudentReport(supabase: Supabase, teacherId: string, st
 
   return {
     student: { id: student.id, name: student.full_name, username: student.username },
-    classes: classIds.map((id) => myClasses.get(id)!),
+    classes: classIds.map((id) => classNames.get(id)!).filter(Boolean),
     lessons,
     summary: {
       assigned: lessons.length,
@@ -204,4 +190,54 @@ export async function getStudentReport(supabase: Supabase, teacherId: string, st
       byType: [...typeStats.entries()].map(([type, s]) => ({ type, label: BLOCK_LABELS[type], n: s.n, pct: Math.round((s.ok / s.n) * 100) })),
     },
   };
+}
+
+async function attemptsAndAnswers(supabase: Supabase, studentId: string, assignmentIds: string[]) {
+  const { data: attempts } = assignmentIds.length
+    ? await supabase.from("attempts").select("*").eq("student_id", studentId).in("assignment_id", assignmentIds).returns<AttemptRow[]>()
+    : { data: [] as AttemptRow[] };
+  const tIds = (attempts ?? []).map((t) => t.id);
+  const { data: answers } = tIds.length
+    ? await supabase.from("answers").select("attempt_id, block_id, stage, response, is_correct, tries").in("attempt_id", tIds).returns<AnswerRow[]>()
+    : { data: [] as AnswerRow[] };
+  return { attempts: attempts ?? [], answers: answers ?? [] };
+}
+
+/** Мугалим үчүн (RLS: өз класстарындагы окуучу гана), суроолор боюнча деталдары менен. Табылбаса — null. */
+export async function getStudentReport(supabase: Supabase, teacherId: string, studentId: string): Promise<StudentReport | null> {
+  const { data: student } = await supabase.from("profiles").select("id, full_name, username").eq("id", studentId).eq("role", "student").maybeSingle();
+  if (!student) return null;
+
+  const [{ data: classes }, { data: memberships }] = await Promise.all([
+    supabase.from("classes").select("id, name").eq("teacher_id", teacherId),
+    supabase.from("class_members").select("class_id").eq("student_id", studentId),
+  ]);
+  const classNames = new Map((classes ?? []).map((c) => [c.id as string, c.name as string]));
+  const classIds = (memberships ?? []).map((m) => m.class_id as string).filter((id) => classNames.has(id));
+  if (!classIds.length) return null;
+
+  const { data: assignments } = await supabase
+    .from("assignments")
+    .select("id, class_id, created_at, due_at, lessons(title, topic, content)")
+    .in("class_id", classIds)
+    .order("created_at", { ascending: true })
+    .returns<AssignmentRow[]>();
+  const { attempts, answers } = await attemptsAndAnswers(supabase, studentId, (assignments ?? []).map((a) => a.id));
+  return buildReport({ student, classNames, classIds, assignments: assignments ?? [], attempts, answers, details: true });
+}
+
+/**
+ * Окуучунун өзү үчүн. Тапшырмалар окуучунун укугу менен (RLS: өз класстары), сабактар — серверде (0004);
+ * туура жооптор отчетко кирбейт (details: false).
+ */
+export async function getOwnReport(supabase: Supabase, student: { id: string; full_name: string; username: string | null }): Promise<StudentReport> {
+  const [{ data: classes }, { data: assignments }] = await Promise.all([
+    supabase.from("classes").select("id, name"),
+    supabase.from("assignments").select("id, class_id, created_at, due_at, lesson_id").order("created_at", { ascending: true }),
+  ]);
+  const classNames = new Map((classes ?? []).map((c) => [c.id as string, c.name as string]));
+  const lessons = await lessonsByIds([...new Set((assignments ?? []).map((a) => a.lesson_id as string))]);
+  const rows: AssignmentRow[] = (assignments ?? []).map((a) => ({ ...a, lessons: lessons.get(a.lesson_id) ?? null }));
+  const { attempts, answers } = await attemptsAndAnswers(supabase, student.id, rows.map((a) => a.id));
+  return buildReport({ student, classNames, classIds: [...classNames.keys()], assignments: rows, attempts, answers, details: false });
 }

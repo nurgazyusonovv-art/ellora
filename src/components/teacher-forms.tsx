@@ -2,7 +2,15 @@
 
 import { useActionState, useState } from "react";
 import type { FormState } from "@/app/actions/auth";
-import { assignLesson, createClass, createLesson, deleteLesson, resetStudentPassword } from "@/app/actions/teacher";
+import {
+  assignLesson,
+  createClass,
+  createLesson,
+  deleteAssignment,
+  deleteLesson,
+  resetStudentPassword,
+  updateAssignmentDue,
+} from "@/app/actions/teacher";
 import { Button, Field, FormError } from "@/components/ui";
 import { TopicPicker } from "@/components/topic-picker";
 import type { Ktp } from "@/content/ktp";
@@ -177,5 +185,53 @@ export function DeleteLessonButton({ id, title, assigned }: { id: string; title:
         Өчүрүү
       </Button>
     </form>
+  );
+}
+
+/** Натыйжалар барагында: мөөнөттү өзгөртүү жана тапшырманы өчүрүү. */
+export function AssignmentControls({ id, classId, dueDate, started }: { id: string; classId: string; dueDate: string; started: number }) {
+  const [state, act, pending] = useActionState<(FormState & { ok?: string }) | undefined, FormData>(updateAssignmentDue.bind(null, id), undefined);
+  const [due, setDue] = useState(dueDate);
+  return (
+    <div className="flex flex-wrap items-end gap-2.5">
+      <form action={act} className="flex flex-wrap items-end gap-2">
+        <label className="flex flex-col gap-1.5 text-sm font-semibold">
+          Мөөнөт
+          <input
+            type="date"
+            name="due_at"
+            value={due}
+            onChange={(e) => setDue(e.target.value)}
+            className="min-h-11 rounded-[10px] border border-line bg-surface px-3 text-base font-normal"
+          />
+        </label>
+        <Button variant="secondary" disabled={pending || due === dueDate}>
+          Сактоо
+        </Button>
+      </form>
+      {dueDate && (
+        <form action={act} onSubmit={() => setDue("")}>
+          <input type="hidden" name="due_at" value="" />
+          <Button variant="ghost" disabled={pending}>
+            Мөөнөтсүз кылуу
+          </Button>
+        </form>
+      )}
+      <form
+        action={deleteAssignment.bind(null, id, classId)}
+        onSubmit={(e) => {
+          const msg = started
+            ? `Тапшырманы өчүрөсүзбү?\n\n${started} окуучу аны баштаган. Өчүрсөңүз, алардын бул тапшырма боюнча натыйжалары да өчөт. Муну кайтаруу мүмкүн эмес.`
+            : "Тапшырманы өчүрөсүзбү? Сабактын өзү сакталып калат.";
+          if (!window.confirm(msg)) e.preventDefault();
+        }}
+      >
+        <Button variant="ghost" className="text-bad hover:bg-bad-soft">
+          Тапшырманы өчүрүү
+        </Button>
+      </form>
+      {state?.error && <span className="basis-full text-sm text-bad">{state.error}</span>}
+      {state?.ok && <span className="basis-full text-sm text-good">{state.ok}</span>}
+    </div>
   );
 }

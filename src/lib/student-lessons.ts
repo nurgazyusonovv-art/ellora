@@ -16,3 +16,9 @@ export async function lessonContent(lessonId: string) {
   const { data } = await createAdminClient().from("lessons").select("title, content").eq("id", lessonId).maybeSingle();
   return data ? { title: data.title as string, content: data.content as LessonContent } : null;
 }
+
+export async function lessonsByIds(lessonIds: string[]) {
+  if (!lessonIds.length) return new Map<string, { title: string; topic: string | null; content: LessonContent }>();
+  const { data } = await createAdminClient().from("lessons").select("id, title, topic, content").in("id", lessonIds);
+  return new Map((data ?? []).map((l) => [l.id as string, { title: l.title as string, topic: l.topic as string | null, content: l.content as LessonContent }]));
+}

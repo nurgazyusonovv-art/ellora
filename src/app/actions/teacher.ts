@@ -179,3 +179,35 @@ export async function deleteLesson(id: string) {
   revalidatePath("/teacher/lessons");
   revalidatePath("/teacher");
 }
+
+/* ─────────────────────────── Тапшырманы башкаруу ─────────────────────────── */
+
+/** Мөөнөттү өзгөртөт (бош — мөөнөтсүз). RLS: мугалим өз классынын тапшырмасын гана өзгөртөт. */
+export async function updateAssignmentDue(
+  id: string,
+  _: (FormState & { ok?: string }) | undefined,
+  fd: FormData,
+): Promise<FormState & { ok?: string }> {
+  const { supabase } = await requireRole("teacher");
+  const due = String(fd.get("due_at") ?? "").trim();
+  if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) return { error: "Датаны туура жазыңыз." };
+  const { data, error } = await supabase
+    .from("assignments")
+    .update({ due_at: due ? new Date(`${due}T23:59:00+06:00`).toISOString() : null })
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error || !data) return { error: "Мөөнөт өзгөргөн жок." };
+  revalidatePath(`/teacher/assignments/${id}`);
+  revalidatePath("/teacher");
+  return { ok: due ? "Мөөнөт сакталды." : "Мөөнөт алынды." };
+}
+
+/** Тапшырманы өчүрөт. Окуучулардын бул тапшырма боюнча аракеттери жана жооптору да өчөт (on delete cascade). */
+export async function deleteAssignment(id: string, classId: string) {
+  const { supabase } = await requireRole("teacher");
+  await supabase.from("assignments").delete().eq("id", id);
+  revalidatePath("/teacher");
+  revalidatePath(`/teacher/classes/${classId}`);
+  redirect(`/teacher/classes/${classId}`);
+}

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { LIBRARY } from "@/content/python-if";
+import { LIBRARY } from "@/content";
 import { makeJoinCode, requireRole } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkStructure, DURATION_OPTIONS, DEFAULT_DURATION, emptyLesson, validateLesson } from "@/lib/lesson-edit";

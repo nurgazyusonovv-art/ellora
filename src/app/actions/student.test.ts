@@ -4,7 +4,7 @@
  * Жазуу admin клиент аркылуу гана өтөт.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { pythonIf } from "@/content/python-if";
+import { pythonIf } from "@/content/lessons/python-if";
 import type { Block, McqBlock, ParsonsBlock } from "@/lib/lesson-types";
 import { studentBlock } from "@/lib/student-view";
 import { correctResponse } from "@/test/helpers";

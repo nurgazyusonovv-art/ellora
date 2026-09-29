@@ -1,11 +1,12 @@
-import type { LessonContent } from "@/lib/lesson-types";
+import type { LibraryLesson } from "@/content";
 
-export const pythonIf: { title: string; grade: number; topic: string; content: LessonContent } = {
+export const pythonIf: LibraryLesson = {
   title: "Python: шарттуу оператор if",
   grade: 8,
   topic: "Шарттуу операторлор",
   content: {
     version: 1,
+    duration: 40,
     stages: [
       {
         key: "discover",
@@ -187,6 +188,3 @@ export const pythonIf: { title: string; grade: number; topic: string; content: L
     ],
   },
 };
-
-/** Мугалимдер өз сабактарына көчүрүп ала турган даяр сабактар. */
-export const LIBRARY = [{ slug: "python-if", ...pythonIf }];

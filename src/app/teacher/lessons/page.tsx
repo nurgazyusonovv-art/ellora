@@ -2,7 +2,7 @@ import Link from "next/link";
 import { addLibraryLesson } from "@/app/actions/teacher";
 import { Button, ButtonLink, Card, Chip, PageTitle } from "@/components/ui";
 import { DeleteLessonButton } from "@/components/teacher-forms";
-import { LIBRARY } from "@/content/python-if";
+import { LIBRARY } from "@/content";
 import { requireRole } from "@/lib/auth";
 
 export const metadata = { title: "Сабактар" };
@@ -64,12 +64,13 @@ export default async function LessonsPage() {
         <p className="text-sm text-muted">Даяр сабакты өзүңүздүн сабактарыңызга көчүрүп, класска жөнөтө аласыз.</p>
         <div className="grid gap-4 sm:grid-cols-2">
           {LIBRARY.map((l) => (
-            <Card key={l.slug} className="flex flex-col gap-3">
+            <Card key={l.slug} className="flex flex-col justify-between gap-3">
               <div className="flex flex-col gap-1">
                 <span className="font-semibold">{l.title}</span>
                 <span className="text-sm text-muted">
                   {l.grade}-класс · {l.content.stages.reduce((s, st) => s + st.minutes, 0)} мүнөт · 5 бөлүк
                 </span>
+                <span className="text-[13px] text-muted">Тема: {l.topic}</span>
               </div>
               <form action={addLibraryLesson.bind(null, l.slug)}>
                 <Button variant="secondary">Сабактарыма кошуу</Button>

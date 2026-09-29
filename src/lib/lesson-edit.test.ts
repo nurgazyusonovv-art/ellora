@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pythonIf } from "@/content/python-if";
+import { pythonIf } from "@/content/lessons/python-if";
 import { BLOCK_TYPES, checkStructure, distributeMinutes, DURATION_OPTIONS, emptyLesson, newBlock, nextBlockId, validateLesson } from "@/lib/lesson-edit";
 
 describe("validateLesson", () => {

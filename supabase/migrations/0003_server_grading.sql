@@ -1,10 +1,11 @@
 -- ellora: жоопторду серверде баалоо
 -- Мындан ары окуучу answers жана attempts таблицаларына түз жаза албайт — жоопту сервер баалайт
 -- (src/app/actions/student.ts: submitAnswer, completeStage) жана service role менен жазат.
--- Supabase → SQL Editor'го толугу менен көчүрүп, Run басыңыз.
+-- Supabase → SQL Editor'го толугу менен көчүрүп, Run басыңыз. Кайра иштетсе да болот.
 
 -- answers: окуучу өз жоопторун көрөт гана
 drop policy if exists "окуучу өз жоопторун башкарат" on public.answers;
+drop policy if exists "окуучу өз жоопторун көрөт" on public.answers;
 create policy "окуучу өз жоопторун көрөт" on public.answers
   for select using (exists (select 1 from public.attempts t where t.id = attempt_id and t.student_id = auth.uid()));
 

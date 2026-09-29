@@ -8,8 +8,8 @@
 - [x] Supabase долбоорун ач, `supabase/migrations/0001_init.sql`ти SQL Editor'до иштет
 - [x] Supabase → Auth → Email: пилотто **Confirm email** өчүр
 - [x] `.env.local` толтур, `npm run dev` менен локалдуу текшер
-- [ ] Vercel'де долбоор түзүп, 3 env өзгөрмөнү кош, deploy
-- [ ] Supabase → Auth → URL Configuration → Site URL = Vercel дареги
+- [x] Vercel'де долбоор түзүп, 3 env өзгөрмөнү кош, deploy
+- [x] Supabase → Auth → URL Configuration → Site URL = Vercel дареги
 
 ## 1. Биринчи толук текшерүү (чыныгы Supabase менен)
 

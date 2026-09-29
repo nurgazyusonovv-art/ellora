@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { completeStage, submitAnswer, type Progress } from "@/app/actions/student";
 import {
   BugHunt,
   CodeExample,
@@ -14,8 +15,8 @@ import {
   type SavedAnswer,
 } from "@/components/player/blocks";
 import { Button, cx, RichText } from "@/components/ui";
-import { createClient } from "@/lib/supabase/client";
-import { isGraded, isInteractive, STAGE_META, type Block, type LessonContent } from "@/lib/lesson-types";
+import { EXIT_BONUS_XP, exitResult, stageDone } from "@/lib/grading";
+import { isInteractive, STAGE_META, type Block, type LessonContent } from "@/lib/lesson-types";
 import { warmUpPython } from "@/lib/python";
 
 type Attempt = { id: string; current_stage: number; xp: number; exit_score: number | null; exit_total: number | null };
@@ -36,12 +37,14 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
   const [unlocked, setUnlocked] = useState(attempt?.current_stage ?? 0); // 5 = бүттү
   const [xp, setXp] = useState(attempt?.xp ?? 0);
   const [view, setView] = useState(Math.min(attempt?.current_stage ?? 0, stages.length - 1));
-  const [saveError, setSaveError] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [finished, setFinished] = useState<{ score: number; total: number } | null>(
     attempt && attempt.current_stage >= stages.length ? { score: attempt.exit_score ?? 0, total: attempt.exit_total ?? 0 } : null,
   );
-  const supabase = useMemo(() => (preview ? null : createClient()), [preview]);
   const topRef = useRef<HTMLDivElement>(null);
+  /** Серверге жооптор ирети менен жөнөтүлөт — XP жана бөлүк туура эсептелсин. */
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const unlockedRef = useRef(unlocked);
 
   useEffect(() => {
     if (stages.some((s) => s.blocks.some((b) => b.type === "code_task" || (b.type === "code_example" && b.runnable)))) {
@@ -50,96 +53,57 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
     }
   }, [stages]);
 
-  const stageDone = useCallback(
-    (i: number, a: Record<string, SavedAnswer>) => {
-      const st = stages[i];
-      const exit = st.key === "exit";
-      return st.blocks.filter(isInteractive).every((b) => {
-        const ans = a[b.id];
-        if (!ans) return false;
-        return exit || !isGraded(b) ? true : ans.is_correct === true;
-      });
-    },
-    [stages],
-  );
+  const go = (i: number) => {
+    setView(i);
+    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
-  const persist = useCallback(
-    async (fn: () => PromiseLike<{ error: unknown }>) => {
-      if (!supabase) return;
-      const { error } = await fn();
-      setSaveError(!!error);
-    },
-    [supabase],
-  );
+  /** Сервердин жообу — чечүүчү: XP, ачылган бөлүк жана натыйжа ушундан алынат. */
+  const send = (blockId: string | null, fn: () => Promise<Progress>) => {
+    queue.current = queue.current.then(async () => {
+      const r = await fn().catch((): Progress => ({ error: "Жооп сакталган жок. Интернетти текшерип, кайра аракет кыл." }));
+      if (r.error) return setSaveError(r.error);
+      setSaveError(null);
+      if (blockId && r.answer) setAnswers((a) => ({ ...a, [blockId]: r.answer! }));
+      if (r.xp !== undefined) setXp(r.xp);
+      if (r.finished) setFinished(r.finished);
+      if (r.current_stage !== undefined) {
+        const next = r.current_stage;
+        if (next > unlockedRef.current && next < stages.length) setTimeout(() => go(next), 900);
+        unlockedRef.current = next;
+        setUnlocked(next);
+      }
+    });
+  };
 
-  /** Бөлүктү бүтүрүп, кийинкисин ачат. Акыркы бөлүк (exit ticket) болсо — натыйжаны эсептейт. */
-  const completeStage = (stageIdx: number, all: Record<string, SavedAnswer>, currentXp: number) => {
-    const patch: Record<string, unknown> = {};
+  /* ───── Алдын ала көрүү: баары браузерде, эч нерсе сакталбайт ───── */
+  const previewAdvance = (stageIdx: number, all: Record<string, SavedAnswer>, currentXp: number) => {
     const newStage = stageIdx + 1;
     setUnlocked(newStage);
-    patch.current_stage = newStage;
     if (newStage >= stages.length) {
-      const exit = stages[stageIdx];
-      const mcqs = exit.blocks.filter((b) => b.type === "mcq");
-      const score = mcqs.filter((b) => all[b.id]?.is_correct).length;
-      const conf = exit.blocks.find((b) => b.type === "confidence");
-      const total = currentXp + 20;
-      Object.assign(patch, {
-        exit_score: score,
-        exit_total: mcqs.length,
-        confidence: conf ? ((all[conf.id]?.response.value as number) ?? null) : null,
-        finished_at: new Date().toISOString(),
-        xp: total,
-      });
-      setXp(total);
-      setFinished({ score, total: mcqs.length });
-    } else if (newStage > view) {
-      setTimeout(() => go(newStage), 900);
-    }
-    return patch;
+      const r = exitResult(content, all);
+      setXp(currentXp + EXIT_BONUS_XP);
+      setFinished({ score: r.score, total: r.total });
+    } else if (newStage > view) setTimeout(() => go(newStage), 900);
   };
 
   const onAnswer = (stageIdx: number, block: Block): AnswerFn => (response, isCorrect) => {
     const prev = answers[block.id];
-    const next: SavedAnswer = { response, is_correct: isCorrect, tries: (prev?.tries ?? 0) + 1 };
-    const all = { ...answers, [block.id]: next };
-    setAnswers(all);
+    const all = { ...answers, [block.id]: { response, is_correct: isCorrect, tries: (prev?.tries ?? 0) + 1 } };
+    setAnswers(all); // дароо көрсөтүү; окуучу режиминде сервер кийин тактайт
 
-    let gained = 0;
-    if (isCorrect && !prev?.is_correct && "xp" in block && block.xp && stages[stageIdx].key !== "exit") gained = block.xp;
+    if (attempt) return send(block.id, () => submitAnswer(attempt.id, block.id, response));
+
+    const gained = isCorrect && !prev?.is_correct && "xp" in block && block.xp && stages[stageIdx].key !== "exit" ? block.xp : 0;
     const newXp = xp + gained;
     if (gained) setXp(newXp);
-
-    let patch: Record<string, unknown> = {};
-    const autoAdvance = stages[stageIdx].key !== "exit";
-    if (autoAdvance && stageIdx === unlocked && stageDone(stageIdx, all)) patch = completeStage(stageIdx, all, newXp);
-    if (gained && patch.xp === undefined) patch.xp = newXp;
-
-    if (!attempt) return;
-    void persist(() =>
-      supabase!.from("answers").upsert({
-        attempt_id: attempt.id,
-        block_id: block.id,
-        stage: stageIdx,
-        response,
-        is_correct: isCorrect,
-        tries: next.tries,
-        updated_at: new Date().toISOString(),
-      }),
-    ).then(() => {
-      if (Object.keys(patch).length) void persist(() => supabase!.from("attempts").update(patch).eq("id", attempt.id));
-    });
+    if (stages[stageIdx].key !== "exit" && stageIdx === unlocked && stageDone(stages[stageIdx], all)) previewAdvance(stageIdx, all, newXp);
   };
 
   /** Интерактивдүү блогу жок бөлүк же exit ticket'ти тапшыруу баскычы үчүн. */
   const manualComplete = () => {
-    const patch = completeStage(view, answers, xp);
-    if (attempt) void persist(() => supabase!.from("attempts").update(patch).eq("id", attempt.id));
-  };
-
-  const go = (i: number) => {
-    setView(i);
-    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (attempt) return send(null, () => completeStage(attempt.id, view));
+    previewAdvance(view, answers, xp);
   };
 
   const st = stages[view];
@@ -195,7 +159,7 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
 
       {saveError && (
         <p role="alert" className="rounded-[10px] bg-bad-soft px-4 py-2.5 text-sm text-bad">
-          Жооп сакталган жок. Интернетти текшерип, кайра аракет кыл.
+          {saveError}
         </p>
       )}
 
@@ -219,10 +183,10 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
 
           {view === unlocked && (isExit || !st.blocks.some(isInteractive)) && (
             <div className="flex flex-wrap items-center gap-3">
-              <Button onClick={manualComplete} disabled={!stageDone(view, answers)}>
+              <Button onClick={manualComplete} disabled={!stageDone(st, answers)}>
                 {isExit ? "Билетти тапшыруу" : "Түшүндүм, улантуу"}
               </Button>
-              {isExit && !stageDone(view, answers) && <span className="text-sm text-muted">Бардык суроолорго жооп бер.</span>}
+              {isExit && !stageDone(st, answers) && <span className="text-sm text-muted">Бардык суроолорго жооп бер.</span>}
             </div>
           )}
         </section>

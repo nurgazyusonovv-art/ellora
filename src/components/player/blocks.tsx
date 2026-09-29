@@ -15,7 +15,8 @@ import type {
 import { CONFIDENCE_LABELS } from "@/lib/lesson-types";
 import { explainError, outputMatches, runPython, type RunResult } from "@/lib/python";
 
-export type SavedAnswer = { response: Record<string, unknown>; is_correct: boolean | null; tries: number };
+import type { SavedAnswer } from "@/lib/grading";
+export type { SavedAnswer };
 export type AnswerFn = (response: Record<string, unknown>, isCorrect: boolean | null) => void;
 type Props<B> = { block: B; saved?: SavedAnswer; onAnswer: AnswerFn; exitMode?: boolean };
 

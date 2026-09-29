@@ -170,3 +170,11 @@ export async function duplicateLesson(id: string) {
   revalidatePath("/teacher/lessons");
   if (data) redirect(`/teacher/lessons/${data.id}/edit`);
 }
+
+/** Сабакты өчүрөт. Ага байланган тапшырмалар жана окуучулардын жооптору да өчөт (on delete cascade). */
+export async function deleteLesson(id: string) {
+  const { supabase, profile } = await requireRole("teacher");
+  await supabase.from("lessons").delete().eq("id", id).eq("author_id", profile.id);
+  revalidatePath("/teacher/lessons");
+  revalidatePath("/teacher");
+}

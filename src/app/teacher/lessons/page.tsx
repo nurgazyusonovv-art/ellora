@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { addLibraryLesson } from "@/app/actions/teacher";
 import { Button, ButtonLink, Card, Chip, PageTitle } from "@/components/ui";
+import { DeleteLessonButton } from "@/components/teacher-forms";
 import { LIBRARY } from "@/content/python-if";
 import { requireRole } from "@/lib/auth";
 
@@ -10,7 +11,7 @@ export default async function LessonsPage() {
   const { supabase, profile } = await requireRole("teacher");
   const { data: lessons } = await supabase
     .from("lessons")
-    .select("id, title, grade, topic, status, updated_at")
+    .select("id, title, grade, topic, status, updated_at, assignments(count)")
     .eq("author_id", profile.id)
     .order("updated_at", { ascending: false });
 
@@ -26,16 +27,34 @@ export default async function LessonsPage() {
           <p className="text-muted">Азырынча сабак жок. «Жаңы сабак» баскычы менен өзүңүз түзүңүз же төмөнкү китепканадан даяр сабакты алыңыз.</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {lessons!.map((l) => (
-              <Link key={l.id} href={`/teacher/lessons/${l.id}`} className="flex flex-col gap-2 rounded-2xl border border-line bg-surface p-5 hover:border-accent">
-                <span className="font-semibold">{l.title}</span>
-                <span className="text-sm text-muted">
-                  {l.grade ? `${l.grade}-класс · ` : ""}
-                  {l.topic}
-                </span>
-                <span>{l.status === "published" ? <Chip tone="good">Даяр</Chip> : <Chip>Долбоор</Chip>}</span>
-              </Link>
-            ))}
+            {lessons!.map((l) => {
+              const assigned = (l.assignments as unknown as { count: number }[] | null)?.[0]?.count ?? 0;
+              return (
+                <div key={l.id} className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-5">
+                  <Link href={`/teacher/lessons/${l.id}`} className="flex flex-col gap-2 hover:text-accent">
+                    <span className="font-semibold">{l.title}</span>
+                    <span className="text-sm text-muted">
+                      {l.grade ? `${l.grade}-класс · ` : ""}
+                      {l.topic}
+                    </span>
+                  </Link>
+                  <span className="flex flex-wrap items-center gap-2">
+                    {l.status === "published" ? <Chip tone="good">Даяр</Chip> : <Chip>Долбоор</Chip>}
+                    {assigned > 0 && <span className="text-xs text-muted">{assigned} класска жөнөтүлгөн</span>}
+                  </span>
+                  <div className="-mx-2 mt-auto flex flex-wrap items-center gap-1 border-t border-surface-2 pt-2">
+                    <ButtonLink href={`/teacher/lessons/${l.id}/preview`} variant="ghost" className="min-h-11 px-3">
+                      Көрүү
+                    </ButtonLink>
+                    <ButtonLink href={`/teacher/lessons/${l.id}/edit`} variant="ghost" className="min-h-11 px-3">
+                      Өзгөртүү
+                    </ButtonLink>
+                    <span className="flex-1" />
+                    <DeleteLessonButton id={l.id} title={l.title} assigned={assigned} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

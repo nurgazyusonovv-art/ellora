@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import type { FormState } from "@/app/actions/auth";
-import { assignLesson, createClass, createLesson, resetStudentPassword } from "@/app/actions/teacher";
+import { assignLesson, createClass, createLesson, deleteLesson, resetStudentPassword } from "@/app/actions/teacher";
 import { Button, Field, FormError } from "@/components/ui";
 import { TopicPicker } from "@/components/topic-picker";
 import type { Ktp } from "@/content/ktp";
@@ -151,6 +151,24 @@ export function NewLessonForm({ plans }: { plans: Record<number, Ktp> }) {
       <FormError message={state?.error} />
       <Button disabled={pending} className="self-start">
         {pending ? "Түзүлүүдө…" : "Сабакты түзүү"}
+      </Button>
+    </form>
+  );
+}
+
+export function DeleteLessonButton({ id, title, assigned }: { id: string; title: string; assigned: number }) {
+  return (
+    <form
+      action={deleteLesson.bind(null, id)}
+      onSubmit={(e) => {
+        const msg = assigned
+          ? `«${title}» сабагын өчүрөсүзбү?\n\nБул сабак ${assigned} класска жөнөтүлгөн. Өчүрсөңүз, окуучулардын бул сабак боюнча бардык натыйжалары да өчөт. Муну кайтаруу мүмкүн эмес.`
+          : `«${title}» сабагын өчүрөсүзбү? Муну кайтаруу мүмкүн эмес.`;
+        if (!window.confirm(msg)) e.preventDefault();
+      }}
+    >
+      <Button variant="ghost" className="min-h-11 px-3 text-bad hover:bg-bad-soft">
+        Өчүрүү
       </Button>
     </form>
   );

@@ -1,6 +1,6 @@
 // ellora service worker: телефонго орнотуу жана интернетсиз иштөө.
 // Версияны өзгөртсөңүз, эски кэштер өчүрүлөт.
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC = `ellora-static-${VERSION}`; // _next/static, иконкалар, шрифттер — өзгөрбөйт
 const PAGES = `ellora-pages-${VERSION}`; // ачылган барактар (окуучунун маалыматы бар — чыкканда тазаланат)
 const PYODIDE = `ellora-pyodide-${VERSION}`; // Python (CDN) — бир жолу жүктөлөт

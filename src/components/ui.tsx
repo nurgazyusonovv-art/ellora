@@ -94,12 +94,28 @@ export function FormError({ message }: { message?: string | null }) {
   );
 }
 
+/** Белги: «e» + терилип жаткан курсор — «el»lora жана код жазуу. Караңгы фондо (`dark`) ачык түстө. */
+export function LogoMark({ size = 32, dark, className }: { size?: number; dark?: boolean; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className={cx("shrink-0", className)}>
+      <rect width="32" height="32" rx="9" fill={dark ? "#3dc3a5" : "var(--color-accent)"} />
+      <path
+        d="M7.2 16.4h11.4a5.9 5.9 0 1 0-1.75 4.35"
+        fill="none"
+        stroke={dark ? "#0b1b17" : "#fff"}
+        strokeWidth="3.1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <rect x="22" y="9.6" width="3" height="13.4" rx="1.5" fill="var(--color-code-str)" />
+    </svg>
+  );
+}
+
 export function Logo({ light }: { light?: boolean }) {
   return (
     <span className="flex items-center gap-2.5">
-      <span className="grid size-8 place-items-center rounded-[9px] bg-[#3dc3a5] font-mono text-sm font-semibold text-[#0b1b17]">
-        if
-      </span>
+      <LogoMark dark={light} />
       <span className={cx("font-display text-lg font-bold", light ? "text-white" : "text-ink")}>ellora</span>
     </span>
   );

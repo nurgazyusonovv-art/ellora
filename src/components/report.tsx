@@ -1,81 +1,10 @@
 /** Окуучунун отчету үчүн иконкалар жана графиктер (SVG, серверде түзүлөт — PDF'те да так чыгат). */
 import type { ReactNode } from "react";
+import { Icon, type IconName } from "@/components/icons";
 import { cx } from "@/components/ui";
+
+export { Icon, type IconName };
 import { STATUS_META, type StudentStatus } from "@/lib/stats";
-
-const ICONS = {
-  book: (
-    <>
-      <path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" />
-      <path d="M4 19V5M19 17H6" />
-    </>
-  ),
-  target: (
-    <>
-      <circle cx="12" cy="12" r="8.5" />
-      <circle cx="12" cy="12" r="4.5" />
-      <circle cx="12" cy="12" r="0.8" />
-    </>
-  ),
-  bolt: <path d="M13 2 4.5 13.5H12L11 22l8.5-11.5H12z" />,
-  gauge: (
-    <>
-      <path d="M4 17a8 8 0 1 1 16 0" />
-      <path d="m12 17 4-5" />
-    </>
-  ),
-  spark: <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6" />,
-  check: (
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="m8 12.5 2.8 2.8L16.5 9.5" />
-    </>
-  ),
-  alert: (
-    <>
-      <path d="M12 3 2.5 20h19z" />
-      <path d="M12 10v4.5M12 17.5v.01" />
-    </>
-  ),
-  clock: (
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </>
-  ),
-  dash: (
-    <>
-      <circle cx="12" cy="12" r="9" strokeDasharray="3 3" />
-    </>
-  ),
-  user: (
-    <>
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 21c1-4.5 4-6.5 8-6.5s7 2 8 6.5" />
-    </>
-  ),
-} as const;
-
-export type IconName = keyof typeof ICONS;
-
-export function Icon({ name, size = 18, className }: { name: IconName; size?: number; className?: string }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={cx("shrink-0", className)}
-    >
-      {ICONS[name]}
-    </svg>
-  );
-}
 
 const STATUS_ICON: Record<StudentStatus, IconName> = {
   done: "check",

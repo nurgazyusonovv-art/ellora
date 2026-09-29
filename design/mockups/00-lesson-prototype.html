@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="ky">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Python if сабагы</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#F2F5F3; --surface:#FFFFFF; --surface-2:#E8EEEB; --ink:#15242A; --muted:#566A6F; --line:#D5DEDA;
+  --accent:#0C7563; --accent-soft:#D5ECE6; --accent-ink:#FFFFFF; --amber:#C98A0C; --amber-soft:#FBEFD2;
+  --good:#1B7F47; --good-soft:#DDF1E4; --bad:#B8382F; --bad-soft:#F8E0DD;
+  --code-bg:#0F2328; --code-ink:#E4EEEB; --code-dim:#6F868B; --c-kw:#7FD8C3; --c-str:#F3C66E; --c-num:#F5A08C; --c-hl:#1C3E44;
+  --radius:12px;
+  --display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"Cascadia Code",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0E1618; --surface:#162226; --surface-2:#1D2B30; --ink:#E5EEEC; --muted:#93A6A9; --line:#2A3A3F;
+    --accent:#3DC3A5; --accent-soft:#16392F; --accent-ink:#0B1B17; --amber:#F0B941; --amber-soft:#3A2E12;
+    --good:#4FCB82; --good-soft:#15372A; --bad:#F07A70; --bad-soft:#3E1D1A;
+    --code-bg:#091316; --c-hl:#17353A;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0E1618; --surface:#162226; --surface-2:#1D2B30; --ink:#E5EEEC; --muted:#93A6A9; --line:#2A3A3F;
+  --accent:#3DC3A5; --accent-soft:#16392F; --accent-ink:#0B1B17; --amber:#F0B941; --amber-soft:#3A2E12;
+  --good:#4FCB82; --good-soft:#15372A; --bad:#F07A70; --bad-soft:#3E1D1A;
+  --code-bg:#091316; --c-hl:#17353A;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:880px;margin:0 auto}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(22px,4vw,30px);font-weight:700}
+h2{font-size:clamp(19px,3vw,23px);font-weight:700}
+h3{font-size:16px;font-weight:500}
+p{margin:0}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+/* header */
+header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;padding-block:28px 18px}
+.meta{display:flex;flex-direction:column;gap:8px}
+.xp{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 14px 6px 6px;font-variant-numeric:tabular-nums}
+.xp b{background:var(--amber-soft);color:var(--amber);border-radius:999px;padding:3px 10px;font-family:var(--mono);font-size:13px}
+.xp span{font-size:14px;color:var(--muted)}
+
+/* stepper */
+nav.steps{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:8px 12px}
+.steps ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.steps button{width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;color:var(--ink);font:inherit;cursor:pointer;display:flex;flex-direction:column;gap:2px;position:relative;overflow:hidden}
+.steps button:focus-visible,.btn:focus-visible,.opt:focus-visible,.line-btn:focus-visible,.tl-btn:focus-visible,.conf button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.steps .n{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.steps .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.steps .m{font-size:12px;color:var(--muted)}
+.steps button[aria-current="step"]{border-color:var(--accent);box-shadow:inset 0 -3px 0 var(--accent)}
+.steps button.done .n::after{content:" ✓";color:var(--good);font-weight:700}
+.bar{height:6px;background:var(--surface-2);border-radius:99px;margin-top:10px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s ease}
+@media (max-width:560px){.steps .m{display:none}.steps .t{font-size:12px}.steps button{padding:7px 7px}}
+
+/* stage */
+section.stage{display:flex;flex-direction:column;gap:18px;margin-top:10px}
+.stage-head{display:flex;flex-direction:column;gap:6px}
+.stage-head p{color:var(--muted);max-width:62ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;display:flex;flex-direction:column;gap:14px}
+.panel > p{max-width:65ch}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{font:inherit;font-weight:600;border-radius:10px;padding:10px 16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:hover:not(:disabled){filter:brightness(1.05)}
+textarea,input[type=text]{font:inherit;width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);color:var(--ink)}
+input.code-in{font-family:var(--mono);font-size:15px}
+.feedback{border-radius:10px;padding:10px 14px;font-size:15px}
+.feedback.good{background:var(--good-soft);color:var(--good)}
+.feedback.bad{background:var(--bad-soft);color:var(--bad)}
+.feedback.info{background:var(--accent-soft);color:var(--ink)}
+.feedback b{font-weight:700}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--surface-2);color:var(--muted)}
+.chip.good{background:var(--good-soft);color:var(--good)}
+.chip.warn{background:var(--amber-soft);color:var(--amber)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.task-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.nextbar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+/* code */
+pre.code{margin:0;background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:14.5px;line-height:1.7;border-radius:10px;padding:12px 0;overflow-x:auto}
+pre.code .ln{display:block;padding:0 16px;white-space:pre;border-left:3px solid transparent}
+pre.code .ln::before{content:attr(data-n);display:inline-block;width:2ch;margin-right:14px;color:var(--code-dim);text-align:right}
+pre.code .ln.active{background:var(--c-hl);border-left-color:var(--c-kw)}
+pre.code .ln.dim{opacity:.4}
+.kw{color:var(--c-kw);font-weight:600}.str{color:var(--c-str)}.num{color:var(--c-num)}.cm{color:var(--code-dim)}
+.console{background:var(--code-bg);color:var(--c-str);font-family:var(--mono);font-size:14px;border-radius:10px;padding:10px 16px}
+.console::before{content:"Натыйжа ›  ";color:var(--code-dim)}
+code.i{font-family:var(--mono);font-size:.92em;background:var(--surface-2);padding:1px 6px;border-radius:5px}
+
+/* discover */
+.traffic{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center}
+.light{background:#1B2326;border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:10px;width:78px}
+.lamp{width:54px;height:54px;border-radius:50%;background:#2F3A3E;transition:background .25s,box-shadow .25s}
+.lamp.on.red{background:#E5483C;box-shadow:0 0 22px #E5483C}
+.lamp.on.yellow{background:#F2B531;box-shadow:0 0 22px #F2B531}
+.lamp.on.green{background:#2EC46E;box-shadow:0 0 22px #2EC46E}
+.tl-btns{display:flex;flex-wrap:wrap;gap:8px}
+.tl-btn{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:8px 14px;cursor:pointer}
+.tl-btn.tried{border-color:var(--accent)}
+.road{font-size:15px;min-height:1.6em}
+@media (max-width:480px){.traffic{grid-template-columns:1fr}.light{flex-direction:row;width:auto;justify-content:center}.lamp{width:44px;height:44px}}
+
+/* anatomy */
+.anat{display:grid;grid-template-columns:repeat(4,auto);gap:4px 10px;justify-content:start;font-family:var(--mono);font-size:clamp(17px,3.4vw,22px);overflow-x:auto;padding-bottom:4px}
+.anat span{padding:6px 10px;border-radius:8px}
+.anat .a1{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.anat .a2{background:var(--amber-soft);color:var(--amber)}
+.anat .a3{background:var(--bad-soft);color:var(--bad);font-weight:700}
+.anat small{font-family:var(--body);font-size:12px;color:var(--muted);padding:0 10px}
+.ops{width:100%;border-collapse:collapse;font-size:15px}
+.ops td,.ops th{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left}
+.ops th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.ops td:first-child{font-family:var(--mono);font-weight:600;color:var(--accent);width:70px}
+.scroll-x{overflow-x:auto}
+.sim{display:flex;flex-direction:column;gap:10px}
+.sim label{display:flex;justify-content:space-between;font-weight:600;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+
+/* options */
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.opt{font:inherit;text-align:left;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px 14px;cursor:pointer}
+.opt.mono{font-family:var(--mono);font-size:17px;text-align:center}
+.opt.right{border-color:var(--good);background:var(--good-soft);color:var(--good);font-weight:600}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
+.opt.picked{border-color:var(--accent);background:var(--accent-soft)}
+.opt:disabled{cursor:default}
+
+/* parsons */
+.parsons{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:640px){.parsons{grid-template-columns:1fr}}
+.pbox{border:1px dashed var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;min-height:120px}
+.pbox .eyebrow{margin-bottom:2px}
+.line-btn{font-family:var(--mono);font-size:14px;text-align:left;white-space:pre;background:var(--code-bg);color:var(--code-ink);border:1px solid transparent;border-radius:8px;padding:7px 10px;cursor:pointer;overflow-x:auto}
+.line-btn:hover{border-color:var(--c-kw)}
+.pbox.answer .line-btn.ok{border-color:var(--good)}
+.pbox.answer .line-btn.no{border-color:var(--bad)}
+
+/* bug hunt */
+.hunt .ln{cursor:pointer}
+.hunt .ln:hover{background:var(--c-hl)}
+.hunt .ln.found{background:#4A1F1C;border-left-color:#F07A70}
+.hunt .ln.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+/* tests table */
+.tests{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.tests th,.tests td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left}
+.tests th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.tests td.p{color:var(--good);font-weight:600}.tests td.f{color:var(--bad);font-weight:600}
+
+/* exit */
+.q{display:flex;flex-direction:column;gap:10px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.q:last-of-type{border-bottom:0}
+.conf{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media (max-width:560px){.conf{grid-template-columns:1fr 1fr}}
+.conf button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px;cursor:pointer;display:flex;flex-direction:column;gap:2px;text-align:left}
+.conf button b{font-family:var(--mono);font-size:18px}
+.conf button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.score{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.score .big{font-family:var(--display);font-size:44px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1}
+.teacher{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.teacher th,.teacher td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+.teacher th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.teacher tr.me td{background:var(--accent-soft);font-weight:600}
+.dots{display:inline-flex;gap:3px}.dots i{width:8px;height:8px;border-radius:50%;background:var(--line)}.dots i.f{background:var(--accent)}
+.note{font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="meta">
+      <span class="eyebrow">Информатика · 8-класс · 45 мүнөт</span>
+      <h1>Python: шарттуу оператор <code style="font-family:var(--mono);color:var(--accent)">if</code></h1>
+    </div>
+    <div class="xp" aria-live="polite"><b id="xpVal">0 XP</b><span>/ 100 упай</span></div>
+  </header>
+
+  <nav class="steps" aria-label="Сабактын бөлүктөрү">
+    <ol id="stepList"></ol>
+    <div class="bar" aria-hidden="true"><i id="barFill"></i></div>
+  </nav>
+
+  <!-- 1 DISCOVER -->
+  <section class="stage" id="s0">
+    <div class="stage-head">
+      <span class="eyebrow">1-бөлүк · Discover · ~5 мүн</span>
+      <h2>Светофор кантип «чечим» кабыл алат?</h2>
+      <p>Айдоочу ар бир түскө карап башка аракет кылат. Үч түстү тең басып, эмне болорун көр.</p>
+    </div>
+    <div class="panel">
+      <div class="traffic">
+        <div class="light" aria-hidden="true"><div class="lamp red" id="lr"></div><div class="lamp yellow" id="ly"></div><div class="lamp green" id="lg"></div></div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="tl-btns">
+            <button class="tl-btn" data-c="red">Кызыл</button>
+            <button class="tl-btn" data-c="yellow">Сары</button>
+            <button class="tl-btn" data-c="green">Жашыл</button>
+          </div>
+          <p class="road" id="road">Түстү танда…</p>
+        </div>
+      </div>
+    </div>
+    <div class="panel" id="discQ" hidden>
+      <h3>Сенин болжолуң</h3>
+      <p>Компьютер да ушундай чечим кабыл алышы керек. Ал муну кантип «ойлонот» деп ойлойсуң? Өз сөзүң менен жаз.</p>
+      <label for="discInput" class="note">Туура же туура эмес деген баа коюлбайт</label>
+      <textarea id="discInput" rows="3" placeholder="Мисалы: эгер кызыл болсо, анда…"></textarea>
+      <div class="row"><button class="btn primary" id="discBtn" disabled>Жоопту салыштыруу</button></div>
+      <div id="discReveal" hidden style="display:flex;flex-direction:column;gap:12px">
+        <div class="feedback info"><b>Туура багыт!</b> Компьютер <b>шартты</b> текшерет: шарт туура (True) болсо бир иш кылат, туура эмес (False) болсо башкасын. Python тилинде бул <code class="i">if</code> деп жазылат.</div>
+        <pre class="code" id="discCode"></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 LEARNING -->
+  <section class="stage" id="s1" hidden>
+    <div class="stage-head">
+      <span class="eyebrow">2-бөлүк · Learning · ~10 мүн</span>
+      <h2>if, elif, else кантип иштейт</h2>
+      <p>Шарттуу оператор программага эки же андан көп жолдун бирин тандоого мүмкүндүк берет.</p>
+    </div>
+    <div class="panel">
+      <h3>Сап кандай курулат</h3>
+      <div class="anat">
+        <span class="a1">if</span><span class="a2">temperatura &gt; 25</span><span class="a3">:</span><span></span>
+        <small>ачкыч сөз</small><small>шарт (True/False)</small><small>эки чекит</small><span></span>
+      </div>
+      <p>Шарттан кийинки буйруктар <b>4 боштук</b> ичкери жазылат. Python ушул боштук аркылуу кайсы буйрук <code class="i">if</code>'ке таандык экенин билет.</p>
+    </div>
+    <div class="panel sim">
+      <h3>Иштетип көр: температураны өзгөрт</h3>
+      <label for="tempRange"><span>temperatura</span><span id="tempVal" style="font-family:var(--mono)">30</span></label>
+      <input type="range" id="tempRange" min="-15" max="40" value="30">
+      <pre class="code" id="simCode"></pre>
+      <div class="console" id="simOut"></div>
+      <p class="note">Python шарттарды үстүнөн ылдый текшерет. Биринчи True болгон блок аткарылат, калгандары өткөрүлүп кетет.</p>
+    </div>
+    <div class="panel">
+      <h3>Салыштыруу операторлору</h3>
+      <div class="scroll-x">
+        <table class="ops">
+          <thead><tr><th>Белги</th><th>Мааниси</th><th>Мисал</th></tr></thead>
+          <tbody>
+            <tr><td>&gt;</td><td>чоң</td><td><code class="i">baa &gt; 50</code></td></tr>
+            <tr><td>&lt;</td><td>кичине</td><td><code class="i">jash &lt; 7</code></td></tr>
+            <tr><td>&gt;=</td><td>чоң же барабар</td><td><code class="i">jash &gt;= 18</code></td></tr>
+            <tr><td>&lt;=</td><td>кичине же барабар</td><td><code class="i">baa &lt;= 100</code></td></tr>
+            <tr><td>==</td><td>барабар</td><td><code class="i">tus == "кызыл"</code></td></tr>
+            <tr><td>!=</td><td>барабар эмес</td><td><code class="i">syr != "1234"</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Текшерүү суроосу</h3>
+      <p>Python'до шарттан кийин кайсы белги милдеттүү түрдө коюлат?</p>
+      <div id="learnQ"></div>
+    </div>
+  </section>
+
+  <!-- 3 PRACTICE -->
+  <section class="stage" id="s2" hidden>
+    <div class="stage-head">
+      <span class="eyebrow">3-бөлүк · Practice · ~15 мүн</span>
+      <h2>Колуң менен жаз</h2>
+      <p>Үч тапшырма, жеңилден татаалга. Ар бири автоматтык түрдө текшерилет.</p>
+    </div>
+    <div class="panel">
+      <div class="task-head"><h3>1. Туура операторду танда</h3><span class="chip" id="t1chip">Аткарылган жок</span></div>
+      <pre class="code" id="t1code"></pre>
+      <div id="t1opts"></div>
+    </div>
+    <div class="panel">
+      <div class="task-head"><h3>2. Шартты өзүң жаз</h3><span class="chip" id="t2chip">Аткарылган жок</span></div>
+      <p>Кинотеатрга 18 жаштан баштап киргизишет. Бош орунга шартты жаз (өзгөрмө: <code class="i">jash</code>).</p>
+      <pre class="code" id="t2code"></pre>
+      <div class="row" style="flex-wrap:nowrap"><span style="font-family:var(--mono);font-weight:600;color:var(--accent)">if</span><input type="text" id="t2in" class="code-in" placeholder="jash ..." autocomplete="off" spellcheck="false"><span style="font-family:var(--mono);font-weight:700">:</span></div>
+      <div class="row"><button class="btn primary" id="t2btn">Текшерүү</button><button class="btn" id="t2hint">Кеңеш</button></div>
+      <div id="t2fb"></div>
+    </div>
+    <div class="panel">
+      <div class="task-head"><h3>3. Сааптарды туура иретке кой</h3><span class="chip" id="t3chip">Аткарылган жок</span></div>
+      <p>Бааны сөз менен чыгарган программаны түз. Сапты басып, оң жактагы кутуга кош. Кайтаруу үчүн кайра бас.</p>
+      <div class="parsons">
+        <div class="pbox" id="pPool"><span class="eyebrow">Аралашкан саптар</span></div>
+        <div class="pbox answer" id="pAns"><span class="eyebrow">Сенин программаң</span></div>
+      </div>
+      <div class="row"><button class="btn primary" id="t3btn">Текшерүү</button><button class="btn" id="t3reset">Башынан</button></div>
+      <div id="t3fb"></div>
+    </div>
+  </section>
+
+  <!-- 4 БЫШЫКТОО -->
+  <section class="stage" id="s3" hidden>
+    <div class="stage-head">
+      <span class="eyebrow">4-бөлүк · Бышыктоо · ~7 мүн</span>
+      <h2>Катаны тап жана натыйжаны болжолдо</h2>
+      <p>Программисттер күнүнө көп жолу ката издешет. Бул көндүм шарттарды тереңирээк түшүнүүгө жардам берет.</p>
+    </div>
+    <div class="panel">
+      <div class="task-head"><h3>Бул коддо 2 ката бар. Катасы бар саптарды бас.</h3><span class="chip" id="bugChip">0 / 2 табылды</span></div>
+      <pre class="code hunt" id="bugCode"></pre>
+      <div id="bugFb"></div>
+    </div>
+    <div class="panel">
+      <div class="task-head"><h3>Программа эмне чыгарат?</h3><span class="chip" id="predChip">Аткарылган жок</span></div>
+      <pre class="code" id="predCode"></pre>
+      <p class="note">Эскертүү: <code class="i">%</code> бөлүүдөн калган калдыкты берет. <code class="i">7 % 2</code> → 1</p>
+      <div id="predOpts"></div>
+    </div>
+  </section>
+
+  <!-- 5 EXIT TICKET -->
+  <section class="stage" id="s4" hidden>
+    <div class="stage-head">
+      <span class="eyebrow">5-бөлүк · Exit ticket · ~3 мүн</span>
+      <h2>Сабактан чыгуу билети</h2>
+      <p>Ар бир суроого бир гана жолу жооп бересиң. Натыйжа мугалимге кийинки сабакты пландоо үчүн керек.</p>
+    </div>
+    <div class="panel" id="exitForm">
+      <div class="q"><h3>1. Бардык шарттар False болгондо кайсы блок аткарылат?</h3><div id="e1"></div></div>
+      <div class="q"><h3>2. Бул код эмне чыгарат?</h3><pre class="code" id="e2code"></pre><div id="e2"></div></div>
+      <div class="q"><h3>3. <code class="i">=</code> менен <code class="i">==</code> айырмасы эмнеде?</h3><div id="e3"></div></div>
+      <div class="q">
+        <h3>Бүгүнкү теманы канчалык түшүндүң?</h3>
+        <div class="conf" id="conf">
+          <button type="button" data-v="1" aria-pressed="false"><b>1</b>Түшүнбөдүм</button>
+          <button type="button" data-v="2" aria-pressed="false"><b>2</b>Жарым-жартылай</button>
+          <button type="button" data-v="3" aria-pressed="false"><b>3</b>Түшүндүм</button>
+          <button type="button" data-v="4" aria-pressed="false"><b>4</b>Башкага түшүндүрө алам</button>
+        </div>
+      </div>
+      <div class="q">
+        <label for="exitNote"><h3>Эмне түшүнүксүз калды? (милдеттүү эмес)</h3></label>
+        <textarea id="exitNote" rows="2" placeholder="Мисалы: elif качан керек экенин толук түшүнгөн жокмун"></textarea>
+      </div>
+      <div class="row"><button class="btn primary" id="exitBtn" disabled>Билетти тапшыруу</button><span class="note" id="exitHint">Бардык суроолорго жооп бер</span></div>
+    </div>
+    <div id="exitResult" hidden style="display:flex;flex-direction:column;gap:18px">
+      <div class="panel">
+        <div class="score"><span class="big" id="scoreBig">0/3</span><div><h3 id="scoreTitle"></h3><p class="note" id="scoreText"></p></div></div>
+      </div>
+      <div class="panel">
+        <div class="task-head"><h3>Мугалим панели ушинтип көрөт</h3><span class="chip warn">Мисал маалымат</span></div>
+        <p class="note">Башка окуучулардын саптары прототип үчүн ойлоп табылган. Прототипте жооп эч жакка жөнөтүлбөйт.</p>
+        <div class="scroll-x"><table class="teacher" id="teacherTbl"></table></div>
+        <div class="feedback info" id="teacherSum"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="nextbar" style="margin-top:22px">
+    <button class="btn" id="prevBtn">← Мурунку</button>
+    <button class="btn primary" id="nextBtn">Кийинки бөлүк →</button>
+  </div>
+</div>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+function hl(line){
+  const re=/("[^"]*")|(#.*$)|\b(if|elif|else|print|input|int|and|or|not|True|False)\b|\b(\d+)\b/g;
+  let out="",last=0,m;
+  while((m=re.exec(line))){
+    out+=esc(line.slice(last,m.index));
+    if(m[1]) out+='<span class="str">'+esc(m[1])+'</span>';
+    else if(m[2]) out+='<span class="cm">'+esc(m[2])+'</span>';
+    else if(m[3]) out+='<span class="kw">'+m[3]+'</span>';
+    else out+='<span class="num">'+m[4]+'</span>';
+    last=re.lastIndex;
+  }
+  return out+esc(line.slice(last));
+}
+function renderCode(el,lines){
+  el.innerHTML=lines.map((l,i)=>'<span class="ln" data-n="'+(i+1)+'">'+(hl(l)||" ")+'</span>').join("");
+  return [...el.querySelectorAll(".ln")];
+}
+
+/* ---- stages ---- */
+const STAGES=[
+  {t:"Discover",m:"Ачылыш",xp:10},
+  {t:"Learning",m:"Үйрөнүү",xp:20},
+  {t:"Practice",m:"Практика",xp:30},
+  {t:"Бышыктоо",m:"Кайталоо",xp:20},
+  {t:"Exit ticket",m:"Чыгуу билети",xp:20}
+];
+const done=[false,false,false,false,false];
+let xp=0,cur=0;
+const list=$("#stepList");
+list.innerHTML=STAGES.map((s,i)=>'<li><button type="button" data-i="'+i+'"><span class="n">'+(i+1)+'/5</span><span class="t">'+s.t+'</span><span class="m">'+s.m+'</span></button></li>').join("");
+list.addEventListener("click",e=>{const b=e.target.closest("button");if(b)go(+b.dataset.i)});
+function addXP(n){xp=Math.min(100,xp+n);$("#xpVal").textContent=xp+" XP"}
+function markDone(i){
+  if(done[i])return;done[i]=true;
+  list.querySelectorAll("button")[i].classList.add("done");
+  $("#barFill").style.width=(done.filter(Boolean).length*20)+"%";
+}
+function go(i){
+  cur=i;
+  for(let k=0;k<5;k++){$("#s"+k).hidden=k!==i;list.querySelectorAll("button")[k].toggleAttribute("aria-current",k===i);if(k===i)list.querySelectorAll("button")[k].setAttribute("aria-current","step")}
+  $("#prevBtn").disabled=i===0;
+  $("#nextBtn").hidden=i===4;
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+$("#prevBtn").onclick=()=>go(Math.max(0,cur-1));
+$("#nextBtn").onclick=()=>go(Math.min(4,cur+1));
+
+/* ---- MCQ helper ---- */
+function mcq(el,{options,correct,mono,oneShot,onRight,onAnswer,explainRight,explainWrong}){
+  el.innerHTML='<div class="opts">'+options.map((o,i)=>'<button type="button" class="opt'+(mono?" mono":"")+'" data-i="'+i+'">'+esc(o)+'</button>').join("")+'</div><div class="fbx"></div>';
+  const fb=el.querySelector(".fbx"),btns=[...el.querySelectorAll(".opt")];
+  let finished=false;
+  btns.forEach(b=>b.onclick=()=>{
+    if(finished)return;
+    const i=+b.dataset.i,ok=i===correct;
+    if(oneShot){
+      finished=true;btns.forEach(x=>x.disabled=true);b.classList.add("picked");
+      onAnswer&&onAnswer(ok);return;
+    }
+    if(ok){
+      finished=true;b.classList.add("right");btns.forEach(x=>x.disabled=true);
+      fb.innerHTML='<div class="feedback good" style="margin-top:10px"><b>Туура!</b> '+(explainRight||"")+'</div>';
+      onRight&&onRight();
+    }else{
+      b.classList.add("wrong");b.disabled=true;
+      fb.innerHTML='<div class="feedback bad" style="margin-top:10px"><b>Дагы бир жолу аракет кыл.</b> '+(explainWrong||"")+'</div>';
+    }
+  });
+}
+
+/* ---- 1 DISCOVER ---- */
+const road={red:"Кызыл → Машина токтойт.",yellow:"Сары → Айдоочу даярданат, жай жүрөт.",green:"Жашыл → Машина жолго чыгат."};
+const tried=new Set();
+document.querySelectorAll(".tl-btn").forEach(b=>b.onclick=()=>{
+  const c=b.dataset.c;
+  ["lr","ly","lg"].forEach(id=>$("#"+id).classList.remove("on"));
+  $({red:"#lr",yellow:"#ly",green:"#lg"}[c]).classList.add("on");
+  $("#road").textContent=road[c];b.classList.add("tried");tried.add(c);
+  if(tried.size===3)$("#discQ").hidden=false;
+});
+$("#discInput").addEventListener("input",e=>$("#discBtn").disabled=e.target.value.trim().length<3);
+$("#discBtn").onclick=()=>{
+  $("#discReveal").hidden=false;$("#discReveal").style.display="flex";
+  renderCode($("#discCode"),['if tus == "кызыл":','    print("Токто")','elif tus == "сары":','    print("Даярдан")','else:','    print("Жүр")']);
+  $("#discBtn").disabled=true;
+  if(!done[0]){addXP(10);markDone(0)}
+};
+
+/* ---- 2 LEARNING ---- */
+function sim(){
+  const v=+$("#tempRange").value;$("#tempVal").textContent=v;
+  const lines=renderCode($("#simCode"),["temperatura = "+v,"if temperatura > 25:",'    print("Ысык, суу ич")',"elif temperatura > 10:",'    print("Жылуу, сейилдегиле")',"else:",'    print("Суук, күрмө кий")']);
+  let act,out;
+  if(v>25){act=[1,2];out="Ысык, суу ич"}else if(v>10){act=[1,3,4];out="Жылуу, сейилдегиле"}else{act=[1,3,5,6];out="Суук, күрмө кий"}
+  const body={2:1,4:1,6:1};
+  lines.forEach((l,i)=>{if(i===0)return;const on=act.includes(i);if(on&&(body[i]||i===act[act.length-2]))l.classList.add("active");else if(!on)l.classList.add("dim")});
+  $("#simOut").textContent=out;
+}
+$("#tempRange").addEventListener("input",sim);sim();
+mcq($("#learnQ"),{options:[";",":","."],correct:1,mono:true,
+  explainRight:"Эки чекит <code class=\"i\">:</code> «мындан кийин шарттын блогу башталат» дегенди билдирет.",
+  explainWrong:"Анатомия блогун дагы бир карап чык.",
+  onRight:()=>{if(!done[1]){addXP(20);markDone(1)}}});
+
+/* ---- 3 PRACTICE ---- */
+const pDone=[false,false,false];
+function practiceOk(i){
+  if(pDone[i])return;pDone[i]=true;addXP(10);
+  const c=$("#t"+(i+1)+"chip");c.textContent="Аткарылды";c.className="chip good";
+  if(pDone.every(Boolean))markDone(2);
+}
+renderCode($("#t1code"),['tus = input("Светофордун түсү: ")','if tus ___ "кызыл":','    print("Токто!")']);
+mcq($("#t1opts"),{options:["=","==","!="],correct:1,mono:true,
+  explainRight:"<code class=\"i\">==</code> эки маанини салыштырат жана True же False берет.",
+  explainWrong:"Бир <code class=\"i\">=</code> маани ыйгарат, ал эми <code class=\"i\">!=</code> «барабар эмес» дегенди билдирет.",
+  onRight:()=>practiceOk(0)});
+
+renderCode($("#t2code"),["jash = int(input())","if ______:",'    print("Кире аласыз")',"else:",'    print("Кечириңиз, али эрте")']);
+function evalCond(src,j){
+  const s=src.trim().replace(/:$/,"");
+  if(!s)return{err:"Шарт бош калды."};
+  if(/(^|[^<>=!])=([^=]|$)/.test(s))return{err:"Бир <code class=\"i\">=</code> маани ыйгарат. Салыштыруу үчүн <code class=\"i\">==</code>, <code class=\"i\">&gt;=</code> сыяктууларды колдон."};
+  if(!/^[A-Za-z_0-9\s<>=!()]+$/.test(s))return{err:"Шартта түшүнүксүз белги бар."};
+  const ids=s.match(/[A-Za-z_]\w*/g)||[];
+  const bad=ids.find(w=>!["jash","and","or","not"].includes(w));
+  if(bad)return{err:"<code class=\"i\">"+esc(bad)+"</code> деген өзгөрмө жок. Өзгөрмөнүн аты: <code class=\"i\">jash</code>."};
+  const js=s.replace(/\band\b/g,"&&").replace(/\bor\b/g,"||").replace(/\bnot\b/g,"!");
+  try{const r=new Function("jash","return ("+js+")")(j);return{val:!!r}}catch(e){return{err:"Синтаксис катасы. Мисал: <code class=\"i\">jash &gt; 10</code>"}}
+}
+$("#t2btn").onclick=()=>{
+  const src=$("#t2in").value,tests=[12,17,18,25];let pass=0,rows="",err=null;
+  for(const t of tests){const r=evalCond(src,t);if(r.err){err=r.err;break}
+    const exp=t>=18,ok=r.val===exp;if(ok)pass++;
+    rows+='<tr><td>'+t+'</td><td>'+(exp?"Кире аласыз":"Али эрте")+'</td><td>'+(r.val?"Кире аласыз":"Али эрте")+'</td><td class="'+(ok?"p":"f")+'">'+(ok?"Өттү":"Өтпөдү")+'</td></tr>'}
+  const fb=$("#t2fb");
+  if(err){fb.innerHTML='<div class="feedback bad">'+err+'</div>';return}
+  const tbl='<div class="scroll-x"><table class="tests"><thead><tr><th>jash</th><th>Күтүлгөн</th><th>Сенин программаң</th><th>Тест</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  if(pass===4){fb.innerHTML='<div class="feedback good" style="margin-bottom:10px"><b>4/4 тест өттү!</b> 18 жаштагы окуучу да кире алат, ошондуктан <code class="i">&gt;=</code> туура тандоо.</div>'+tbl;practiceOk(1)}
+  else fb.innerHTML='<div class="feedback bad" style="margin-bottom:10px"><b>'+pass+'/4 тест өттү.</b> Так 18 жаштагы адамга эмне болорун текшер.</div>'+tbl;
+};
+$("#t2in").addEventListener("keydown",e=>{if(e.key==="Enter")$("#t2btn").click()});
+$("#t2hint").onclick=()=>{$("#t2fb").innerHTML='<div class="feedback info"><b>Кеңеш:</b> «18 жаштан баштап» деген 18 да кирет дегенди билдирет. Кайсы оператор «чоң же барабар»?</div>'};
+
+const correctOrder=["baa = 85","if baa >= 90:",'    print("5 — Эң жакшы")',"elif baa >= 70:",'    print("4 — Жакшы")',"else:",'    print("3 — Аракет кыл")'];
+function shuffle(a){const b=a.slice();for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
+function parsonsInit(){
+  const pool=$("#pPool"),ans=$("#pAns");
+  pool.querySelectorAll(".line-btn").forEach(x=>x.remove());ans.querySelectorAll(".line-btn").forEach(x=>x.remove());
+  let order=shuffle(correctOrder);
+  if(order.join()===correctOrder.join())order=order.reverse();
+  order.forEach(l=>{const b=document.createElement("button");b.type="button";b.className="line-btn";b.innerHTML=hl(l);b.dataset.l=l;pool.appendChild(b)});
+  $("#t3fb").innerHTML="";
+}
+document.querySelector(".parsons").addEventListener("click",e=>{
+  const b=e.target.closest(".line-btn");if(!b||pDone[2])return;
+  b.classList.remove("ok","no");
+  (b.parentElement.id==="pPool"?$("#pAns"):$("#pPool")).appendChild(b);
+});
+$("#t3btn").onclick=()=>{
+  const got=[...$("#pAns").querySelectorAll(".line-btn")];
+  if(got.length<correctOrder.length){$("#t3fb").innerHTML='<div class="feedback bad">Бардык '+correctOrder.length+' сапты оң жакка көчүр.</div>';return}
+  let right=0;got.forEach((b,i)=>{const ok=b.dataset.l===correctOrder[i];b.classList.toggle("ok",ok);b.classList.toggle("no",!ok);if(ok)right++});
+  if(right===correctOrder.length){$("#t3fb").innerHTML='<div class="feedback good"><b>Мыкты!</b> baa = 85 болгондо программа «4 — Жакшы» деп чыгарат.</div>';practiceOk(2)}
+  else $("#t3fb").innerHTML='<div class="feedback bad"><b>'+right+'/'+correctOrder.length+' сап өз ордунда.</b> Эсте: <code class="i">if</code> → <code class="i">elif</code> → <code class="i">else</code>, ар биринен кийин өз <code class="i">print</code>\'у.</div>';
+};
+$("#t3reset").onclick=()=>{if(!pDone[2])parsonsInit()};
+parsonsInit();
+
+/* ---- 4 БЫШЫКТОО ---- */
+const rDone=[false,false];
+function reinfOk(i){if(rDone[i])return;rDone[i]=true;addXP(10);if(rDone.every(Boolean))markDone(3)}
+const bugLines=renderCode($("#bugCode"),["temperatura = 30","if temperatura > 25",'    print("Ысык")',"else:",'print("Салкын")']);
+const bugs={1:"2-сап: шарттан кийин эки чекит <code class=\"i\">:</code> жок.",4:"5-сап: <code class=\"i\">else</code> ичиндеги буйрук 4 боштук ичкери жазылышы керек."};
+const found=new Set();
+bugLines.forEach((l,i)=>{l.tabIndex=0;l.setAttribute("role","button");
+  const act=()=>{
+    if(found.size===2)return;
+    if(bugs[i]&&!found.has(i)){found.add(i);l.classList.add("found");
+      $("#bugChip").textContent=found.size+" / 2 табылды";
+      $("#bugFb").innerHTML=[...found].map(k=>'<div class="feedback good" style="margin-bottom:6px">'+bugs[k]+'</div>').join("");
+      if(found.size===2){$("#bugChip").className="chip good";
+        $("#bugFb").insertAdjacentHTML("beforeend",'<p class="note" style="margin-top:6px">Оңдолгон вариант:</p><pre class="code" id="bugFixed"></pre>');
+        renderCode($("#bugFixed"),["temperatura = 30","if temperatura > 25:",'    print("Ысык")',"else:",'    print("Салкын")']);
+        reinfOk(0)}
+    }else if(!bugs[i]){l.classList.remove("shake");void l.offsetWidth;l.classList.add("shake");
+      $("#bugFb").innerHTML=[...found].map(k=>'<div class="feedback good" style="margin-bottom:6px">'+bugs[k]+'</div>').join("")+'<div class="feedback bad">'+(i+1)+'-сап туура жазылган. Башкасын изде.</div>'}
+  };
+  l.onclick=act;l.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();act()}};
+});
+renderCode($("#predCode"),["x = 7","if x % 2 == 0:",'    print("Жуп")',"else:",'    print("Так")']);
+mcq($("#predOpts"),{options:["Жуп","Так","Эч нерсе чыкпайт","Ката чыгат"],correct:1,
+  explainRight:"7 % 2 = 1, демек <code class=\"i\">1 == 0</code> → False, ошондуктан <code class=\"i\">else</code> блогу иштейт.",
+  explainWrong:"Алгач 7 % 2 канча болорун эсепте.",
+  onRight:()=>{$("#predChip").textContent="Аткарылды";$("#predChip").className="chip good";reinfOk(1)}});
+
+/* ---- 5 EXIT TICKET ---- */
+const ans=[null,null,null];let conf=0;
+function checkExit(){const ok=ans.every(a=>a!==null)&&conf>0;$("#exitBtn").disabled=!ok;$("#exitHint").hidden=ok}
+mcq($("#e1"),{options:["if","elif","else","print"],correct:2,mono:true,oneShot:true,onAnswer:ok=>{ans[0]=ok;checkExit()}});
+renderCode($("#e2code"),["a = 5","if a > 3:",'    print("A")',"elif a > 1:",'    print("B")']);
+mcq($("#e2"),{options:["A","B","A жана B","Эч нерсе"],correct:0,oneShot:true,onAnswer:ok=>{ans[1]=ok;checkExit()}});
+mcq($("#e3"),{options:["= салыштырат, == маани ыйгарат","= маани ыйгарат, == салыштырат","Экөө бирдей иштейт"],correct:1,oneShot:true,onAnswer:ok=>{ans[2]=ok;checkExit()}});
+document.querySelectorAll("#conf button").forEach(b=>b.onclick=()=>{
+  conf=+b.dataset.v;document.querySelectorAll("#conf button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));checkExit();
+});
+const confLbl={1:"Түшүнбөдүм",2:"Жарым-жартылай",3:"Түшүндүм",4:"Түшүндүрө алам"};
+$("#exitBtn").onclick=()=>{
+  const sc=ans.filter(Boolean).length;
+  $("#exitForm").hidden=true;const r=$("#exitResult");r.hidden=false;r.style.display="flex";
+  $("#scoreBig").textContent=sc+"/3";
+  $("#scoreTitle").textContent=sc===3?"Мыкты! Тема толук өздөштүрүлдү.":sc===2?"Жакшы натыйжа.":"Бул теманы дагы бир кайталап алалы.";
+  const wrongTopics=[];if(!ans[0])wrongTopics.push("else блогу");if(!ans[1])wrongTopics.push("elif качан текшерилет");if(!ans[2])wrongTopics.push("= жана == айырмасы");
+  $("#scoreText").textContent=wrongTopics.length?"Кайталоо керек: "+wrongTopics.join(", ")+".":"Кийинки сабакта: логикалык операторлор and, or, not.";
+  if(!done[4]){addXP(20);markDone(4)}
+  const sample=[["Айбек М.",3,4],["Нурай К.",3,3],["Эрлан Т.",1,1],["Бегимай А.",2,3],["Тилек С.",3,3],["Жибек О.",2,2]];
+  const all=sample.concat([["Сиз",sc,conf]]);
+  const dots=n=>'<span class="dots">'+[1,2,3,4].map(k=>'<i class="'+(k<=n?"f":"")+'"></i>').join("")+'</span>';
+  const st=(s,c)=>s===3&&c>=3?'<span class="chip good">Түшүндү</span>':s>=2?'<span class="chip warn">Көңүл буруу</span>':'<span class="chip bad">Жардам керек</span>';
+  $("#teacherTbl").innerHTML='<thead><tr><th>Окуучу</th><th>Упай</th><th>Ишеним</th><th>Статус</th></tr></thead><tbody>'+
+    all.map((r,i)=>'<tr class="'+(i===all.length-1?"me":"")+'"><td>'+r[0]+'</td><td>'+r[1]+'/3</td><td>'+dots(r[2])+' '+confLbl[r[2]]+'</td><td>'+st(r[1],r[2])+'</td></tr>').join("")+'</tbody>';
+  const ok=all.filter(r=>r[1]===3).length,help=all.filter(r=>r[1]<=1).length;
+  $("#teacherSum").innerHTML='<b>Класс боюнча:</b> '+ok+'/'+all.length+' окуучу бардык суроого туура жооп берди. '+help+' окуучуга жеке жардам керек. Кийинки сабакты кыска кайталоо менен баштоо сунушталат.';
+};
+
+go(0);
+})();
+</script>
+
+</body>
+</html>

@@ -7,6 +7,17 @@
 
 Стек: Next.js 15 (App Router) · Supabase (Postgres, Auth, RLS) · Tailwind CSS 4 · Pyodide (Python браузерде).
 
+## Документтер
+
+| Файл | Эмне |
+| --- | --- |
+| `AGENTS.md` | Codex жана башка AI агенттер үчүн нускама (эрежелер, командалар, папкалар) |
+| `docs/PLAN.md` | Платформанын толук планы |
+| `docs/TASKS.md` | Кийинки тапшырмалар, ирети менен |
+| `docs/LESSON_FORMAT.md` | Сабактын JSON форматы жана блок түрлөрү |
+| `docs/DESIGN.md` | Түстөр, шрифттер, компоненттер |
+| `design/mockups/` | HTML макеттер (браузерде ач) |
+
 ## Орнотуу
 
 ### 1. Supabase

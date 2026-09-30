@@ -40,6 +40,7 @@ src/app/                  беттер (App Router)
   actions/                Server Actions (auth.ts, teacher.ts)
   teacher/                мугалимдин беттери (requireRole("teacher"))
   student/                окуучунун беттери (requireRole("student"))
+  admin/                  платформанын админи (requireAdmin() — profiles.is_admin; маалымат admin клиент менен)
 src/components/
   ui.tsx                  Button, Card, Chip, Field, Progress, RichText…
   player/                 сабак ойноткуч жана блок компоненттери

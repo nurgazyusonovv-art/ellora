@@ -9,6 +9,8 @@ export type Profile = {
   full_name: string;
   username: string | null;
   school: string | null;
+  /** Платформанын админи (0007). Миграция иштетилгенге чейин — жок. */
+  is_admin?: boolean;
 };
 
 /** Кирген колдонуучу жана анын профили (бир сурамда бир жолу гана окулат). */
@@ -26,6 +28,17 @@ export async function requireRole(role: Profile["role"]) {
   const s = await getSession();
   if (!s.user || !s.profile) redirect(role === "teacher" ? "/login" : "/student-login");
   if (s.profile.role !== role) redirect(s.profile.role === "teacher" ? "/teacher" : "/student");
+  return s as typeof s & { profile: Profile };
+}
+
+/**
+ * Админ панели үчүн. Белги колдонуучунун өз сессиясы менен окулат (RLS: өз профили);
+ * ушул текшерүүдөн кийин гана admin клиент менен бардык маалыматты окууга болот.
+ */
+export async function requireAdmin() {
+  const s = await getSession();
+  if (!s.user || !s.profile) redirect("/login");
+  if (s.profile.is_admin !== true) redirect(s.profile.role === "teacher" ? "/teacher" : "/student");
   return s as typeof s & { profile: Profile };
 }
 

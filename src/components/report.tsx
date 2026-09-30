@@ -121,3 +121,61 @@ export function AccuracyBars({ rows }: { rows: { label: string; pct: number; n: 
     </div>
   );
 }
+
+/** Күн сайынгы сандар (мисалы, бүткөн сабактар). Бир серия; эң чоң мааниси гана жазылат, калганы — hover. */
+export function DailyBars({ days, unit }: { days: { label: string; count: number }[]; unit: string }) {
+  const W = 640;
+  const H = 170;
+  const left = 30;
+  const bottom = 22;
+  const top = 16;
+  const plotH = H - bottom - top;
+  const max = Math.max(1, ...days.map((d) => d.count));
+  const niceMax = max <= 4 ? max : Math.ceil(max / 5) * 5;
+  const band = (W - left - 8) / days.length;
+  const bw = Math.min(15, band * 0.6); // кең экранда SVG чоңоёт — тилке 24px'тен ашпасын
+  const y = (v: number) => top + plotH * (1 - v / niceMax);
+  const peak = days.reduce((a, b) => (b.count > a.count ? b : a), days[0]);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`Акыркы ${days.length} күн: ${unit}`}>
+      {[0, niceMax].map((v) => (
+        <g key={v}>
+          <line x1={left} x2={W - 4} y1={y(v)} y2={y(v)} stroke="var(--color-line)" strokeWidth="1" />
+          <text x={left - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fill="var(--color-muted)">
+            {v}
+          </text>
+        </g>
+      ))}
+      {days.map((d, i) => {
+        const cx = left + band * i + band / 2;
+        const h = d.count ? Math.max(plotH * (d.count / niceMax), 3) : 0;
+        const x = cx - bw / 2;
+        const yb = top + plotH;
+        const r = Math.min(4, h, bw / 2);
+        return (
+          <g key={d.label}>
+            <title>{`${d.label}: ${d.count} ${unit}`}</title>
+            <rect x={cx - band / 2} y={top} width={band} height={plotH} fill="transparent" />
+            {h > 0 && (
+              <path
+                d={`M${x},${yb} V${yb - h + r} Q${x},${yb - h} ${x + r},${yb - h} H${x + bw - r} Q${x + bw},${yb - h} ${x + bw},${yb - h + r} V${yb} Z`}
+                fill="var(--color-accent)"
+              />
+            )}
+            {(i % 2 === 1 || i === days.length - 1) && (
+              <text x={cx} y={H - 6} textAnchor="middle" fontSize="10.5" fill="var(--color-muted)">
+                {d.label}
+              </text>
+            )}
+            {d === peak && d.count > 0 && (
+              <text x={cx} y={yb - h - 5} textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--color-ink)">
+                {d.count}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}

@@ -16,6 +16,20 @@ const ICONS = {
       <path d="M4 9h16M9 9v11" />
     </>
   ),
+  stats: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
+  person: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c1-4.5 4-6.5 8-6.5s7 2 8 6.5" />
+    </>
+  ),
+  admin: (
+    <>
+      <path d="M12 3 4.5 6v6c0 4.5 3.2 7.8 7.5 9 4.3-1.2 7.5-4.5 7.5-9V6z" />
+      <path d="m9 12 2.2 2.2L15.5 10" />
+    </>
+  ),
+  back: <path d="M19 12H5M11 6l-6 6 6 6" />,
   ktp: (
     <>
       <rect x="3.5" y="5" width="17" height="15.5" rx="2" />

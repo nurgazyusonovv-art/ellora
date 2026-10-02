@@ -11,6 +11,7 @@ ellora — информатика мугалимдери 5 бөлүктүү ин
 - Пландын толугу: `docs/PLAN.md`
 - Кийинки тапшырмалар: `docs/TASKS.md` ← **иштин тизмеси ушул жерде**
 - Сабактын JSON форматы: `docs/LESSON_FORMAT.md`
+- AI жана тарифтер (Free/Pro): `docs/AI.md`
 - Дизайн эрежелери: `docs/DESIGN.md`, макеттер: `design/mockups/*.html`
 
 ## Стек

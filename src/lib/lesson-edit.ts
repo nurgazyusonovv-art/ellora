@@ -1,9 +1,10 @@
 /** Сабак конструктору үчүн жардамчылар. Серверде да, браузерде да колдонулат. */
-import { STAGE_KEYS, STAGE_META, isGraded, type Block, type LessonContent, type StageKey } from "@/lib/lesson-types";
+import { STAGE_KEYS, FIVE_E_META, isGraded, type Block, type LessonContent, type StageKey } from "@/lib/lesson-types";
 
 export type BlockType = Block["type"];
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
+  investigation: "Изилдөө",
   text: "Текст",
   code_example: "Код мисалы",
   mcq: "Тест",
@@ -16,8 +17,8 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
 
 export const BLOCK_TYPES = Object.keys(BLOCK_LABELS) as BlockType[];
 
-/** Бөлүктөрдүн демейки үлүшү (40 мүнөттүк сабакта: 5 / 10 / 15 / 7 / 3). */
-const STAGE_WEIGHTS: Record<StageKey, number> = { discover: 5, learning: 10, practice: 15, reinforce: 7, exit: 3 };
+/** Бөлүктөрдүн демейки үлүшү (40 мүнөттүк сабакта: 5 / 10 / 8 / 12 / 5). */
+const STAGE_WEIGHTS: Record<StageKey, number> = { discover: 5, learning: 10, practice: 8, reinforce: 12, exit: 5 };
 
 export const DURATION_OPTIONS = [30, 35, 40, 45, 80, 90];
 export const DEFAULT_DURATION = 45;
@@ -38,8 +39,11 @@ export function emptyLesson(duration = DEFAULT_DURATION): LessonContent {
   const minutes = distributeMinutes(duration);
   return {
     version: 1,
+    model: "5e",
+    objectives: [],
+    successCriteria: [],
     duration,
-    stages: STAGE_KEYS.map((key, i) => ({ key, title: STAGE_META[key].sub, minutes: minutes[i], blocks: [] })),
+    stages: STAGE_KEYS.map((key, i) => ({ key, title: FIVE_E_META[key].label, minutes: minutes[i], blocks: [] })),
   };
 }
 
@@ -54,6 +58,8 @@ export function nextBlockId(content: LessonContent, stage: StageKey) {
 
 export function newBlock(type: BlockType, id: string): Block {
   switch (type) {
+    case "investigation":
+      return { id, type, prompt: "", procedure: "" };
     case "text":
       return { id, type, body: "" };
     case "code_example":
@@ -89,6 +95,10 @@ export function validateLesson(title: string, content: LessonContent): Issue[] {
   const out: Issue[] = [];
   if (blank(title)) out.push({ stage: -1, message: "Сабактын атын жазыңыз." });
 
+  if (content.model === "5e") {
+    if (!content.objectives?.some(x => x.trim())) out.push({ stage: -1, message: "Окуу максатын жазыңыз." });
+    if (!content.successCriteria?.some(x => x.trim())) out.push({ stage: -1, message: "Ийгилик критерийин жазыңыз." });
+  }
   content.stages.forEach((st, si) => {
     const add = (message: string, blockId?: string) => out.push({ stage: si, blockId, message });
     if (blank(st.title)) add("Бөлүктүн аталышын жазыңыз.");
@@ -96,10 +106,22 @@ export function validateLesson(title: string, content: LessonContent): Issue[] {
     if (st.blocks.length === 0) add("Бөлүктө жок дегенде бир блок болушу керек.");
     if (st.key === "exit" && !st.blocks.some((b) => b.type === "mcq")) add("Exit ticket'те жок дегенде бир тест (mcq) болсун.");
 
+    if (content.model === "5e") {
+      if (st.key === "discover" && !st.blocks.some(b => b.type === "open" && !b.optional && b.lockOnSubmit)) add("Баштапкы ой үчүн жоопту өзгөртүүгө болбой турган милдеттүү ачык жооп кошуңуз.");
+      if (st.key === "learning" && !st.blocks.some(b => b.type === "investigation")) add("Изилдөө тапшырмасын кошуңуз.");
+      if (st.key === "learning" && st.blocks.some(isGraded)) add("Изилдөөдө туура жоопту талап кылган тесттин ордуна байкоо чогултуңуз.");
+      if (st.key === "practice" && !st.blocks.some(b => b.type === "open" && !b.optional)) add("Окуучу өз сөзү менен түшүндүрө турган суроо кошуңуз.");
+      if (st.key === "reinforce" && !st.blocks.some(b => (b.type === "open" && b.rubric?.length) || b.type === "code_task")) add("Жаңы кырдаалга код тапшырмасын же критерийи бар ачык жооп кошуңуз.");
+      if (st.key === "exit" && !st.blocks.some(b => b.type === "open" && b.compareTo && !b.optional)) add("Баштапкы ойду салыштыруу үчүн ачык жооп кошуңуз.");
+    }
     for (const b of st.blocks) {
       const bad = (m: string) => add(m, b.id);
       if ("xp" in b && isGraded(b) && b.xp !== undefined && !(b.xp >= 0)) bad("XP терс сан болбосун.");
       switch (b.type) {
+        case "investigation":
+          if (blank(b.prompt)) bad("Изилдөөнүн суроосун жазыңыз.");
+          if (blank(b.procedure)) bad("Сынап көрүүнүн кадамдарын жазыңыз.");
+          break;
         case "text":
           if (blank(b.body)) bad("Тексттин мазмунун жазыңыз.");
           break;
@@ -132,6 +154,10 @@ export function validateLesson(title: string, content: LessonContent): Issue[] {
           break;
         }
         case "open":
+          if (b.compareTo && !content.stages[0].blocks.some(x => x.id === b.compareTo && x.type === "open")) bad("Салыштыруу үчүн биринчи бөлүктөгү ачык жооптун id’син тандаңыз.");
+          if (b.rubric?.some(x => blank(x))) bad("Баалоо критерийи бош болбосун.");
+          if (blank(b.prompt)) bad("Суроону жазыңыз.");
+          break;
         case "confidence":
           if (blank(b.prompt)) bad("Суроону жазыңыз.");
           break;
@@ -147,12 +173,18 @@ export function checkStructure(content: unknown): string | null {
   if (!c || c.version !== 1 || !Array.isArray(c.stages)) return "Сабактын форматы туура эмес.";
   if (c.duration !== undefined && !(Number.isInteger(c.duration) && c.duration > 0 && c.duration <= 180))
     return "Сабактын узактыгы 1–180 мүнөт болсун.";
-  if (c.stages.length !== 5 || c.stages.some((s, i) => s.key !== STAGE_KEYS[i])) return "Сабакта 5 бөлүк ушул тартипте болушу керек.";
+  if (c.stages.length !== 5 || c.stages.some((s, i) => !s || s.key !== STAGE_KEYS[i])) return "Сабакта 5 бөлүк ушул тартипте болушу керек.";
+  if (c.model !== undefined && c.model !== "5e") return "Сабактын модели туура эмес.";
+  for (const values of [c.objectives, c.successCriteria]) if (values !== undefined && (!Array.isArray(values) || values.length > 20 || values.some(x => typeof x !== "string" || x.length > 1000))) return "Максаттар же критерийлер туура эмес.";
+  if (c.teacherNotes !== undefined && (typeof c.teacherNotes !== "string" || c.teacherNotes.length > 20000)) return "Мугалимдин нускамасы туура эмес.";
   const ids = new Set<string>();
   for (const s of c.stages) {
     if (!Array.isArray(s.blocks)) return "Сабактын форматы туура эмес.";
     for (const b of s.blocks) {
       if (!b || typeof b.id !== "string" || !b.id || !(b.type in BLOCK_LABELS)) return "Белгисиз блок бар.";
+      if ([b.support, b.extension].some(x => x !== undefined && (typeof x !== "string" || x.length > 10000)) || (b.collaboration !== undefined && !["individual", "pair", "group"].includes(b.collaboration))) return "Тапшырманын жардамы же иштөө режими туура эмес.";
+      if (b.type === "investigation" && (typeof b.prompt !== "string" || typeof b.procedure !== "string" || (b.code !== undefined && typeof b.code !== "string"))) return "Изилдөөнүн форматы туура эмес.";
+      if (b.type === "open" && ((b.lockOnSubmit !== undefined && typeof b.lockOnSubmit !== "boolean") || (b.compareTo !== undefined && typeof b.compareTo !== "string") || (b.rubric !== undefined && (!Array.isArray(b.rubric) || b.rubric.length > 20 || b.rubric.some(x => typeof x !== "string" || x.length > 1000))))) return "Ачык жооптун критерийлери туура эмес.";
       if (ids.has(b.id)) return `Блоктун id'си кайталанып калды: ${b.id}`;
       ids.add(b.id);
     }

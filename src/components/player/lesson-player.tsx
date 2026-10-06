@@ -1,9 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { AutoRefresh } from "@/components/auto-refresh";
+import { liveAllows, type LiveSession, type Review } from "@/lib/classroom";
+import { AiTutor } from "@/components/player/ai-tutor";
 import { useEffect, useRef, useState } from "react";
 import { completeStage, submitAnswer, type Progress } from "@/app/actions/student";
 import {
+  Investigation,
   BugHunt,
   CodeExample,
   CodeTask,
@@ -16,7 +20,7 @@ import {
 } from "@/components/player/blocks";
 import { Button, cx, RichText } from "@/components/ui";
 import { EXIT_BONUS_XP, exitResult, stageDone } from "@/lib/grading";
-import { isGraded, isInteractive, STAGE_META, type Block, type LessonContent } from "@/lib/lesson-types";
+import { isGraded, isInteractive, stageMeta, type Block, type LessonContent } from "@/lib/lesson-types";
 import { warmUpPython } from "@/lib/python";
 
 type Attempt = { id: string; current_stage: number; xp: number; exit_score: number | null; exit_total: number | null };
@@ -31,16 +35,18 @@ type Props = {
   /** Окуучу режими: жооптор базага сакталат. Жок болсо — мугалимдин алдын ала көрүүсү. */
   attempt?: Attempt;
   initialAnswers?: Record<string, SavedAnswer>;
+  liveSession?: LiveSession | null;
+  reviews?: Review[];
 };
 
-export function LessonPlayer({ title, content, backHref, attempt, initialAnswers = {} }: Props) {
+export function LessonPlayer({ title, content, backHref, attempt, initialAnswers = {}, liveSession = null, reviews = [] }: Props) {
   const preview = !attempt;
   // Окуучу режиминде блоктор жооптон кийин серверден жаңыланат (туура жооп ачылат).
   const [stages, setStages] = useState(content.stages);
   const [answers, setAnswers] = useState<Record<string, SavedAnswer>>(initialAnswers);
   const [unlocked, setUnlocked] = useState(attempt?.current_stage ?? 0); // 5 = бүттү
   const [xp, setXp] = useState(attempt?.xp ?? 0);
-  const [view, setView] = useState(Math.min(attempt?.current_stage ?? 0, stages.length - 1));
+  const [view, setView] = useState(Math.min(attempt?.current_stage ?? 0, liveSession?.max_stage ?? 4, stages.length - 1));
   const [saveError, setSaveError] = useState<string | null>(null);
   const [failed, setFailed] = useState<Record<string, number>>({});
   const [finished, setFinished] = useState<{ score: number; total: number } | null>(
@@ -106,7 +112,7 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
     if (r.finished) setFinished(r.finished);
     if (r.current_stage !== undefined) {
       const next = r.current_stage;
-      if (next > unlockedRef.current && next < stages.length) setTimeout(() => go(next), 900);
+      if (next > unlockedRef.current && next < stages.length && liveAllows(liveSession, next)) setTimeout(() => go(next), 900);
       unlockedRef.current = next;
       setUnlocked(next);
     }
@@ -188,11 +194,14 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
   };
 
   const st = stages[view];
-  const canNext = view < stages.length - 1 && (preview || unlocked > view);
+  const canNext = view < stages.length - 1 && (preview || (unlocked > view && liveAllows(liveSession, view + 1)));
   const isExit = st.key === "exit";
+  const explanation = content.model === "5e" && st.key === "practice" ? st.blocks.find(b => b.type === "open" && !b.optional) : undefined;
+  const explainReady = !explanation || !!answers[explanation.id];
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pt-4 pb-16 sm:px-6" ref={topRef}>
+      {attempt && <AutoRefresh />}
       <header className="flex flex-wrap items-center justify-between gap-3">
         <Link href={backHref} className="text-sm font-semibold text-accent">
           ← Артка
@@ -206,10 +215,11 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
       </header>
       <h1 className="font-display text-xl font-bold sm:text-2xl">{title}</h1>
 
+      {content.model === "5e" && view === 0 && <div className="grid gap-4 rounded-2xl bg-surface p-4 sm:grid-cols-2"><div><h2 className="mb-2 font-semibold">Сабактын максаты</h2><ul className="list-disc pl-5 text-sm">{content.objectives?.map(x => <li key={x}>{x}</li>)}</ul></div><div><h2 className="mb-2 font-semibold">Ийгилик критерийлери</h2><ul className="list-disc pl-5 text-sm">{content.successCriteria?.map(x => <li key={x}>{x}</li>)}</ul></div></div>}
       <nav aria-label="Сабактын бөлүктөрү" className="sticky top-0 z-10 -mx-4 bg-bg px-4 py-2 sm:-mx-6 sm:px-6">
         <ol className="grid grid-cols-5 gap-1.5">
           {stages.map((s, i) => {
-            const locked = !preview && i > unlocked;
+            const locked = !preview && (i > unlocked || !liveAllows(liveSession, i));
             const done = preview ? false : i < unlocked;
             return (
               <li key={s.key}>
@@ -227,7 +237,7 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
                   <span className="font-mono text-[11px] text-muted">
                     {i + 1}/5 {done && <span className="font-bold text-good">✓</span>}
                   </span>
-                  <span className="w-full truncate text-xs font-semibold sm:text-sm">{STAGE_META[s.key].label}</span>
+                  <span title={stageMeta(content, s.key).label} className="w-full truncate text-xs font-semibold sm:text-sm">{stageMeta(content, s.key).label}</span>
                 </button>
               </li>
             );
@@ -252,21 +262,27 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
         </p>
       )}
 
-      {finished && isExit ? (
-        <FinishCard score={finished.score} total={finished.total} xp={xp} backHref={backHref} preview={preview} />
-      ) : (
+      {liveSession && <p role="status" className="rounded-xl bg-amber-soft p-4 text-sm text-amber">{liveSession.paused ? "Мугалим сабакты талкуу үчүн токтотту. Азыр жооп жибербеңиз." : `Жандуу сабак: ${stageMeta(content, stages[liveSession.max_stage].key).label} бөлүгүнө чейин ачылган.`}</p>}
+      {!liveAllows(liveSession, view) ? <p className="rounded-xl bg-surface p-5">Бул бөлүк мугалим ачканда жеткиликтүү болот.</p> : (
         <section className="flex flex-col gap-4">
+          {finished && isExit && <FinishCard score={finished.score} total={finished.total} xp={xp} backHref={backHref} preview={preview} />}
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-semibold tracking-[0.07em] text-muted uppercase">
-              {view + 1}-бөлүк · {STAGE_META[st.key].label} · ~{st.minutes} мүн
+              {view + 1}-бөлүк · {stageMeta(content, st.key).label} · ~{st.minutes} мүн
             </span>
             <h2 className="font-display text-xl font-bold">{st.title}</h2>
             {st.intro && <p className="text-muted">{st.intro}</p>}
           </div>
 
-          {st.blocks.map((b) => (
+          {!explainReady && <p className="rounded-xl bg-accent-soft p-4 text-sm">Адегенде байкооңду өз сөзүң менен түшүндүр. Андан кийин сабактын түшүндүрмөсү ачылат.</p>}
+          {st.blocks.filter(b => explainReady || b.id === explanation?.id).map((b) => (
             <div key={b.id} className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4 sm:p-5">
-              {renderBlock(b, answers[b.id], onAnswer(view, b), isExit, failed[b.id])}
+              {b.collaboration && b.collaboration !== "individual" && <p className="text-sm font-semibold text-accent">{b.collaboration === "pair" ? "Жуп менен иштөө" : "Топ менен иштөө"} · талкуулагыла, ар бириң өз жообуңарды сактагыла.</p>}
+              <fieldset disabled={!!finished} className="flex min-w-0 flex-col gap-3">{renderBlock(b, answers[b.id], onAnswer(view, b), isExit, failed[b.id], b.type === "open" && b.compareTo ? answers[b.compareTo]?.response.text as string : undefined)}</fieldset>
+              {attempt && !isExit && !finished && isInteractive(b) && <AiTutor key={`${attempt.id}:${b.id}`} attemptId={attempt.id} blockId={b.id} />}
+              {reviews.filter(r => r.block_id === b.id).map(r => <div key={r.block_id} className="rounded-xl bg-good-soft p-4"><p className="font-semibold">Мугалимдин баалоосу: {r.criteria_met.filter(Boolean).length}/{r.criteria_met.length} критерий</p>{b.type === "open" && b.rubric?.map((x,i) => <p key={i} className="mt-1 text-sm">{r.criteria_met[i] ? "Аткарылды" : "Дагы иштөө керек"}: {x}</p>)}<p className="mt-3 whitespace-pre-wrap">{r.feedback}</p></div>)}
+              {b.support && <details className="rounded-xl bg-accent-soft p-3"><summary className="min-h-11 cursor-pointer font-semibold">Жардам керекпи?</summary><RichText text={b.support} /></details>}
+              {b.extension && answers[b.id] && <details className="rounded-xl bg-surface-2 p-3"><summary className="min-h-11 cursor-pointer font-semibold">Тереңдетип көр</summary><RichText text={b.extension} /></details>}
             </div>
           ))}
 
@@ -295,8 +311,10 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
   );
 }
 
-function renderBlock(b: Block, saved: SavedAnswer | undefined, onAnswer: AnswerFn, exitMode: boolean, failed?: number) {
+function renderBlock(b: Block, saved: SavedAnswer | undefined, onAnswer: AnswerFn, exitMode: boolean, failed?: number, comparison?: string) {
   switch (b.type) {
+    case "investigation":
+      return <Investigation block={b} saved={saved} onAnswer={onAnswer} />;
     case "text":
       return (
         <>
@@ -315,14 +333,14 @@ function renderBlock(b: Block, saved: SavedAnswer | undefined, onAnswer: AnswerF
     case "bug_hunt":
       return <BugHunt block={b} saved={saved} onAnswer={onAnswer} failed={failed} />;
     case "open":
-      return <Open block={b} saved={saved} onAnswer={onAnswer} />;
+      return <Open block={b} saved={saved} onAnswer={onAnswer} comparison={comparison} />;
     case "confidence":
       return <Confidence block={b} saved={saved} onAnswer={onAnswer} />;
   }
 }
 
 function FinishCard({ score, total, xp, backHref, preview }: { score: number; total: number; xp: number; backHref: string; preview: boolean }) {
-  const msg = score === total ? "Мыкты! Тема толук өздөштүрүлдү." : score >= total / 2 ? "Жакшы натыйжа." : "Бул теманы дагы бир кайталап алалы.";
+  const msg = score === total ? "Мыкты! Тесттин бардык суроолору туура." : score >= total / 2 ? "Жакшы натыйжа." : "Бул теманы дагы бир кайталап алалы.";
   return (
     <section className="flex flex-col items-start gap-4 rounded-2xl border border-line bg-surface p-6">
       <span className="font-display text-5xl font-bold text-accent tabular-nums">

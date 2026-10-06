@@ -1,10 +1,12 @@
+import { SessionControls, ReviewForm } from "@/components/classroom-forms";
+import type { Review } from "@/lib/classroom";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { AssignmentControls } from "@/components/teacher-forms";
 import { Card, Chip, PageTitle, Progress } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
-import { CONFIDENCE_LABELS, STAGE_META, type LessonContent, type McqBlock } from "@/lib/lesson-types";
+import { CONFIDENCE_LABELS, stageMeta, type LessonContent, type McqBlock } from "@/lib/lesson-types";
 import { formatDate, STATUS_META, studentStatus, type AttemptRow } from "@/lib/stats";
 
 type Answer = { attempt_id: string; block_id: string; stage: number; response: unknown; is_correct: boolean | null };
@@ -39,6 +41,10 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
     ? await supabase.from("answers").select("attempt_id, block_id, stage, response, is_correct").in("attempt_id", attemptIds).returns<Answer[]>()
     : { data: [] as Answer[] };
 
+  const [{ data: session, error: sessionError }, { data: reviews }] = await Promise.all([
+    supabase.from("lesson_sessions").select("max_stage, paused").eq("assignment_id", id).maybeSingle(),
+    attemptIds.length ? supabase.from("answer_reviews").select("attempt_id, block_id, criteria_met, feedback").in("attempt_id", attemptIds) : Promise.resolve({ data: [] }),
+  ]);
   const content = a.lessons.content;
   const exitStage = content.stages.findIndex((s) => s.key === "exit");
   const exitMcqs = (content.stages[exitStage]?.blocks ?? []).filter((b): b is McqBlock => b.type === "mcq");
@@ -49,7 +55,7 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
   const finished = atts.filter((t) => t.finished_at);
   const avgExit = finished.length ? finished.reduce((s, t) => s + (t.exit_score ?? 0), 0) / finished.length : null;
 
-  const funnel = content.stages.map((st, i) => ({ label: STAGE_META[st.key].label, n: atts.filter((t) => t.current_stage > i).length }));
+  const funnel = content.stages.map((st, i) => ({ label: stageMeta(content, st.key).label, n: atts.filter((t) => t.current_stage > i).length }));
 
   const questionStats = exitMcqs.map((q) => {
     const rows = (answers ?? []).filter((x) => x.block_id === q.id);
@@ -72,6 +78,8 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
   return (
     <>
       <AutoRefresh />
+      {sessionError ? <p className="rounded-xl bg-amber-soft p-4 text-sm text-amber">Жандуу режим жана баалоо үчүн 0008 база жаңыртуусу керек.</p> : <SessionControls key={JSON.stringify(session)} assignmentId={id} session={session} content={content} />}
+      {content.teacherNotes && <details className="rounded-xl bg-accent-soft p-4"><summary className="min-h-11 cursor-pointer font-semibold">Сабакты өткөрүү боюнча көрсөтмө</summary><p className="leading-relaxed">{content.teacherNotes}</p></details>}
       <div className="flex flex-col gap-2">
         <span className="text-sm text-muted">
           <Link href={`/teacher/classes/${a.class_id}`} className="text-accent">{a.classes?.name}</Link> · Мөөнөт: {formatDate(a.due_at)}
@@ -165,6 +173,22 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
         </table>
         {students.length === 0 && <p className="px-5 pb-5 text-sm text-muted">Класста окуучу жок.</p>}
       </Card>
+      <section className="flex flex-col gap-4">
+        <h2 className="text-xl font-semibold">Окуучунун далили жана өз алдынча колдонуу</h2>
+        <p className="text-sm text-muted">Тесттин баллы өзүнчө. Түшүндүрмө жана колдонуу төмөнкү критерийлер менен мугалим тарабынан бааланат.</p>
+        {students.map(s => {
+          if (!s.t) return null;
+          const blocks = content.stages.flatMap(st => st.blocks).filter(b => b.type === "investigation" || (b.type === "open" && b.rubric?.length));
+          return <details key={s.id} className="rounded-2xl border border-line bg-surface p-5"><summary className="min-h-11 cursor-pointer font-semibold">{s.name}</summary><div className="flex flex-col gap-5">{blocks.map(b => {
+            const answer = (answers ?? []).find(x => x.attempt_id === s.t!.id && x.block_id === b.id);
+            const r = answer?.response as Record<string, string> | undefined;
+            if (!r) return <p key={b.id} className="text-sm text-muted">{"prompt" in b ? b.prompt : ""}: жооп жок</p>;
+            const review = (reviews ?? []).find(x => x.attempt_id === s.t!.id && x.block_id === b.id) as Review | undefined;
+            const initial = b.type === "open" && b.compareTo ? (answers ?? []).find(x => x.attempt_id === s.t!.id && x.block_id === b.compareTo)?.response as {text?: string} | undefined : undefined;
+            return <div key={b.id} className="flex flex-col gap-3 border-t border-line pt-4"><h3 className="font-semibold">{"prompt" in b ? b.prompt : ""}</h3>{initial?.text && <p className="rounded-xl bg-accent-soft p-3 whitespace-pre-wrap">Баштапкы ой: {initial.text}</p>}{b.type === "investigation" ? <><p className="whitespace-pre-wrap">Божомол: {r.prediction}</p><p className="whitespace-pre-wrap">Байкоо: {r.observations}</p><p className="whitespace-pre-wrap">Жыйынтык: {r.conclusion}</p></> : <p className="whitespace-pre-wrap">{r.text}</p>}{b.type === "open" && b.rubric?.length && !sessionError && <ReviewForm key={JSON.stringify(review)} attemptId={s.t!.id} blockId={b.id} rubric={b.rubric} review={review} />}</div>;
+          })}</div></details>;
+        })}
+      </section>
     </>
   );
 }
@@ -175,6 +199,7 @@ function FunnelRow({ label, n, total }: { label: string; n: number; total: numbe
       <span>{label}</span>
       <Progress value={total ? (n / total) * 100 : 0} />
       <span className="text-right font-mono tabular-nums">{n}</span>
+
     </>
   );
 }

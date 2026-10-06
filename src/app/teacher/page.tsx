@@ -1,3 +1,4 @@
+import { LessonArt } from "@/components/lesson-art";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { CopyButton } from "@/components/teacher-forms";
@@ -151,7 +152,7 @@ export default async function TeacherHome() {
         <Stat label="Бүткөн сабак" value={finishedTotal} sub="окуучулардын аракети" />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr] lg:items-start">
+      <div className="grid gap-6 xl:grid-cols-[2fr_1fr] lg:items-start">
         <Card className="flex flex-col gap-4">
           <h2 className="font-display text-lg font-medium">Жүрүп жаткан тапшырмалар</h2>
           {rows.length === 0 && (
@@ -164,8 +165,10 @@ export default async function TeacherHome() {
             </p>
           )}
           {rows.map((r) => (
-            <Link key={r.id} href={`/teacher/assignments/${r.id}`} className="flex flex-col gap-2.5 rounded-xl border border-line p-4 hover:border-accent">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+            <Link key={r.id} href={`/teacher/assignments/${r.id}`} className="lesson-tile flex flex-col gap-4 rounded-3xl p-5 hover:ring-2 hover:ring-accent">
+              <div className="flex items-center gap-4">
+                <LessonArt className="hidden w-28 shrink-0 sm:block" />
+              <div className="flex flex-1 flex-wrap items-center justify-between gap-2 text-ink">
                 <div className="flex flex-col">
                   <span className="font-semibold">{r.lessons?.title}</span>
                   <span className="text-sm text-muted">
@@ -183,6 +186,7 @@ export default async function TeacherHome() {
                 ) : (
                   <Chip tone="good">Жакшы жүрүүдө</Chip>
                 )}
+              </div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="flex-1">
@@ -291,7 +295,7 @@ function Stat({ label, value, sub, href }: { label: string; value: number; sub?:
       </span>
     </>
   );
-  const cls = "flex flex-col gap-1 rounded-2xl border border-line bg-surface px-4 py-3.5";
+  const cls = "flex flex-col gap-2 rounded-3xl bg-surface-2 px-5 py-5";
   return href ? (
     <Link href={href} className={cx(cls, "hover:border-accent")}>
       {body}

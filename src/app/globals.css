@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #f2f5f3;
+  --color-bg: #eeebfb;
   --color-surface: #ffffff;
-  --color-surface-2: #e8eeeb;
-  --color-ink: #15242a;
-  --color-muted: #4f6267;
-  --color-line: #d5deda;
-  --color-accent: #0c7563;
-  --color-accent-dark: #095a4c;
-  --color-accent-soft: #d5ece6;
+  --color-surface-2: #f4f2fb;
+  --color-ink: #292739;
+  --color-muted: #747187;
+  --color-line: #e5e1f1;
+  --color-accent: #5d54af;
+  --color-accent-dark: #49418e;
+  --color-accent-soft: #eeebfb;
   --color-amber: #7a5405;
   --color-amber-soft: #fbefd2;
   --color-good: #17683a;
@@ -23,10 +23,15 @@
   --color-code-num: #f5a08c;
   --color-code-dim: #6f868b;
   --color-code-hl: #1c3e44;
-  --color-nav: #15242a;
+  --color-nav: #5d54af;
+  --color-lilac: #9256bc;
+  --color-lilac-soft: #f5ebfa;
+  --color-rose: #bf527d;
+  --color-rose-soft: #fbeef3;
+  --color-nav-muted: #dedaf7;
 
-  --font-sans: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-display: "Unbounded", "Golos Text", system-ui, sans-serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-inter), system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
 }
 
@@ -35,6 +40,7 @@ body {
   background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  font-optical-sizing: auto;
 }
 
 h1,
@@ -69,4 +75,23 @@ h3 {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+}
+
+/* Скриншотко ылайык мугалим панелинин жумшак, тегеректелген каркасы. */
+.app-shell { min-width: 0; }
+.app-content { background: var(--color-surface); }
+.lesson-tile:nth-child(3n + 1) { background: var(--color-accent-soft); color: var(--color-accent); }
+.lesson-tile:nth-child(3n + 2) { background: var(--color-lilac-soft); color: var(--color-lilac); }
+.lesson-tile:nth-child(3n) { background: var(--color-rose-soft); color: var(--color-rose); }
+@media (min-width: 1024px) {
+  .app-shell { margin: 24px; min-height: calc(100dvh - 48px); border: 8px solid var(--color-nav); border-radius: 38px; background: var(--color-nav); }
+  .app-content { border-radius: 28px; background: var(--color-surface); overflow: clip; }
+  .teacher-sidebar { width: 100%; }
+}
+@media (min-width: 1440px) {
+  .teacher-sidebar { width: 320px; flex-shrink: 0; border-left: 1px solid var(--color-surface-2); }
+}
+@media print {
+  .app-shell { margin: 0; border: 0; border-radius: 0; background: white; }
+  .app-content { border-radius: 0; overflow: visible; }
 }

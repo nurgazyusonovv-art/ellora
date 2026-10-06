@@ -69,6 +69,6 @@ describe("distributeMinutes", () => {
     expect(m.every((x) => x >= 1)).toBe(true);
   });
   it("40 мүнөт — демейки үлүштөр", () => {
-    expect(distributeMinutes(40)).toEqual([5, 10, 15, 7, 3]);
+    expect(distributeMinutes(40)).toEqual([5, 10, 8, 12, 5]);
   });
 });

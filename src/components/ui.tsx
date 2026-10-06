@@ -6,7 +6,7 @@ export function cx(...c: (string | false | null | undefined)[]) {
 }
 
 const btnBase =
-  "inline-flex items-center justify-center gap-2 rounded-[10px] px-4 py-2.5 text-[15px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 min-h-11 rounded-full px-5 py-2.5 text-[15px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50";
 const btnVariants = {
   primary: "bg-accent text-white hover:bg-accent-dark",
   secondary: "border border-line bg-surface text-ink hover:bg-surface-2",
@@ -28,7 +28,7 @@ export function ButtonLink({
 }
 
 export function Card({ className, ...p }: ComponentProps<"div">) {
-  return <div className={cx("rounded-2xl border border-line bg-surface p-5 sm:p-6", className)} {...p} />;
+  return <div className={cx("rounded-3xl border border-line bg-surface p-5 sm:p-6", className)} {...p} />;
 }
 
 export function Eyebrow({ children }: { children: ReactNode }) {
@@ -40,7 +40,7 @@ export function PageTitle({ eyebrow, title, children }: { eyebrow?: string; titl
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="flex flex-col gap-1.5">
         {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
-        <h1 className="font-display text-2xl font-bold sm:text-[28px]">{title}</h1>
+        <h1 className="font-sans text-3xl font-semibold text-accent sm:text-[36px]">{title}</h1>
       </div>
       {children && <div className="flex flex-wrap gap-2.5">{children}</div>}
     </div>

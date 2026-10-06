@@ -22,7 +22,7 @@ import {
   type BlockType,
   type Issue,
 } from "@/lib/lesson-edit";
-import { isGraded, STAGE_META, type Block, type Stage } from "@/lib/lesson-types";
+import { isGraded, stageMeta, FIVE_E_META, type Block, type Stage } from "@/lib/lesson-types";
 
 type SaveState =
   | { state: "saved"; at?: string }
@@ -239,6 +239,11 @@ export function LessonBuilder({
         />
       )}
 
+      {draft.content.model === "5e" && <section className="grid gap-4 rounded-2xl border border-line bg-surface p-5 sm:grid-cols-2">
+        <label className="flex flex-col gap-2 text-sm font-semibold">Окуу максаттары (ар бир сапка бирден)<textarea className={inputCls} rows={3} value={(draft.content.objectives ?? []).join("\n")} onChange={e => update(d => ({ ...d, content: { ...d.content, objectives: e.target.value.split("\n") } }))} /></label>
+        <label className="flex flex-col gap-2 text-sm font-semibold">Ийгилик критерийлери (ар бир сапка бирден)<textarea className={inputCls} rows={3} value={(draft.content.successCriteria ?? []).join("\n")} onChange={e => update(d => ({ ...d, content: { ...d.content, successCriteria: e.target.value.split("\n") } }))} /></label>
+        <label className="flex flex-col gap-2 text-sm font-semibold sm:col-span-2">Мугалимге көрсөтмө<textarea className={inputCls} rows={2} value={draft.content.teacherNotes ?? ""} onChange={e => update(d => ({ ...d, content: { ...d.content, teacherNotes: e.target.value } }))} /></label>
+      </section>}
       <div className="grid gap-6 xl:grid-cols-[210px_minmax(0,1fr)_240px] xl:items-start">
         {/* ───────── 5 бөлүк ───────── */}
         <nav aria-label="Сабактын бөлүктөрү" className="flex flex-col gap-2 xl:sticky xl:top-6">
@@ -263,7 +268,7 @@ export function LessonBuilder({
                   )}
                 >
                   <span className="font-semibold">
-                    {i + 1}. {STAGE_META[st.key].label}
+                    {i + 1}. {stageMeta(draft.content, st.key).label}
                   </span>
                   <span className="text-[13px] text-muted">
                     {st.blocks.length} блок · ~{st.minutes || 0} мүн
@@ -277,10 +282,11 @@ export function LessonBuilder({
         </nav>
 
         {/* ───────── Бөлүктүн блоктору ───────── */}
-        <section className="flex min-w-0 flex-col gap-4" aria-label={`${STAGE_META[stage.key].label}: блоктор`}>
+        <section className="flex min-w-0 flex-col gap-4" aria-label={`${stageMeta(draft.content, stage.key).label}: блоктор`}>
+          {draft.content.model === "5e" && <p className="rounded-xl bg-accent-soft p-4 text-sm leading-relaxed">{FIVE_E_META[stage.key].guidance}</p>}
           <div className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4 sm:p-5">
             <Eyebrow>
-              {stageIdx + 1}-бөлүк · {STAGE_META[stage.key].label}
+              {stageIdx + 1}-бөлүк · {stageMeta(draft.content, stage.key).label}
             </Eyebrow>
             <div className="grid gap-3 sm:grid-cols-[1fr_120px]">
               <label className="flex flex-col gap-1.5 text-sm font-semibold">
@@ -354,6 +360,9 @@ export function LessonBuilder({
                       </ul>
                     )}
                     <BlockEditor block={b} onChange={changeBlock} />
+                    <label className="flex flex-col gap-1.5 text-sm font-semibold">Жардам берүүчү кеңеш<textarea className={inputCls} rows={2} value={b.support ?? ""} onChange={e => changeBlock({ ...b, support: e.target.value || undefined })} /></label>
+                    <label className="flex flex-col gap-1.5 text-sm font-semibold">Тереңдетүү тапшырмасы<textarea className={inputCls} rows={2} value={b.extension ?? ""} onChange={e => changeBlock({ ...b, extension: e.target.value || undefined })} /></label>
+                    <label className="flex flex-col gap-1.5 text-sm font-semibold">Иштөө формасы<select className={inputCls} value={b.collaboration ?? "individual"} onChange={e => changeBlock({ ...b, collaboration: e.target.value as "individual" | "pair" | "group" })}><option value="individual">Жеке</option><option value="pair">Жуп менен</option><option value="group">Топ менен</option></select></label>
                   </div>
                 )}
               </article>
@@ -364,7 +373,7 @@ export function LessonBuilder({
         {/* ───────── Блок түрлөрү жана сабак жөнүндө ───────── */}
         <aside className="flex flex-col gap-6 xl:sticky xl:top-6" aria-label="Блок кошуу">
           <div className="flex flex-col gap-2.5">
-            <Eyebrow>Блок кошуу · {STAGE_META[stage.key].label}</Eyebrow>
+            <Eyebrow>Блок кошуу · {stageMeta(draft.content, stage.key).label}</Eyebrow>
             <div className="grid grid-cols-2 gap-2">
               {BLOCK_TYPES.map((t) => (
                 <button

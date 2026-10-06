@@ -10,6 +10,7 @@ import type {
   ConfidenceBlock,
   McqBlock,
   OpenBlock,
+  InvestigationBlock,
   ParsonsBlock,
 } from "@/lib/lesson-types";
 import { CONFIDENCE_LABELS } from "@/lib/lesson-types";
@@ -366,14 +367,16 @@ export function BugHunt({ block, saved, onAnswer, failed }: Props<BugHuntBlock>)
 }
 
 /* ─────────────── Ачык жооп ─────────────── */
-export function Open({ block, saved, onAnswer }: Props<OpenBlock>) {
+export function Open({ block, saved, onAnswer, comparison }: Props<OpenBlock> & { comparison?: string }) {
   const [text, setText] = useState((saved?.response.text as string) ?? "");
   const submitted = !!saved;
   return (
     <div className="flex flex-col gap-3">
+      {comparison && <div className="rounded-xl bg-accent-soft p-4"><p className="mb-2 text-sm font-semibold">Баштапкы оюң</p><p className="whitespace-pre-wrap">{comparison}</p></div>}
+      {block.rubric?.length ? <div className="text-sm text-muted"><p className="font-semibold">Баалоо критерийлери</p><ul className="list-disc pl-5">{block.rubric.map(x => <li key={x}>{x}</li>)}</ul></div> : null}
       <label className="flex flex-col gap-2">
         <RichText text={block.prompt} className="font-semibold" />
-        {!block.optional && !block.feedback && <span className="text-sm text-muted">Туура же туура эмес деген баа коюлбайт.</span>}
+        {!block.optional && !block.feedback && <span className="text-sm text-muted">{block.rubric?.length ? "Мугалим жообуңду ушул критерийлер менен баалайт." : "Туура же туура эмес деген баа коюлбайт."}</span>}
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -383,17 +386,18 @@ export function Open({ block, saved, onAnswer }: Props<OpenBlock>) {
           }}
           rows={3}
           placeholder={block.placeholder}
-          readOnly={submitted && !!block.feedback}
+          readOnly={submitted && (!!block.feedback || !!block.lockOnSubmit)}
           className="rounded-[10px] border border-line bg-bg px-3 py-2.5"
         />
       </label>
-      {!(submitted && block.feedback) && (
+      {!(submitted && (block.feedback || block.lockOnSubmit)) && (
         <div>
           <Button type="button" variant={submitted ? "secondary" : "primary"} disabled={text.trim().length < 2} onClick={() => onAnswer({ text: text.trim() }, null)}>
             {submitted ? "Жоопту жаңылоо" : block.feedback ? "Жоопту салыштыруу" : "Жөнөтүү"}
           </Button>
         </div>
       )}
+      {submitted && block.lockOnSubmit && <p role="status" className="text-sm text-accent">Баштапкы оюң сакталды. Сабактын аягында ага кайра кайтабыз.</p>}
       {submitted && block.feedback && (
         <>
           <Feedback tone="info" text={block.feedback} />
@@ -429,4 +433,27 @@ export function Confidence({ block, saved, onAnswer }: Props<ConfidenceBlock>) {
       </div>
     </div>
   );
+}
+
+
+export function Investigation({ block, saved, onAnswer }: Props<InvestigationBlock>) {
+  const [prediction, setPrediction] = useState((saved?.response.prediction as string) ?? "");
+  const [locked, setLocked] = useState(!!saved);
+  const [observations, setObservations] = useState((saved?.response.observations as string) ?? "");
+  const [conclusion, setConclusion] = useState((saved?.response.conclusion as string) ?? "");
+  const area = "w-full rounded-xl border border-line bg-bg px-3 py-3";
+  return <div className="flex flex-col gap-4">
+    <RichText text={block.prompt} className="font-semibold" />
+    <label className="flex flex-col gap-2 font-semibold">1. Божомолуң<textarea className={area} rows={3} value={prediction} readOnly={locked} onChange={e => setPrediction(e.target.value)} /></label>
+    {!locked && <Button type="button" disabled={!prediction.trim()} onClick={() => { setLocked(true); onAnswer({ phase: "prediction", prediction }, null); }}>Божомолду бекитүү жана сынап көрүү</Button>}
+    {locked && <>
+      <div className="rounded-xl bg-accent-soft p-4"><p className="mb-2 font-semibold">2. Сынап көр</p><RichText text={block.procedure} /></div>
+      {block.code && <CodeExample block={{ id: block.id + "-code", type: "code_example", code: block.code, runnable: true }} />}
+      <label className="flex flex-col gap-2 font-semibold">3. Эмнени байкадың?<textarea className={area} rows={4} value={observations} onChange={e => setObservations(e.target.value)} /></label>
+      <label className="flex flex-col gap-2 font-semibold">4. Далилге таянган жыйынтык<textarea className={area} rows={3} value={conclusion} onChange={e => setConclusion(e.target.value)} /></label>
+      <p className="text-sm text-muted">Божомол туура эмес чыкса да болот. Кайсы байкоо оюңду өзгөрттү?</p>
+      <Button type="button" disabled={!observations.trim() || !conclusion.trim()} onClick={() => onAnswer({ prediction, observations, conclusion }, null)}>{saved ? "Байкоону жаңылоо" : "Изилдөөнү сактоо"}</Button>
+      {saved?.response.conclusion ? <p role="status" className="text-sm text-accent">Изилдөө сакталды. Жыйынтыгыңды мугалим карай алат.</p> : null}
+    </>}
+  </div>;
 }

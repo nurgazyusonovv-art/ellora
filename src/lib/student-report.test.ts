@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { pythonIf } from "@/content/lessons/python-if";
+import { legacyPythonIf as pythonIf } from "@/content/lessons/python-if";
 import type { McqBlock } from "@/lib/lesson-types";
 
 vi.mock("server-only", () => ({}));

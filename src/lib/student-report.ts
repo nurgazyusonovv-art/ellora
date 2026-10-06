@@ -1,7 +1,7 @@
 import "server-only";
 import type { createClient } from "@/lib/supabase/server";
 import { BLOCK_LABELS, blockSummary } from "@/lib/lesson-edit";
-import { CONFIDENCE_LABELS, isGraded, isInteractive, STAGE_META, type Block, type LessonContent } from "@/lib/lesson-types";
+import { CONFIDENCE_LABELS, isGraded, isInteractive, stageMeta, type Block, type LessonContent } from "@/lib/lesson-types";
 import { studentStatus, type AttemptRow, type StudentStatus } from "@/lib/stats";
 import { lessonsByIds } from "@/lib/student-lessons";
 
@@ -91,6 +91,8 @@ function describe(b: Block, a: AnswerRow | undefined): Pick<BlockResult, "answer
     }
     case "code_task":
       return { answer: `${(r.passed as number | undefined) ?? 0} / ${b.tests.length} тест өттү`, code: (r.code as string | undefined) ?? undefined };
+    case "investigation":
+      return { answer: `Божомол: ${r.prediction ?? "—"}\nБайкоо: ${r.observations ?? "—"}\nЖыйынтык: ${r.conclusion ?? "—"}` };
     case "open":
       return { answer: (r.text as string | undefined) ?? "—" };
     case "confidence": {
@@ -143,7 +145,7 @@ export function buildReport({ student, classNames, classIds, assignments, attemp
         if (!details) continue;
         blocks.push({
           id: b.id,
-          stageLabel: STAGE_META[st.key].label,
+          stageLabel: stageMeta(a.lessons.content, st.key).label,
           type: b.type,
           typeLabel: BLOCK_LABELS[b.type],
           prompt: plain(blockSummary(b)),

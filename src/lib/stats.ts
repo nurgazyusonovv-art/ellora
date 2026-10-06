@@ -32,7 +32,7 @@ export const STATUS_META: Record<StudentStatus, { label: string; tone: "good" | 
   attention: { label: "Көңүл буруу", tone: "warn", order: 2 },
   started: { label: "Өтүп жатат", tone: "accent", order: 3 },
   not_started: { label: "Баштай элек", tone: "neutral", order: 4 },
-  done: { label: "Түшүндү", tone: "good", order: 5 },
+  done: { label: "Бүтүрдү", tone: "good", order: 5 },
 };
 
 export function formatDate(iso: string | null | undefined) {

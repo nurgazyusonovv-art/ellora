@@ -1,5 +1,6 @@
 "use server";
 
+import { liveAllows } from "@/lib/classroom";
 import { requireRole } from "@/lib/auth";
 import { computeXp, exitResult, findBlock, gradeAnswer, stageDone, type Answers, type SavedAnswer } from "@/lib/grading";
 import type { Block } from "@/lib/lesson-types";
@@ -36,7 +37,10 @@ async function load(attemptId: string) {
   const { data: rows } = await supabase.from("answers").select("block_id, response, is_correct, tries").eq("attempt_id", attemptId);
   const answers: Answers = {};
   for (const r of rows ?? []) answers[r.block_id] = { response: r.response ?? {}, is_correct: r.is_correct, tries: r.tries };
-  return { attempt, content: lesson.content, answers };
+  const { data: session, error: sessionError } = await supabase.from("lesson_sessions").select("max_stage, paused").eq("assignment_id", attempt.assignment_id).maybeSingle();
+  // Эски база миграцияга чейин өз алдынча режимде иштейт. Башка тармак каталарында жазуу токтойт.
+  if (sessionError && sessionError.code !== "PGRST205" && sessionError.code !== "42P01") return null;
+  return { attempt, content: lesson.content, answers, session };
 }
 
 const SAVE_ERROR = "Жооп сакталган жок. Интернетти текшерип, кайра аракет кыл.";
@@ -50,6 +54,7 @@ export async function submitAnswer(attemptId: string, blockId: string, response:
   const found = findBlock(content, blockId);
   if (!found) return { error: "Тапшырма табылган жок." };
   const { block, stageIdx } = found;
+  if (!liveAllows(ctx.session, stageIdx)) return { error: "Мугалим бөлүктү ачканда уланта аласың." };
   if (stageIdx > attempt.current_stage) return { error: "Бул бөлүк али ачыла элек." };
 
   const stage = content.stages[stageIdx];
@@ -96,6 +101,7 @@ export async function completeStage(attemptId: string, stageIdx: number): Promis
     const r = exitResult(content, answers);
     return { xp: computeXp(content, answers, true), current_stage: content.stages.length, finished: { score: r.score, total: r.total } };
   }
+  if (!liveAllows(ctx.session, stageIdx)) return { error: "Мугалим бөлүктү ачканда уланта аласың." };
   if (stageIdx !== attempt.current_stage) return { error: "Бул бөлүк азыр ачык эмес." };
   const stage = content.stages[stageIdx];
   if (!stage || !stageDone(stage, answers)) return { error: "Адегенде бардык тапшырмаларды аткар." };

@@ -1,0 +1,15 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { pythonIf } from "@/content/lessons/python-if";
+const state=vi.hoisted(()=>({attempt:{assignment_id:"asg",current_stage:4,finished_at:null} as object|null,live:null as object|null,allowed:true,rpc:vi.fn()}));
+vi.mock("@/lib/auth",()=>({requireRole:async()=>({profile:{id:"me"},supabase:{from:(table:string)=>{const q={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:table==="attempts"?state.attempt:table==="assignments"?{lesson_id:"l"}:state.live,error:null})};return q;},rpc:async()=>{state.rpc();return {data:state.allowed,error:null};}}})}));
+vi.mock("@/lib/student-lessons",()=>({lessonContent:async()=>pythonIf}));
+import { askTutor } from "./ai";
+function fd(blockId=pythonIf.content.stages[1].blocks[0].id){const f=new FormData(); f.set("attemptId","a");f.set("blockId",blockId);f.set("thought","Мен чек маанисин сынадым");return f;}
+beforeEach(()=>{state.attempt={assignment_id:"asg",current_stage:4,finished_at:null};state.live=null;state.allowed=true;state.rpc.mockClear();vi.stubEnv("OPENAI_API_KEY","test-key");vi.stubGlobal("fetch",vi.fn());});
+describe("AI сервер коргоосу",()=>{
+ it("башка же бүткөн аракет үчүн API чакырылбайт",async()=>{state.attempt=null;expect((await askTutor({},fd())).error).toBeTruthy();state.attempt={assignment_id:"asg",current_stage:5,finished_at:"today"};expect((await askTutor({},fd())).error).toBeTruthy();expect(fetch).not.toHaveBeenCalled();});
+ it("баалоодо, жабык бөлүктө жана паузада чакырылбайт",async()=>{expect((await askTutor({},fd(pythonIf.content.stages[4].blocks[0].id))).error).toBeTruthy();state.live={max_stage:0,paused:false};expect((await askTutor({},fd())).error).toBeTruthy();state.live={max_stage:4,paused:true};expect((await askTutor({},fd())).error).toBeTruthy();expect(fetch).not.toHaveBeenCalled();expect(state.rpc).not.toHaveBeenCalled();});
+ it("лимит же ачкыч жок болсо API чакырылбайт",async()=>{state.allowed=false;expect((await askTutor({},fd())).error).toMatch(/30/);vi.stubEnv("OPENAI_API_KEY","");expect((await askTutor({},fd())).error).toMatch(/туташтырылган эмес/);expect(fetch).not.toHaveBeenCalled();});
+ it("сурам store:false менен жөнөтүлөт, багыттоочу суроо кайтып келет",async()=>{vi.mocked(fetch).mockResolvedValue({ok:true,json:async()=>({output:[{type:"message",content:[{type:"output_text",text:JSON.stringify({question:"Кайсы чек маанисин кайра сынайсың?"})}]}]})} as Response);expect(await askTutor({},fd())).toEqual({question:"Кайсы чек маанисин кайра сынайсың?"});const body=JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);expect(body.store).toBe(false);expect(body.text.format.type).toBe("json_schema");expect(body.input).not.toMatch(/teacherNotes|correct|expected/);});
+ it("жараксыз жооп же тармак катасы окуучуга ачкычты көрсөтпөйт",async()=>{vi.mocked(fetch).mockRejectedValue(Error("test-key"));const result=await askTutor({},fd());expect(result.error).toBeTruthy();expect(JSON.stringify(result)).not.toContain("test-key");});
+});

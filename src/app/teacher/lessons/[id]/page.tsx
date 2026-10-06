@@ -4,7 +4,7 @@ import { Button, ButtonLink, Card, Chip, PageTitle } from "@/components/ui";
 import { AssignForm } from "@/components/teacher-forms";
 import { requireRole } from "@/lib/auth";
 import { BLOCK_LABELS } from "@/lib/lesson-edit";
-import { STAGE_META, type LessonContent } from "@/lib/lesson-types";
+import { stageMeta, type LessonContent } from "@/lib/lesson-types";
 
 export default async function LessonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -38,7 +38,7 @@ export default async function LessonPage({ params }: { params: Promise<{ id: str
             <div key={st.key} className="flex flex-col gap-1.5 border-b border-surface-2 py-3 last:border-0">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="font-semibold">
-                  {i + 1}. {STAGE_META[st.key].label} <span className="font-normal text-muted">· {st.title}</span>
+                  {i + 1}. {stageMeta(content, st.key).label} <span className="font-normal text-muted">· {st.title}</span>
                 </span>
                 <span className="shrink-0 text-sm text-muted">~{st.minutes} мүн</span>
               </div>

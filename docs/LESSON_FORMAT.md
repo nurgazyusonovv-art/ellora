@@ -29,13 +29,14 @@
 
 | type | Талаалар | Бааланабы | Эскертүү |
 | --- | --- | --- | --- |
+| `investigation` | `prompt`, `procedure`, `code?` | жок | Божомол → сынап көрүү → байкоо → жыйынтык; божомол биринчи сакталат |
 | `text` | `body`, `title?` | жок | |
 | `code_example` | `code`, `caption?`, `runnable?` | жок | `runnable: true` — окуучу өзгөртүп иштете алат |
 | `mcq` | `prompt`, `options[]`, `correct` (индекс), `code?`, `mono?`, `explain?`, `hint?`, `xp?` | ооба | Exit ticket'те бир гана аракет |
 | `code_task` | `prompt`, `starter`, `tests[{input, expected}]`, `hint?`, `xp?` | ооба | stdin → stdout; бардык тесттер өтсө туура |
 | `parsons` | `prompt`, `lines[]` (туура тартипте), `xp?` | ооба | Саптар аралаштырылып көрсөтүлөт |
 | `bug_hunt` | `prompt`, `code`, `bugs[{line, explain}]`, `fixed?`, `xp?` | ооба | `line` 1ден башталат |
-| `open` | `prompt`, `placeholder?`, `optional?`, `feedback?`, `feedbackCode?` | жок | `feedback` жооптон кийин көрсөтүлөт |
+| `open` | `prompt`, `placeholder?`, `optional?`, `feedback?`, `feedbackCode?`, `compareTo?`, `rubric?`, `lockOnSubmit?` | жок | `feedback` жооптон кийин көрсөтүлөт |
 | `confidence` | `prompt` | жок | 1–4 шкала; exit ticket үчүн |
 
 ## Бөлүктү бүтүрүү эрежеси
@@ -63,3 +64,26 @@
 3. `src/components/player/lesson-player.tsx` — `renderBlock` ичине case кош.
 4. `src/app/teacher/lessons/[id]/page.tsx` — `BLOCK_LABELS`ке аталышын кош.
 5. Бул файлдагы таблицаны жаңырт.
+
+## 5E модели (жаңы сабактар)
+
+`model: "5e"`, `objectives: string[]`, `successCriteria: string[]`, `teacherNotes?: string` кошулат.
+Базадагы `key` тартиби ошол бойдон, бирок 5E сабакта мааниси төмөнкүдөй:
+
+| key | 5E бөлүгү | Милдеттүү окуу далили |
+| --- | --- | --- |
+| discover | Кызыктыруу (Engage) | `open` + `lockOnSubmit: true`: баштапкы ой |
+| learning | Изилдөө (Explore) | `investigation`: божомол, байкоо, жыйынтык; туура жоопту талап кылган тест жок |
+| practice | Түшүндүрүү (Explain) | Окуучунун өз сөзү менен `open` жообу, андан кийин түшүндүрмө |
+| reinforce | Колдонуу (Elaborate) | Жаңы кырдаалда `code_task` же `rubric` менен ачык жооп |
+| exit | Баалоо (Evaluate) | Тест жана `compareTo` менен баштапкы ойго кайрылган рефлексия |
+
+`model` жок эски сабактар мурдагы маанисин сактайт. Даяр үч сабактын жаңы көчүрмөлөрү 5E; базада мурда сакталган сабактар автоматтык өзгөрбөйт.
+
+Ар бир блокто `support?: string`, `extension?: string`, `collaboration?: "individual" | "pair" | "group"` болот. Жуп/топ талкуусу үчүн нускама берилет; ар бир окуучу жеке жооп сактайт.
+`open.rubric` — мугалим белгилеген критерийлер. `compareTo` биринчи бөлүктөгү ачык жооптун id’си. `lockOnSubmit` биринчи жоопту өзгөртүүгө жол бербейт.
+Изилдөөнүн `response` талаалары: `prediction`, `observations`, `conclusion`. Алгач `{phase:"prediction", prediction}` сакталат; андан кийин биринчи божомол өзгөрбөй, байкоо жана жыйынтык кошулат. Баа же XP коюлбайт.
+
+Мугалимдин нускамасы окуучуга берилбейт. Тесттин упайы жалпы өздөштүрүүнүн далили катары каралбайт: мугалим түшүндүрүү, колдонуу жана рефлексияны критерийлер менен өзүнчө баалайт.
+
+Жандуу сабак: `lesson_sessions.max_stage` 0–4 жана `paused` серверде текшерилет. Таблицада сап жок болсо өз алдынча режим. Окуучунун бетиндеги абал 20 секунд сайын жаңыланат. Баалоо `answer_reviews` таблицасына сакталат; окуучу өз пикирин гана көрөт.

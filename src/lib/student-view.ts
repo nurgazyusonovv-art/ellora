@@ -43,6 +43,7 @@ export function studentBlock(b: Block, answer: SavedAnswer | undefined, exit: bo
 export function studentContent(content: LessonContent, answers: Record<string, SavedAnswer>, attemptId: string): LessonContent {
   return {
     ...content,
+    teacherNotes: undefined,
     stages: content.stages.map((st) => ({
       ...st,
       blocks: st.blocks.map((b) => studentBlock(b, answers[b.id], st.key === "exit", attemptId)),

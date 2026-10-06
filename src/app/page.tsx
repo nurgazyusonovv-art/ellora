@@ -7,11 +7,11 @@ import { getSession } from "@/lib/auth";
 export const metadata = { title: { absolute: "ellora — информатиканы өзү жазып үйрөнгөн платформа" } };
 
 const STAGES: { name: string; text: string; icon: IconName }[] = [
-  { name: "Discover", text: "Турмуштан алынган суроо кызыгууну ойготот. Окуучу өз оюн жазат.", icon: "spark" },
-  { name: "Learning", text: "Кыска түшүндүрмө жана иштеген мисал — кодду өзгөртүп, иштетип көрсө болот.", icon: "book" },
-  { name: "Practice", text: "Тест, код жазуу, саптарды иреттөө — жооп ошол замат текшерилет.", icon: "code" },
-  { name: "Бышыктоо", text: "Катаны тап, өз мисалыңды ойлоп тап — тема бекемделет.", icon: "layers" },
-  { name: "Exit ticket", text: "Акыркы 3 суроо: мугалим ким түшүнгөнүн дароо көрөт.", icon: "target" },
+  { name: "Кызыктыруу", text: "Турмуштук суроого баштапкы ойду жазат, сабактын максатын билет.", icon: "spark" },
+  { name: "Изилдөө", text: "Божомолун сынап, байкоо жана жыйынтык чогултат.", icon: "book" },
+  { name: "Түшүндүрүү", text: "Байкоосун өз сөзү менен түшүндүрүп, андан кийин жаңы билим менен байланыштырат.", icon: "code" },
+  { name: "Колдонуу", text: "Билимин жаңы кырдаалда колдонот, жуп же топ менен талкуулайт.", icon: "layers" },
+  { name: "Баалоо", text: "Тестке жооп берип, баштапкы оюн кайра карайт. Мугалим критерийлер менен баалайт.", icon: "target" },
 ];
 
 const FOR_STUDENTS: { icon: IconName; title: string; text: string }[] = [
@@ -25,9 +25,9 @@ const FOR_STUDENTS: { icon: IconName; title: string; text: string }[] = [
 
 const FOR_TEACHERS: { icon: IconName; title: string; text: string }[] = [
   { icon: "book", title: "КТП боюнча даяр сабактар", text: "7–8-класстын 2026–2027-окуу жылындагы КТП'си ичинде. Өзүңүзгө ылайыктап өзгөртсөңүз болот." },
-  { icon: "layers", title: "Сабак конструктору", text: "8 түрдүү тапшырма, 5 бөлүк, өзү сакталат. Окуучу катары алдын ала көрөсүз." },
+  { icon: "layers", title: "Сабак конструктору", text: "9 түрдүү тапшырма, 5E модели, өзү сакталат. Окуучу катары алдын ала көрөсүз." },
   { icon: "users", title: "Класс ошол замат көрүнөт", text: "Ким бүттү, кимге жардам керек, кайсы суроо кыйын болду — сабак учурунда эле." },
-  { icon: "shield", title: "Чынчыл баа", text: "Жооптор серверде текшерилет: туура жооптор окуучуга алдын ала көрүнбөйт." },
+  { icon: "shield", title: "Критерий менен баалоо", text: "Окуучунун түшүндүрмөсүн, колдонуу тапшырмасын жана рефлексиясын баалап, пикир бересиз." },
   { icon: "file", title: "PDF отчет", text: "Ар бир окуучунун бардык жыйынтыгы бир баракта — графиктер менен." },
   { icon: "message", title: "WhatsApp эскертмеси", text: "Баштай элек окуучулардын тизмесин бир баскыч менен көчүрөсүз." },
 ];
@@ -272,7 +272,7 @@ function Steps({ title, icon, steps, cta }: { title: string; icon: IconName; ste
 
 /** Сабактын телефондогу көрүнүшү (сүрөт катары — чыныгы ойноткучтун түстөрү жана түзүлүшү). */
 function PhonePreview() {
-  const stages = ["Discover", "Learning", "Practice", "Бышыктоо", "Exit"];
+  const stages = ["Кызыктыруу", "Изилдөө", "Түшүндүрүү", "Колдонуу", "Баалоо"];
   return (
     <div aria-hidden className="mx-auto w-full max-w-[340px]">
       <div className="rounded-[36px] border-[10px] border-nav bg-bg p-3">

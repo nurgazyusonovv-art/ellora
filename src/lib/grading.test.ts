@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pythonIf } from "@/content/lessons/python-if";
+import { legacyPythonIf as pythonIf } from "@/content/lessons/python-if";
 import { computeXp, EXIT_BONUS_XP, exitResult, findBlock, gradeAnswer, stageDone, type Answers, type SavedAnswer } from "@/lib/grading";
 import type { Block, BugHuntBlock, CodeTaskBlock, McqBlock, ParsonsBlock } from "@/lib/lesson-types";
 import { correctResponse } from "@/test/helpers";

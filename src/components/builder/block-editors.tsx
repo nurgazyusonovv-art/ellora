@@ -130,6 +130,12 @@ const opt = (s: string) => (s.trim() ? s : undefined);
 
 export function BlockEditor({ block, onChange }: EditorProps<Block>) {
   switch (block.type) {
+    case "investigation":
+      return <div className="flex flex-col gap-4">
+        <Area label="Изилдөөнүн суроосу" value={block.prompt} onValue={prompt => onChange({ ...block, prompt })} />
+        <Area label="Сынап көрүүнүн кадамдары" hint="Кайсы маанилерди салыштырат? Кандай байкоону жазат? Даяр жыйынтыкты бербеңиз." value={block.procedure} onValue={procedure => onChange({ ...block, procedure })} />
+        <Code label="Сынап көрүү үчүн Python коду (милдеттүү эмес)" value={block.code ?? ""} onValue={code => onChange({ ...block, code: opt(code) })} />
+      </div>;
     case "text":
       return (
         <div className="flex flex-col gap-4">
@@ -186,6 +192,9 @@ export function BlockEditor({ block, onChange }: EditorProps<Block>) {
       return (
         <div className="flex flex-col gap-4">
           <Area label="Суроо" value={block.prompt} onValue={(prompt) => onChange({ ...block, prompt })} />
+          <Check label="Баштапкы ой: жөнөткөндөн кийин өзгөртүүгө болбойт" checked={!!block.lockOnSubmit} onValue={lockOnSubmit => onChange({ ...block, lockOnSubmit })} />
+          <Input label="Салыштырылчу баштапкы жооптун id’си (милдеттүү эмес)" hint="Биринчи бөлүктөгү ачык жооптун id’си, мисалы d2." value={block.compareTo ?? ""} onChange={e => onChange({ ...block, compareTo: opt(e.target.value) })} />
+          <Area label="Мугалим баалачу критерийлер (ар бир сапка бирден)" value={(block.rubric ?? []).join("\n")} onValue={v => onChange({ ...block, rubric: v ? v.split("\n") : undefined })} />
           <Input
             label="Жооп талаасындагы мисал (милдеттүү эмес)"
             value={block.placeholder ?? ""}

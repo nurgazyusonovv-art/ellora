@@ -46,5 +46,9 @@ export default async function AssignmentPage({ params }: { params: Promise<{ id:
 
   // Туура жооптор браузерге чечилгенден кийин гана жөнөтүлөт.
   const content = studentContent(lesson.content, answers, attempt.id);
-  return <LessonPlayer title={lesson.title} content={content} backHref="/student" attempt={attempt} initialAnswers={answers} />;
+  const [{ data: session }, { data: reviews }] = await Promise.all([
+    supabase.from("lesson_sessions").select("max_stage, paused").eq("assignment_id", id).maybeSingle(),
+    supabase.from("answer_reviews").select("block_id, criteria_met, feedback").eq("attempt_id", attempt.id),
+  ]);
+  return <LessonPlayer title={lesson.title} content={content} backHref="/student" attempt={attempt} initialAnswers={answers} liveSession={session} reviews={reviews ?? []} />;
 }

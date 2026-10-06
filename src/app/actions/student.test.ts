@@ -4,7 +4,7 @@
  * Жазуу admin клиент аркылуу гана өтөт.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { pythonIf } from "@/content/lessons/python-if";
+import { legacyPythonIf as pythonIf } from "@/content/lessons/python-if";
 import type { Block, McqBlock, ParsonsBlock } from "@/lib/lesson-types";
 import { studentBlock } from "@/lib/student-view";
 import { correctResponse } from "@/test/helpers";
@@ -27,15 +27,16 @@ type AnswerRec = { attempt_id: string; block_id: string; stage: number; response
 
 const db = { attempts: [] as AttemptRec[], answers: [] as AnswerRec[] };
 const writes: string[] = [];
+let live: { max_stage: number; paused: boolean } | null = null;
 
 /** Окуучунун клиенти: окуй гана алат, RLS: өз аракети жана анын жооптору. */
 function userClient() {
   return {
-    from(table: "attempts" | "answers" | "assignments" | "lessons") {
+    from(table: "attempts" | "answers" | "assignments" | "lessons" | "lesson_sessions") {
       if (table === "lessons") throw new Error("окуучу lessons таблицасын түз окубайт (0004)");
       const filters: [string, unknown][] = [];
       const visible = (): object[] =>
-        table === "attempts"
+        table === "lesson_sessions" ? (live ? [{assignment_id:"asg", ...live}] : []) : table === "attempts"
           ? db.attempts.filter((a) => a.student_id === ME)
           : table === "assignments"
             ? [{ id: "asg", lesson_id: "L1" }] // окуучунун классынын тапшырмасы
@@ -110,6 +111,7 @@ beforeEach(() => {
   db.attempts = [attempt("a1"), attempt("other", "student-2")];
   db.answers = [];
   writes.length = 0;
+  live = null;
 });
 
 /** Окуучу ойноткучтагыдай жооп берет: интерактивдүү блоктор, анан керек болсо баскыч. */
@@ -138,6 +140,18 @@ async function playStage(si: number) {
 }
 
 describe("submitAnswer / completeStage", () => {
+  it("жандуу сабактын паузасы жана жабык бөлүгү серверде тосулат", async () => {
+    const b = content.stages[0].blocks.find(x => correctResponse(x))!;
+    live = {max_stage:4, paused:true};
+    expect((await submitAnswer("a1", b.id, correctResponse(b)!)).error).toMatch(/Мугалим/);
+    expect((await completeStage("a1",0)).error).toMatch(/Мугалим/);
+    expect(writes).toEqual([]);
+    live = null; await playStage(0); writes.length = 0;
+    live = {max_stage:0, paused:false};
+    const next = content.stages[1].blocks.find(x => correctResponse(x))!;
+    expect((await submitAnswer("a1",next.id,correctResponse(next)!)).error).toMatch(/Мугалим/);
+    expect(writes).toEqual([]);
+  });
   it("сабакты толук өтөт: бөлүктөр ачылат, XP жана натыйжа серверде эсептелет", async () => {
     for (let si = 0; si < 5; si++) await playStage(si);
     const a = db.attempts[0];

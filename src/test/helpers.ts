@@ -11,6 +11,8 @@ export function correctResponse(b: Block): Record<string, unknown> | null {
       return { found: b.bugs.map((x) => x.line) };
     case "code_task":
       return { code: "print(1)", passed: b.tests.length };
+    case "investigation":
+      return { prediction: "Божомол", observations: "Байкоо", conclusion: "Далилдүү жыйынтык" };
     case "open":
       return { text: "Менин жообум" };
     case "confidence":

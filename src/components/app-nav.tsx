@@ -61,18 +61,19 @@ export function AppNav({ items, name, sub }: { items: Item[]; name: string; sub:
   return (
     <>
       {/* Компьютер: капталдагы меню */}
-      <nav aria-label="Негизги меню" className="sticky top-0 hidden print:!hidden h-dvh w-60 shrink-0 flex-col gap-7 bg-nav px-4 py-7 text-[#e5eeec] lg:flex">
+      <nav aria-label="Негизги меню" className="sticky top-6 hidden print:!hidden h-[calc(100dvh-64px)] w-56 shrink-0 flex-col gap-12 bg-nav px-4 py-8 text-white lg:flex">
         <div className="px-2">
           <Logo light />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-3">
           {items.map((it) => (
             <Link
               key={it.href}
+              aria-current={active(it) ? "page" : undefined}
               href={it.href}
               className={cx(
-                "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[15px]",
-                active(it) ? "bg-[#22363d] font-semibold text-white" : "text-[#b7c7c9] hover:bg-white/5",
+                "flex items-center gap-3 min-h-14 rounded-2xl px-4 py-3 text-[15px]",
+                active(it) ? "bg-white/15 font-semibold text-white" : "text-nav-muted hover:bg-white/10",
               )}
             >
               <Icon name={it.icon} />
@@ -81,11 +82,11 @@ export function AppNav({ items, name, sub }: { items: Item[]; name: string; sub:
           ))}
         </div>
         <div className="flex-1" />
-        <div className="flex flex-col gap-2 rounded-xl bg-[#1d2f35] p-3">
+        <div className="flex flex-col gap-2 rounded-xl bg-white/10 p-3">
           <span className="text-sm font-semibold">{name}</span>
-          <span className="text-xs text-[#93a6a9]">{sub}</span>
+          <span className="text-xs text-nav-muted">{sub}</span>
           <form action={signOut} onSubmit={clearOfflinePages}>
-            <button className="mt-1 text-xs font-semibold text-[#7fd8c3] hover:underline">Чыгуу</button>
+            <button className="mt-1 min-h-11 min-h-11 text-sm font-semibold text-white hover:underline">Чыгуу</button>
           </form>
         </div>
       </nav>
@@ -94,13 +95,14 @@ export function AppNav({ items, name, sub }: { items: Item[]; name: string; sub:
       <header className="sticky top-0 z-10 flex items-center justify-between bg-nav px-4 py-3 lg:hidden print:hidden">
         <Logo light />
         <form action={signOut} onSubmit={clearOfflinePages}>
-          <button className="text-sm font-semibold text-[#7fd8c3]">Чыгуу</button>
+          <button className="min-h-11 text-sm font-semibold text-white">Чыгуу</button>
         </form>
       </header>
       <nav aria-label="Негизги меню" className="fixed inset-x-0 bottom-0 print:hidden z-10 flex border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
         {items.map((it) => (
           <Link
             key={it.href}
+            aria-current={active(it) ? "page" : undefined}
             href={it.href}
             className={cx("flex flex-1 flex-col items-center gap-1 py-2.5 text-xs", active(it) ? "font-semibold text-accent" : "text-muted")}
           >

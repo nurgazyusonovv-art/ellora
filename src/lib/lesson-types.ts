@@ -11,7 +11,26 @@ export const STAGE_META: Record<StageKey, { label: string; sub: string }> = {
   exit: { label: "Exit ticket", sub: "Чыгуу билети" },
 };
 
-type Base = { id: string };
+export const FIVE_E_META: Record<StageKey, { label: string; sub: string; guidance: string }> = {
+  discover: { label: "Кызыктыруу", sub: "Баштапкы ой", guidance: "Турмуштук көйгөй коюп, окуучунун баштапкы оюн чогултуңуз. Даяр жоопту ачпаңыз." },
+  learning: { label: "Изилдөө", sub: "Сынап көрүү", guidance: "Божомол, сынап көрүү, байкоо жана жыйынтык үчүн изилдөө тапшырмасын кошуңуз. Жаңылыш божомол үчүн бөгөт болбосун." },
+  practice: { label: "Түшүндүрүү", sub: "Далил менен түшүндүрүү", guidance: "Алгач окуучу байкоосун өз сөзү менен түшүндүрсүн. Андан кийин түшүнүк, термин жана мисал бериңиз." },
+  reinforce: { label: "Колдонуу", sub: "Жаңы кырдаал", guidance: "Башка кырдаалда өз алдынча чечиле турган маселе, баалоо критерийлери жана тереңдетүү тапшырмасын бериңиз." },
+  exit: { label: "Баалоо", sub: "Ойдун өзгөрүшү", guidance: "Тестке кошумча түшүндүрмө, баштапкы ойду салыштыруу жана өзүн баалоо болсун." },
+};
+
+export function stageMeta(content: LessonContent, key: StageKey) {
+  return content.model === "5e" ? FIVE_E_META[key] : STAGE_META[key];
+}
+
+type Base = { id: string; support?: string; extension?: string; collaboration?: "individual" | "pair" | "group" };
+
+export type InvestigationBlock = Base & {
+  type: "investigation";
+  prompt: string;
+  procedure: string;
+  code?: string;
+};
 
 /** Жөнөкөй текст. `**калың**` жана `код` белгилерин колдойт, абзацтар бош сап менен бөлүнөт. */
 export type TextBlock = Base & { type: "text"; title?: string; body: string };
@@ -73,6 +92,9 @@ export type OpenBlock = Base & {
   optional?: boolean;
   feedback?: string;
   feedbackCode?: string;
+  compareTo?: string;
+  lockOnSubmit?: boolean;
+  rubric?: string[];
 };
 
 /** Exit ticket'теги түшүнүү деңгээли (1–4). */
@@ -86,12 +108,13 @@ export type Block =
   | ParsonsBlock
   | BugHuntBlock
   | OpenBlock
-  | ConfidenceBlock;
+  | ConfidenceBlock
+  | InvestigationBlock;
 
 export type Stage = { key: StageKey; title: string; intro?: string; minutes: number; blocks: Block[] };
 
 /** `duration` — мугалим тандаган сабактын жалпы узактыгы (мүнөт). Жок болсо 45 деп эсептелет. */
-export type LessonContent = { version: 1; duration?: number; stages: Stage[] };
+export type LessonContent = { version: 1; model?: "5e"; objectives?: string[]; successCriteria?: string[]; teacherNotes?: string; duration?: number; stages: Stage[] };
 
 /** Бул блок стадияны бүтүрүү үчүн жооп талап кылабы. */
 export function isInteractive(b: Block) {

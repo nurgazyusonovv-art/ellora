@@ -54,7 +54,15 @@ export function gradeAnswer(block: Block, raw: Record<string, unknown>, prev: Sa
         return { error: "Жооп туура эмес форматта." };
       return { response: { code: raw.code, passed }, is_correct: wasCorrect || passed === block.tests.length };
     }
+    case "investigation": {
+      if (typeof raw.prediction !== "string" || !raw.prediction.trim() || raw.prediction.length > 5000) return { error: "Божомолуңду жаз." };
+      const prediction = prev?.response.prediction ?? raw.prediction.trim();
+      if (raw.phase === "prediction") return { response: { prediction, observations: prev?.response.observations ?? "", conclusion: prev?.response.conclusion ?? "" }, is_correct: null };
+      if (["observations", "conclusion"].some(k => typeof raw[k] !== "string" || !(raw[k] as string).trim() || (raw[k] as string).length > 5000)) return { error: "Байкоо жана жыйынтыкты толтур." };
+      return { response: { prediction, observations: (raw.observations as string).trim(), conclusion: (raw.conclusion as string).trim() }, is_correct: null };
+    }
     case "open": {
+      if (block.lockOnSubmit && prev) return { response: prev.response, is_correct: null };
       const text = typeof raw.text === "string" ? raw.text.trim().slice(0, 5000) : "";
       if (!text) return { error: "Жоопту жаз." };
       return { response: { text }, is_correct: null };
@@ -75,6 +83,7 @@ export function stageDone(stage: Stage, answers: Answers) {
   return stage.blocks.filter(isInteractive).every((b) => {
     const a = answers[b.id];
     if (!a) return false;
+    if (b.type === "investigation") return ["prediction", "observations", "conclusion"].every(k => typeof a.response[k] === "string" && (a.response[k] as string).trim());
     return exit || !isGraded(b) ? true : a.is_correct === true;
   });
 }

@@ -4,11 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { pollLessonClock } from "@/app/actions/lesson-clock";
+import { POLL_CONNECTED, useLessonChannel } from "@/lib/use-lesson-channel";
 import { Logo } from "@/components/ui";
 
 /** «Класста өтөм» сабагы мугалим баштаганча. Ар 3 секундда текшерет; башталса барак жаңыланып, 1-бөлүк ачылат. */
-export function WaitingRoom({ attemptId, title, className, backHref }: { attemptId: string; title: string; className?: string; backHref: string }) {
+export function WaitingRoom({ assignmentId, viewerId, attemptId, title, className, backHref }: { assignmentId: string; viewerId: string; attemptId: string; title: string; className?: string; backHref: string }) {
   const router = useRouter();
+  // Realtime: мугалим «Баштоо» басканда дароо; туташпаса — ар 3 сек сурам. Presence менен мугалим «онлайн» деп көрөт.
+  const { connected } = useLessonChannel({ assignmentId, presenceKey: viewerId, onSession: () => router.refresh() });
   useEffect(() => {
     let active = true;
     const check = async () => {
@@ -20,14 +23,14 @@ export function WaitingRoom({ attemptId, title, className, backHref }: { attempt
         /* байланыш жок — кийинки текшерүүдө */
       }
     };
-    const t = setInterval(check, 3000);
+    const t = setInterval(check, connected ? POLL_CONNECTED : 3000);
     document.addEventListener("visibilitychange", check);
     return () => {
       active = false;
       clearInterval(t);
       document.removeEventListener("visibilitychange", check);
     };
-  }, [attemptId, router]);
+  }, [attemptId, router, connected]);
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-6 px-4 py-10 text-center">

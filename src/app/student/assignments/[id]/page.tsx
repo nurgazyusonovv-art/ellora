@@ -46,7 +46,7 @@ export default async function AssignmentPage({ params }: { params: Promise<{ id:
   // «Класста өтөм»: мугалим баштаганча сабактын мазмуну жөнөтүлбөйт — күтүү бөлмөсү гана.
   let live;
   try { live = await readStudentSession(supabase, id); } catch { return <p role="alert">Сабактын режими жүктөлгөн жок. Баракты жаңыртыңыз.</p>; }
-  if (live?.waiting) return <WaitingRoom attemptId={attempt.id} title={lesson.title} className={a.classes?.name} backHref="/student" />;
+  if (live?.waiting) return <WaitingRoom assignmentId={id} viewerId={profile.id} attemptId={attempt.id} title={lesson.title} className={a.classes?.name} backHref="/student" />;
 
   const { data: rows } = await supabase.from("answers").select("block_id, response, is_correct, tries").eq("attempt_id", attempt.id);
   const answers: Record<string, SavedAnswer> = {};
@@ -61,5 +61,5 @@ export default async function AssignmentPage({ params }: { params: Promise<{ id:
     supabase.from("coin_wallets").select("balance").eq("student_id",profile.id).maybeSingle(),
   ]);
   if(clockError)return <p role="alert">Сабактын режими жүктөлгөн жок. Баракты жаңыртыңыз.</p>;
-  return <LessonPlayer title={lesson.title} content={content} backHref="/student" attempt={attempt} initialAnswers={answers} initialCoinBalance={walletError ? null : wallet?.balance ?? 0} liveSession={session} reviews={reviews ?? []} />;
+  return <LessonPlayer title={lesson.title} content={content} backHref="/student" assignmentId={id} viewerId={profile.id} attempt={attempt} initialAnswers={answers} initialCoinBalance={walletError ? null : wallet?.balance ?? 0} liveSession={session} reviews={reviews ?? []} />;
 }

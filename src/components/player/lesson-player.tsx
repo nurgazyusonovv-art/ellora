@@ -6,6 +6,7 @@ import {MissionProgress} from "./mission-progress";
 import {ClockDisplay} from "@/components/lesson-clock";
 import {DraftScope} from "./lesson-draft";
 import {pollLessonClock} from "@/app/actions/lesson-clock";
+import {POLL_CONNECTED,useLessonChannel} from "@/lib/use-lesson-channel";
 import { explanationView } from "@/lib/explanation-view";
 import { Presentation } from "./presentation";
 import { LessonGame, type GameCtx } from "./lesson-game";
@@ -50,25 +51,34 @@ type Props = {
   backHref: string;
   /** Окуучу режими: жооптор базага сакталат. Жок болсо — мугалимдин алдын ала көрүүсү. */
   attempt?: Attempt;
+  /** Окуучу режиминде: Realtime каналы жана presence үчүн (0019). */
+  assignmentId?: string;
+  viewerId?: string;
   initialAnswers?: Record<string, SavedAnswer>;
   liveSession?: LiveSession | null;
   reviews?: Review[];
   initialCoinBalance?: number | null;
 };
 
-export function LessonPlayer({ title, content, backHref, attempt, initialAnswers = {}, liveSession: initialLiveSession = null, reviews = [], initialCoinBalance = null }: Props) {
+export function LessonPlayer({ title, content, backHref, attempt, assignmentId, viewerId, initialAnswers = {}, liveSession: initialLiveSession = null, reviews = [], initialCoinBalance = null }: Props) {
   const preview = !attempt;
   const clockAttemptId=attempt?.id;
   const [liveSession,setLiveSession]=useState(initialLiveSession);
   useEffect(()=>{setLiveSession(initialLiveSession);},[initialLiveSession]);
+  // Realtime (0019): мугалим бөлүктү которсо дароо сурайбыз. Туташса запас сурам сейрек; таймер режиминде ар 3 сек
+  // (автоматтык өтүү сервердеги сурам учурунда эсептелет).
+  const syncRef=useRef<()=>Promise<void>>(async()=>{});
+  const {connected,notify}=useLessonChannel({assignmentId:attempt?assignmentId:null,presenceKey:viewerId,onSession:()=>void syncRef.current()});
+  const timedNow=!!liveSession?.timed;
   useEffect(()=>{
     if(!clockAttemptId)return;
     let active=true,busy=false;
     const sync=async()=>{if(busy)return;busy=true;try{const r=await pollLessonClock(clockAttemptId);if(active){if(r.error)setSaveError(r.error);else if(r.session!==undefined)setLiveSession(r.session);}}catch{if(active)setSaveError("Жалпы саат жаңырган жок. Байланышты текшериңиз.");}finally{busy=false;}};
-    const timer=setInterval(()=>{if(document.visibilityState==="visible")void sync();},3000);
+    syncRef.current=sync;
+    const timer=setInterval(()=>{if(document.visibilityState==="visible")void sync();},connected&&!timedNow?POLL_CONNECTED:3000);
     const visible=()=>{if(document.visibilityState==="visible")void sync();};document.addEventListener("visibilitychange",visible);
-    return()=>{active=false;clearInterval(timer);document.removeEventListener("visibilitychange",visible);};
-  },[clockAttemptId]);
+    return()=>{active=false;syncRef.current=async()=>{};clearInterval(timer);document.removeEventListener("visibilitychange",visible);};
+  },[clockAttemptId,connected,timedNow]);
   const wasTimed=useRef(!!initialLiveSession?.timed);
   useEffect(()=>{if(liveSession?.timed)setView(liveSession.max_stage);else if(wasTimed.current)setView(Math.min(unlockedRef.current,4));wasTimed.current=!!liveSession?.timed;},[liveSession?.timed,liveSession?.max_stage]);
   // Мугалим башкарган (таймерсиз) сабак: мугалим жаңы бөлүк ачканда окуучу ошол бөлүккө өтөт (жеткен болсо).
@@ -156,6 +166,8 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
       return setSaveError(r.error);
     }
     setSaveError(null);
+    // Мугалимдин жандуу экранына «жаңырт» деген белги (мазмунсуз).
+    if (blockId) notify("activity");
     if (r.coinBalance !== undefined) {
       const earned = coinRef.current === null ? 0 : r.coinBalance - coinRef.current;
       coinRef.current=r.coinBalance;setCoins(r.coinBalance);

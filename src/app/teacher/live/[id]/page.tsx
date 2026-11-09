@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AutoRefresh } from "@/components/auto-refresh";
+import { LiveStatus, LiveSync, OnlineCount, OnlineDot } from "@/components/live-sync";
 import { Icon } from "@/components/icons";
 import { LiveControls } from "@/components/live-controls";
 import { Card, Chip, cx, Progress } from "@/components/ui";
@@ -32,7 +32,7 @@ const ago = (iso: string | null) => {
 
 export default async function LiveLessonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { supabase } = await requireRole("teacher");
+  const { supabase, profile } = await requireRole("teacher");
   // 0018 иштетиле элек болсо `delivery` жок — мурунку дайындама катары окулат.
   const first = await supabase.from("assignments").select("id, class_id, delivery, lessons(title, content), classes(name)").eq("id", id).maybeSingle<A>();
   const a = first.error ? (await supabase.from("assignments").select("id, class_id, lessons(title, content), classes(name)").eq("id", id).maybeSingle<A>()).data : first.data;
@@ -80,10 +80,10 @@ export default async function LiveLessonPage({ params }: { params: Promise<{ id:
   });
 
   return (
-    <>
-      <AutoRefresh seconds={running ? 4 : 15} />
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+    <LiveSync assignmentId={id} teacherId={profile.id} active={running}>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <Link href={`/teacher/assignments/${id}`} className="text-sm font-medium text-muted hover:text-ink">← Натыйжалар барагы</Link>
+        <LiveStatus />
       </div>
       <header className="flex flex-col gap-2 border-b border-line pb-5">
         <div className="flex flex-wrap items-center gap-2">
@@ -111,8 +111,9 @@ export default async function LiveLessonPage({ params }: { params: Promise<{ id:
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Card className="flex flex-col gap-1.5">
-          <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted">Кошулду</span>
-          <span className="font-mono text-2xl font-medium tabular-nums">{joined}/{students.length}</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted">Онлайн · кошулду</span>
+          <span className="font-mono text-2xl font-medium tabular-nums"><OnlineCount ids={students.map((s) => s.id)} /></span>
+          <span className="text-xs text-muted">Сабакка кошулду: {joined}/{students.length}</span>
         </Card>
         <Card className="flex flex-col gap-1.5">
           <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted">{running ? `${stage + 1}-бөлүктү бүттү` : "Сабакты бүттү"}</span>
@@ -138,8 +139,9 @@ export default async function LiveLessonPage({ params }: { params: Promise<{ id:
                   !s.t && "opacity-70",
                 )}
               >
-                <span className={cx("grid size-8 shrink-0 place-items-center rounded-md border text-sm font-semibold", s.done ? "border-good/30 text-good" : "border-line text-muted")}>
+                <span className={cx("relative grid size-8 shrink-0 place-items-center rounded-md border text-sm font-semibold", s.done ? "border-good/30 text-good" : "border-line text-muted")}>
                   {s.done ? <Icon name="check" size={16} /> : s.name.slice(0, 1)}
+                  <OnlineDot id={s.id} />
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col">
                   <Link href={`/teacher/students/${s.id}`} className="truncate text-sm font-medium hover:text-accent">{s.name}</Link>
@@ -187,6 +189,6 @@ export default async function LiveLessonPage({ params }: { params: Promise<{ id:
           ))}
         </section>
       </div>
-    </>
+    </LiveSync>
   );
 }

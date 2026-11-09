@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useLive } from "@/components/live-sync";
 import { liveCommand, type LiveCommandState } from "@/app/actions/live-lesson";
 import { Icon } from "@/components/icons";
 import { Button, cx, FormError } from "@/components/ui";
@@ -10,6 +11,11 @@ import type { LiveState } from "@/lib/classroom";
 export function LiveControls({ assignmentId, state, stage, stages }: { assignmentId: string; state: LiveState; stage: number; stages: string[] }) {
   const [res, action, pending] = useActionState<LiveCommandState, FormData>(liveCommand, undefined);
   const [ending, setEnding] = useState(false);
+  const { notify } = useLive();
+  // Буйрук сакталганда окуучуларга дароо «жаңырт» белгиси (Postgres Changes да келет; бул тезирээк жана delete'ти камтыйт).
+  useEffect(() => {
+    if (res?.success) notify("session");
+  }, [res, notify]);
   const last = stage >= stages.length - 1;
   const running = state === "live" || state === "paused";
 

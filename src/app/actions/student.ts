@@ -11,6 +11,7 @@ import { lessonContent } from "@/lib/student-lessons";
 import { interactiveResponse } from "@/lib/interactive-tasks";
 import { parsonsSeed, shufflePerm, studentBlock } from "@/lib/student-view";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { applyLessonGameAnswer, gradeQuestion, type GameQuestion, type GradeResult } from "@/lib/game-questions";
 
 export type Progress = {
   error?: string;
@@ -43,7 +44,7 @@ async function load(attemptId: string) {
   const answers: Answers = {};
   for (const r of rows ?? []) answers[r.block_id] = { response: r.response ?? {}, is_correct: r.is_correct, tries: r.tries };
   let session;try{session=await readLiveSession(supabase,attempt.assignment_id);}catch{return null;}
-  return { attempt, content: lesson.content, answers, session, supabase, profile };
+  return { attempt, content: lesson.content, authorId: lesson.authorId, answers, session, supabase, profile };
 }
 
 async function coinBalance(ctx: NonNullable<Awaited<ReturnType<typeof load>>>) {
@@ -115,6 +116,52 @@ export async function submitAnswer(attemptId: string, blockId: string, response:
   if (e2) return { error: SAVE_ERROR };
 
   return { ...await coinBalance(ctx), answer, xp, current_stage, block: missionStudentBlock(stage,studentBlock(block, answer, stage.key === "exit", attemptId)) };
+}
+
+const ROUND_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Сабактын ичиндеги оюндун бир жообу. Суроону сервер баалайт; раунддун абалы ушул блоктун жообунда сакталат.
+ * Бардык суроо туура чечилгенде блок аткарылды деп белгиленет жана бөлүк ачылат.
+ */
+export async function answerLessonGame(attemptId: string, blockId: string, roundId: string, questionId: string, response: Record<string, unknown>): Promise<Progress & Partial<GradeResult>> {
+  const ctx = await load(attemptId);
+  if (!ctx) return { error: "Сабак табылган жок." };
+  const { attempt, content, answers } = ctx;
+  if (attempt.finished_at) return { error: "Сабак бүткөн, жоопторду өзгөртүүгө болбойт." };
+  if (!ROUND_ID.test(roundId) || typeof questionId !== "string") return { error: "Суроо табылган жок." };
+  const found = findBlock(content, blockId);
+  if (!found || found.block.type !== "game") return { error: "Оюн табылган жок." };
+  const { block, stageIdx } = found;
+  if (ctx.session?.timed) return { error: "Жалпы таймер учурунда оюн ойнолбойт. Мугалимдин көрсөтмөсүн күт." };
+  if (!liveAllows(ctx.session, stageIdx)) return { error: "Мугалим бөлүктү ачканда уланта аласың." };
+  if (stageIdx > attempt.current_stage) return { error: "Бул бөлүк али ачыла элек." };
+
+  const admin = createAdminClient();
+  // Топтом сабактын авторуна гана тиешелүү болушу керек: башка мугалимдин суроолору ачылбасын.
+  const { data: set } = await admin.from("game_sets").select("author_id, questions").eq("id", block.setId).maybeSingle<{ author_id: string; questions: GameQuestion[] }>();
+  if (!set || set.author_id !== ctx.authorId) return { error: "Оюн табылган жок." };
+  const question = set.questions.find((q) => q.id === questionId);
+  if (!question) return { error: "Суроо табылган жок." };
+  const result = gradeQuestion(question, ctx.profile.id, response);
+  if (!result) return { error: "Жооп толук эмес." };
+
+  const prev = answers[blockId];
+  const state = applyLessonGameAnswer(prev?.response, set.questions.map((q) => q.id), roundId, questionId, result.correct);
+  const answer: SavedAnswer = { response: state, is_correct: prev?.is_correct === true || state.complete ? true : null, tries: state.rounds };
+  answers[blockId] = answer;
+  const stage = content.stages[stageIdx];
+  let current_stage = attempt.current_stage;
+  if (stageIdx === current_stage && stage.key !== "exit" && !(content.model === "5e" && stage.key === "practice") && stageDone(stage, answers)) current_stage++;
+  const xp = computeXp(content, answers, false);
+
+  const { error: e1 } = await admin.from("answers").upsert({ attempt_id: attemptId, block_id: blockId, stage: stageIdx, response: answer.response, is_correct: answer.is_correct, tries: answer.tries, updated_at: new Date().toISOString() });
+  if (e1) return { error: SAVE_ERROR };
+  if (current_stage !== attempt.current_stage) {
+    const { error: e2 } = await admin.from("attempts").update({ xp, current_stage }).eq("id", attemptId);
+    if (e2) return { error: SAVE_ERROR };
+  }
+  return { ...await coinBalance(ctx), answer, xp, current_stage, ...result };
 }
 
 /** Интерактивдүү блогу жок бөлүктү («Түшүндүм, улантуу») же exit ticket'ти («Билетти тапшыруу») бүтүрөт. */

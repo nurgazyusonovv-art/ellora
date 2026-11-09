@@ -23,6 +23,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   bug_hunt: "Катаны тап",
   open: "Ачык жооп",
   confidence: "Ишеним шкаласы",
+  game: "Оюн",
 };
 
 export const BLOCK_TYPES = Object.keys(BLOCK_LABELS) as BlockType[];
@@ -94,12 +95,16 @@ export function newBlock(type: BlockType, id: string): Block {
       return { id, type, prompt: "" };
     case "confidence":
       return { id, type, prompt: "Бүгүнкү теманы канчалык түшүндүң?" };
+    case "game":
+      return { id, type, setId: "", title: "" };
   }
 }
 
+const SET_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Блоктун кыска аталышы (тизмеде көрсөтүү үчүн). */
 export function blockSummary(b: Block) {
-  const s = b.type === "presentation" ? b.title : b.type === "text" ? b.title || b.body : b.type === "code_example" ? b.caption || b.code.split("\n")[0] : b.prompt;
+  const s = b.type === "game" ? `Оюн: ${b.title}` : b.type === "presentation" ? b.title : b.type === "text" ? b.title || b.body : b.type === "code_example" ? b.caption || b.code.split("\n")[0] : b.prompt;
   const one = (s ?? "").replace(/\s+/g, " ").trim();
   return one.length > 80 ? one.slice(0, 80) + "…" : one;
 }
@@ -204,6 +209,10 @@ export function validateLesson(title: string, content: LessonContent): Issue[] {
         case "confidence":
           if (blank(b.prompt)) bad("Суроону жазыңыз.");
           break;
+        case "game":
+          if (!SET_ID.test(b.setId) || blank(b.title)) bad("Оюнду тандаңыз.");
+          if (st.key === "exit") bad("Оюнду Баалоо бөлүгүнө эмес, Колдонуу же башка бөлүккө кошуңуз.");
+          break;
       }
     }
   });
@@ -227,6 +236,8 @@ export function checkStructure(content: unknown): string | null {
     if (!Array.isArray(s.blocks)) return "Сабактын форматы туура эмес.";
     for (const b of s.blocks) {
       if (!b || typeof b.id !== "string" || !b.id || !(b.type in BLOCK_LABELS)) return "Белгисиз блок бар.";
+      // Оюндун суроолору сабактын ичинде сакталбайт — топтомго шилтеме гана.
+      if (b.type === "game" && (typeof b.setId !== "string" || b.setId.length > 36 || typeof b.title !== "string" || b.title.length > 150 || "questions" in b || "answerKey" in b)) return "Оюн блогунун форматы туура эмес.";
       if ([b.support, b.extension].some(x => x !== undefined && (typeof x !== "string" || x.length > 10000)) || (b.collaboration !== undefined && !["individual", "pair", "group"].includes(b.collaboration))) return "Тапшырманын жардамы же иштөө режими туура эмес.";
       if (b.teamwork !== undefined && (!b.teamwork || typeof b.teamwork !== "object" || typeof b.teamwork.instructions !== "string" || b.teamwork.instructions.length > 10000 || typeof b.teamwork.outcome !== "string" || b.teamwork.outcome.length > 1000 || !Array.isArray(b.teamwork.roles) || b.teamwork.roles.length > 6 || b.teamwork.roles.some(x => typeof x !== "string" || x.length > 1000) || !Number.isInteger(b.teamwork.size) || (b.collaboration === "pair" ? b.teamwork.size !== 2 : b.teamwork.size < 3 || b.teamwork.size > 6) || !["pair", "group"].includes(b.collaboration ?? ""))) return "Бирге иштөө тапшырмасынын форматы туура эмес.";
       if (b.skills !== undefined && (!Array.isArray(b.skills) || b.skills.length > 3 || new Set(b.skills).size !== b.skills.length || !b.skills.every(isSkillId))) return "Бир тапшырмага тизмеден үчкө чейин кайталанбаган көндүм тандаңыз.";

@@ -125,7 +125,21 @@ export type Block =
   | MatchingBlock
   | OrderingBlock
   | SpreadsheetBlock
-  | ClassificationBlock;
+  | ClassificationBlock
+  | GameBlock;
+
+/**
+ * Сабактын ичиндеги оюн: мугалимдин суроо топтомуна (`game_sets`, 0017) шилтеме.
+ * Сакталган мазмунда `setId` жана `title` гана болот. `questions` окуучуга серверде гана кошулат (туура жоопсуз);
+ * `answerKey` — мугалимдин алдын ала көрүүсү үчүн гана, окуучуга эч качан жөнөтүлбөйт.
+ */
+export type GameBlock = Base & {
+  type: "game";
+  setId: string;
+  title: string;
+  questions?: import("@/lib/game-questions").StudentQuestion[];
+  answerKey?: import("@/lib/game-questions").GameQuestion[];
+};
 
 export type MatchingBlock = Base & { type:"matching"; prompt:string; pairs:{left:string;right:string}[]; explain?:string; xp?:number; shuffled?:boolean };
 export type OrderingBlock = Base & { type:"ordering"; prompt:string; steps:string[]; explain?:string; xp?:number; shuffled?:boolean };

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { GameOptionsContext, type GameOptions } from "./game-editor";
 import {insertMissionPractice} from "@/lib/missions";
 import {MissionEditor} from "./mission-editor";
 import { LessonAiEditor } from "@/components/builder/lesson-ai-editor";
@@ -45,11 +46,13 @@ export function LessonBuilder({
   initial,
   initialStatus,
   plans,
+  gameOptions = { own: [], templates: [] },
 }: {
   id: string;
   initial: LessonDraft;
   initialStatus: "draft" | "published";
   plans: Record<number, Ktp>;
+  gameOptions?: GameOptions;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState(initial);
@@ -394,7 +397,7 @@ export function LessonBuilder({
                       {b.engagement && <label className="flex flex-col gap-1.5 text-sm font-semibold">Түрү<select className={inputCls} value={b.engagement.kind} onChange={e => changeBlock({...b,engagement:{...b.engagement!,kind:e.target.value as "question"|"activity"}})}><option value="question">Суроо</option><option value="activity">Кызыктуу тапшырма</option></select></label>}
                     </div>}
                     <Button type="button" variant="secondary" onClick={()=>document.getElementById("lesson-ai-editor")?.scrollIntoView({behavior:"smooth",block:"start"})}>Бул тапшырманы ЖИ менен оңдоо ↑</Button>
-                    <BlockEditor block={b} onChange={changeBlock} />
+                    <GameOptionsContext.Provider value={gameOptions}><BlockEditor block={b} onChange={changeBlock} /></GameOptionsContext.Provider>
                     <label className="flex flex-col gap-1.5 text-sm font-semibold">Жардам берүүчү кеңеш<textarea className={inputCls} rows={2} value={b.support ?? ""} onChange={e => changeBlock({ ...b, support: e.target.value || undefined })} /></label>
                     <label className="flex flex-col gap-1.5 text-sm font-semibold">Тереңдетүү тапшырмасы<textarea className={inputCls} rows={2} value={b.extension ?? ""} onChange={e => changeBlock({ ...b, extension: e.target.value || undefined })} /></label>
                     {isInteractive(b) && b.type !== "confidence" && <fieldset className="rounded-xl border border-line p-3"><legend className="px-1 text-sm font-semibold">Көндүмдөр (үчкө чейин)</legend><p className="mb-2 text-xs text-muted">Бул тапшырма кайсы көндүмгө далил берет? ЖИ сунуштаган белгилерди да текшериңиз. Суроо же критерий чындап текшерген көндүмдү гана белгилеңиз.</p><div className="grid gap-1 sm:grid-cols-2">{(Object.keys(SKILLS) as SkillId[]).map(skill=><label key={skill} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={b.skills?.includes(skill) ?? false} disabled={!b.skills?.includes(skill) && (b.skills?.length ?? 0)>=3} onChange={e=>changeBlock({...b,skills:e.target.checked?[...(b.skills??[]),skill]:(b.skills??[]).filter(x=>x!==skill)})}/>{SKILLS[skill]}</label>)}</div></fieldset>}
@@ -412,7 +415,7 @@ export function LessonBuilder({
             <Eyebrow>Блок кошуу · {stageMeta(draft.content, stage.key).label}</Eyebrow>
             <div className="grid grid-cols-2 gap-2">
               {(["pair", "group"] as const).map(mode=><button type="button" key={mode} className="min-h-11 rounded-xl border border-accent bg-accent-soft px-3 py-2 text-left text-sm font-semibold text-accent" onClick={()=>{const bid=nextBlockId(latest.current.content,stage.key);setStage(s=>insertMissionPractice(s,teamworkBlock(bid,mode)));setSelected(bid);}}>+ {mode==="pair"?"Жуптук тапшырма":"Топтук тапшырма"}</button>)}
-              {BLOCK_TYPES.filter(t=>!["classification","spreadsheet","matching","ordering"].includes(t)||[3,4].includes(stageIdx)).map((t) => (
+              {BLOCK_TYPES.filter(t=>(!["classification","spreadsheet","matching","ordering"].includes(t)||[3,4].includes(stageIdx))&&(t!=="game"||stageIdx!==4)).map((t) => (
                 <button
                   key={t}
                   type="button"

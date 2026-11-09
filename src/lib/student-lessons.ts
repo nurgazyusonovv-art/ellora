@@ -13,8 +13,8 @@ export async function lessonTitles(lessonIds: string[]) {
 }
 
 export async function lessonContent(lessonId: string) {
-  const { data } = await createAdminClient().from("lessons").select("title, content").eq("id", lessonId).maybeSingle();
-  return data ? { title: data.title as string, content: data.content as LessonContent } : null;
+  const { data } = await createAdminClient().from("lessons").select("title, content, author_id").eq("id", lessonId).maybeSingle();
+  return data ? { title: data.title as string, content: data.content as LessonContent, authorId: data.author_id as string } : null;
 }
 
 export async function lessonsByIds(lessonIds: string[]) {

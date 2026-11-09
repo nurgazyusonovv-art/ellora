@@ -1,4 +1,5 @@
 import "server-only";
+import { readLessonGame } from "./game-questions";
 import {practicalEvidence,type PracticalEvidence} from "./practical-evidence";
 import { skillMap, skillEvidence, type SkillProgress, type SkillEvidence } from "@/lib/skills";
 import type { createClient } from "@/lib/supabase/server";
@@ -109,6 +110,13 @@ function describe(b: Block, a: AnswerRow | undefined): Pick<BlockResult, "answer
     case "confidence": {
       const v = r.value as number | undefined;
       return { answer: v ? `${v} · ${CONFIDENCE_LABELS[v - 1]}` : "—" };
+    }
+    case "game": {
+      const g = readLessonGame(r);
+      return {
+        answer: a.is_correct ? `«${b.title}» оюну бүттү · рекорд ${g.best ?? 0}%` : `«${b.title}» оюну ойнолууда · ${g.solved?.length ?? 0} суроо чечилди`,
+        note: g.rounds ? `${g.rounds} раунд ойноду; упай биринчи аракет боюнча эсептелет.` : undefined,
+      };
     }
     default:
       return { answer: "—" };

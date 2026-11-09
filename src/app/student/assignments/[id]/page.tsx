@@ -5,6 +5,7 @@ import { LessonPlayer } from "@/components/player/lesson-player";
 import { requireRole } from "@/lib/auth";
 import { lessonContent } from "@/lib/student-lessons";
 import { studentContent } from "@/lib/student-view";
+import { withGameQuestions } from "@/lib/game-data";
 
 export default async function AssignmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -46,7 +47,8 @@ export default async function AssignmentPage({ params }: { params: Promise<{ id:
   for (const r of rows ?? []) answers[r.block_id] = { response: r.response ?? {}, is_correct: r.is_correct, tries: r.tries };
 
   // Туура жооптор браузерге чечилгенден кийин гана жөнөтүлөт.
-  const content = studentContent(lesson.content, answers, attempt.id);
+  // Оюн блокторуна суроолор туура жоопсуз кошулат; баалоо серверде (answerLessonGame).
+  const content = await withGameQuestions(studentContent(lesson.content, answers, attempt.id), lesson.authorId, profile.id);
   const [{ data: session,error:clockError }, { data: reviews }, {data: wallet, error:walletError}] = await Promise.all([
     readLiveSession(supabase,id).then(data=>({data,error:null})).catch(()=>({data:null,error:{message:"Сабак режими жүктөлгөн жок"}})),
     supabase.from("answer_reviews").select("block_id, criteria_met, feedback").eq("attempt_id", attempt.id),

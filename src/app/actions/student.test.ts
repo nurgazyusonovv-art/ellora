@@ -35,6 +35,7 @@ type AnswerRec = { attempt_id: string; block_id: string; stage: number; response
 const db = { attempts: [] as AttemptRec[], answers: [] as AnswerRec[] };
 const writes: string[] = [];
 let live: { max_stage: number; paused: boolean; timed?:boolean; ended?:boolean } | null = null;
+let gameSet: { author_id: string; questions: unknown[] } | null = null;
 
 /** Окуучунун клиенти: окуй гана алат, RLS: өз аракети жана анын жооптору. */
 function userClient() {
@@ -73,7 +74,11 @@ function userClient() {
 function adminClient() {
   return {
     rpc:async(name:string)=>{writes.push(name);return {data:"ok",error:null};},
-    from(table: "attempts" | "answers") {
+    from(table: "attempts" | "answers" | "game_sets") {
+      if (table === "game_sets") {
+        const q = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: gameSet }) };
+        return q as never;
+      }
       return {
         insert:async(row:AnswerRec)=>{
           writes.push(`${table}.insert:${row.block_id}`);
@@ -104,10 +109,10 @@ vi.mock("@/lib/auth", () => ({
 }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => adminClient() }));
 vi.mock("@/lib/student-lessons", () => ({
-  lessonContent: async (id: string) => (id === "L1" ? { title: pythonIf.title, content: activeContent } : null),
+  lessonContent: async (id: string) => (id === "L1" ? { title: pythonIf.title, content: activeContent, authorId: "T1" } : null),
 }));
 
-const { submitAnswer, completeStage } = await import("@/app/actions/student");
+const { submitAnswer, completeStage, answerLessonGame } = await import("@/app/actions/student");
 
 const attempt = (id: string, student_id = ME): AttemptRec => ({
   id,
@@ -335,3 +340,49 @@ describe("категориялоо сервер агымы",()=>{
 });
 
 it("жаңы практикалык жоопто көрүнгөн объекттер сакталат, туура жооптор ачылбайт жана бекитилген көчүрмө өзгөрбөйт",async()=>{activeContent=structuredClone(content);const b=defaultClassification("captured");activeContent.stages[3].blocks=[b];db.attempts[0].current_stage=3;const perm=shufflePerm(b.items.length,parsonsSeed(b.id,"a1")),groups=perm.map(i=>b.items[i].category);const r=await submitAnswer("a1",b.id,{groups});const task=structuredClone(r.answer?.response.task);expect(task).toMatchObject({version:1,type:"classification",items:perm.map(i=>b.items[i].text),choices:b.categories});expect(JSON.stringify(task)).not.toContain('"category":');b.items[0].text="Башка аталыш";const again=await submitAnswer("a1",b.id,{groups});expect(again.answer?.response.task).toEqual(task);});
+
+
+describe("сабактын ичиндеги оюн", () => {
+  const ROUND = "00000000-0000-0000-0000-00000000aa01";
+  const questions = [
+    { id: "q1", type: "choice", prompt: "P1", options: ["A", "B"], correct: 1, explain: "E1" },
+    { id: "q2", type: "choice", prompt: "P2", options: ["A", "B"], correct: 0 },
+  ];
+  beforeEach(() => {
+    activeContent = structuredClone(content);
+    activeContent.stages[0].blocks = [{ id: "g1", type: "game", setId: "50000000-0000-0000-0000-000000007001", title: "Оюн" }];
+    gameSet = { author_id: "T1", questions };
+  });
+
+  it("суроону серверде баалап, бардыгы чечилгенде бөлүктү ачат", async () => {
+    const r1 = await answerLessonGame("a1", "g1", ROUND, "q1", { pick: 0, correct: true });
+    expect(r1).toMatchObject({ correct: false, reveal: { type: "choice", correct: 1 }, explain: "E1", current_stage: 0 });
+    expect(r1.answer?.is_correct).toBeNull();
+    await answerLessonGame("a1", "g1", ROUND, "q2", { pick: 0 });
+    const r3 = await answerLessonGame("a1", "g1", ROUND, "q1", { pick: 1 });
+    expect(r3).toMatchObject({ correct: true, current_stage: 1 });
+    expect(r3.answer).toMatchObject({ is_correct: true, tries: 1, response: { complete: true, score: 50, best: 50 } });
+    expect(db.attempts[0].current_stage).toBe(1);
+  });
+
+  it("башка мугалимдин топтомун ачпайт", async () => {
+    gameSet = { author_id: "T2", questions };
+    expect((await answerLessonGame("a1", "g1", ROUND, "q1", { pick: 1 })).error).toBeTruthy();
+    expect(writes).toEqual([]);
+  });
+
+  it("жалпы таймерде, ачыла элек бөлүктө жана жараксыз раундда жооп кабыл алынбайт", async () => {
+    expect((await answerLessonGame("a1", "g1", "bad", "q1", { pick: 1 })).error).toBeTruthy();
+    live = { max_stage: 4, paused: false, timed: true };
+    expect((await answerLessonGame("a1", "g1", ROUND, "q1", { pick: 1 })).error).toContain("таймер");
+    live = null;
+    activeContent.stages[2].blocks.push({ id: "g2", type: "game", setId: "50000000-0000-0000-0000-000000007001", title: "Оюн" });
+    expect((await answerLessonGame("a1", "g2", ROUND, "q1", { pick: 1 })).error).toContain("ачыла элек");
+    expect(writes).toEqual([]);
+  });
+
+  it("кадимки submitAnswer аркылуу оюнду «бүтүрүүгө» болбойт", async () => {
+    expect((await submitAnswer("a1", "g1", { complete: true })).error).toBeTruthy();
+    expect(db.attempts[0].current_stage).toBe(0);
+  });
+});

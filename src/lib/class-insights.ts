@@ -1,3 +1,4 @@
+import {readLessonGame} from "./game-questions";
 import {practicalEvidence,type PracticalEvidence} from "./practical-evidence";
 import { isGraded, isInteractive, stageMeta, type Block, type LessonContent } from "@/lib/lesson-types";
 import { SKILLS, isSkillId, type SkillId } from "@/lib/skills";
@@ -12,6 +13,7 @@ const object=(v:unknown):Record<string,unknown>=>v!==null&&typeof v==="object"&&
 function responseText(b:Block,a:InsightAnswer){
  const r=object(a.response);
  if(b.type==="open")return typeof r.text==="string"?r.text:"Жооптун форматын текшериңиз.";
+ if(b.type==="game"){const g=readLessonGame(r);return g.best!==null?`Оюн: рекорд ${g.best}%, ${g.rounds} раунд.`:`Оюн ойнолууда: ${g.solved?.length??0} суроо чечилди.`;}
  if(b.type==="investigation")return ["prediction","observations","conclusion"].map(k=>({prediction:"Божомол",observations:"Байкоо",conclusion:"Жыйынтык"}[k])+": "+(typeof r[k]==="string"?r[k]:"—")).join("\n");
  if(b.type==="mcq")return Number.isInteger(r.picked)?b.options[r.picked as number]??"Вариант белгисиз":"Вариант белгисиз";
  if(b.type==="code_task")return typeof r.code==="string"?r.code:"Коддун жообун ачыңыз.";
@@ -39,7 +41,9 @@ export function classInsights(input:{content:LessonContent;members:{student_id:s
    if(!a){if(!t||t.current_stage<si)row.notReached++;else row.noAnswer++;continue;}
    let state:EvidenceState;
    const revision=revisions.get(key),review=reviews.get(key);
-   if(isGraded(b))state=a.is_correct===true?(a.tries>1?"retry":"correct"):a.is_correct===false?"incorrect":"review";
+   // Оюн: бардык суроо чечилсе — аткарылды; али ойнолуп жатса — кайра аракетте (жардам керек болушу мүмкүн).
+   if(b.type==="game")state=a.is_correct===true?"correct":"retry";
+   else if(isGraded(b))state=a.is_correct===true?(a.tries>1?"retry":"correct"):a.is_correct===false?"incorrect":"review";
    else if(revision)state=revision.status==="requested"?"revision":revision.status==="submitted"?"submitted":revision.criteria_met?.length===revision.rubric.length&&revision.criteria_met.every(Boolean)?"correct":"incorrect";
    else if(b.type==="open"&&b.rubric?.length&&review&&review.criteria_met.length===b.rubric.length)state=review.criteria_met.every(Boolean)?"correct":"incorrect";
    else state="review";

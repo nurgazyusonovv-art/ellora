@@ -1,5 +1,6 @@
 "use client";
 import {ClassificationEditor} from "./classification-editor";
+import { GameEditor } from "./game-editor";
 import {SpreadsheetEditor} from "./spreadsheet-editor";
 
 import { SlideImageEditor } from "./slide-image-editor";
@@ -239,6 +240,8 @@ export function BlockEditor({ block, onChange }: EditorProps<Block>) {
         </div>
       );
 
+    case "game":
+      return <GameEditor block={block} onChange={onChange} />;
     case "confidence":
       return (
         <Area

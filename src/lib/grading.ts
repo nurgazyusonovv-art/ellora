@@ -109,6 +109,8 @@ export function stageDone(stage: Stage, answers: Answers) {
     const a = answers[b.id];
     if (!a) return false;
     if (b.type === "investigation") return ["prediction", "observations", "conclusion"].every(k => typeof a.response[k] === "string" && (a.response[k] as string).trim());
+    // Оюн: бир раундда бардык суроо туура чечилгенде гана (is_correct = true) бөлүк ачылат.
+    if (b.type === "game") return a.is_correct === true;
     return exit || !isGraded(b) ? true : a.is_correct === true;
   });
 }

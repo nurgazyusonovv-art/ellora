@@ -18,7 +18,7 @@ export type EditRequest = { stage:number; mode:"text"|"add"; blockId:string; pat
 export type EditProposal = { request:EditRequest; value?:string; blocks?:Block[] };
 export function parseEditRequest(fd:FormData):EditRequest|null {
  const r={stage:Number(fd.get("stage")),mode:String(fd.get("mode")),blockId:String(fd.get("blockId")??""),path:String(fd.get("path")??""),start:Number(fd.get("start")),end:Number(fd.get("end")),instruction:String(fd.get("instruction")??"").trim(),type:String(fd.get("type")??"open"),count:Number(fd.get("count")??1),collaboration:String(fd.get("collaboration")??"individual")};
- if(!Number.isInteger(r.stage)||r.stage<0||r.stage>4||!["text","add"].includes(r.mode)||r.instruction.length<3||r.instruction.length>2000||!BLOCK_TYPES.includes(r.type as BlockType)||!Number.isInteger(r.count)||r.count<1||r.count>3||!["individual","pair","group"].includes(r.collaboration)||!Number.isInteger(r.start)||!Number.isInteger(r.end)||r.start<0||r.end<r.start||r.blockId.length>100||r.path.length>150) return null;
+ if(!Number.isInteger(r.stage)||r.stage<0||r.stage>4||!["text","add"].includes(r.mode)||r.instruction.length<3||r.instruction.length>2000||!BLOCK_TYPES.includes(r.type as BlockType)||r.type==="game"||!Number.isInteger(r.count)||r.count<1||r.count>3||!["individual","pair","group"].includes(r.collaboration)||!Number.isInteger(r.start)||!Number.isInteger(r.end)||r.start<0||r.end<r.start||r.blockId.length>100||r.path.length>150) return null;
  return r as EditRequest;
 }
 export function stageTextTargets(draft:LessonDraft,stage:number):TextTarget[] {

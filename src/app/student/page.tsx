@@ -9,6 +9,7 @@ import { requireRole } from "@/lib/auth";
 import { computeBadges } from "@/lib/badges";
 import { classLeaderboard, shortName } from "@/lib/leaderboard";
 import { lessonTitles } from "@/lib/student-lessons";
+import { gameSetTitles } from "@/lib/game-data";
 import { formatDate, type AttemptRow } from "@/lib/stats";
 import { getOwnReport } from "@/lib/student-report";
 
@@ -20,10 +21,12 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
   const { welcome } = await searchParams;
   const { supabase, profile } = await requireRole("student");
   const coinPromise = getCoinProfile(supabase,profile.id);
-  const [{ data: assignments }, { data: attempts }, { data: classes }] = await Promise.all([
+  const [{ data: assignments }, { data: attempts }, { data: classes }, { data: gameAssignments }, { data: gameProgress }] = await Promise.all([
     supabase.from("assignments").select("id, due_at, lesson_id, classes(name)").order("created_at", { ascending: false }).returns<A[]>(),
     supabase.from("attempts").select("*").eq("student_id", profile.id).returns<AttemptRow[]>(),
     supabase.from("classes").select("*"),
+    supabase.from("game_assignments").select("id, set_id, due_at, classes(name)").order("created_at", { ascending: false }).returns<{ id: string; set_id: string; due_at: string | null; classes: { name: string } | null }[]>(),
+    supabase.from("game_progress").select("assignment_id, best_score, rounds").eq("student_id", profile.id),
   ]);
   const coinProfile = await coinPromise;
   const totalXp = (attempts ?? []).reduce((s, a) => s + a.xp, 0);
@@ -32,6 +35,9 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
   const titles = await lessonTitles([...new Set((assignments ?? []).map((a) => a.lesson_id))]);
   const list = (assignments ?? []).map((a) => ({ ...a, title: titles.get(a.lesson_id) ?? "Сабак", t: attemptOf(a.id) }));
   const todo = list.filter((a) => !a.t?.finished_at);
+  // Оюндар: RLS дайындамаларды окуучунун класстары менен чектеди; аталыштар ошолор үчүн гана.
+  const gameTitles = await gameSetTitles([...new Set((gameAssignments ?? []).map((g) => g.set_id))]);
+  const games = (gameAssignments ?? []).map((g) => ({ ...g, set: gameTitles.get(g.set_id), progress: gameProgress?.find((p) => p.assignment_id === g.id) })).filter((g) => g.set);
   const done = list.filter((a) => a.t?.finished_at);
 
   // Бейдждер — окуучунун өз жыйынтыгынан (туура жооптор кирбейт).
@@ -119,6 +125,27 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
           </Link>
         ))}
       </section>
+
+      {games.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-base font-medium">Оюндар</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {games.map((g) => (
+              <Link key={g.id} href={`/student/games/${g.id}`} className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4 transition-colors hover:border-line-strong hover:bg-surface-2/40">
+                <span className="flex items-start justify-between gap-2">
+                  <span className="font-medium">{g.set!.title}</span>
+                  {g.progress?.rounds ? <Chip tone="good">{g.progress.best_score}%</Chip> : <Chip tone="accent">Жаңы</Chip>}
+                </span>
+                <span className="text-sm text-muted">
+                  {g.set!.count} суроо · {g.classes?.name}
+                  {g.due_at ? ` · Мөөнөт: ${formatDate(g.due_at)}` : ""}
+                </span>
+                <span className="text-sm font-medium text-accent">{g.progress?.rounds ? "Кайра ойноо →" : "Ойноо →"}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {done.length > 0 && (
         <section className="flex flex-col gap-3">

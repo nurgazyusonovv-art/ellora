@@ -8,6 +8,7 @@ import {DraftScope} from "./lesson-draft";
 import {pollLessonClock} from "@/app/actions/lesson-clock";
 import { explanationView } from "@/lib/explanation-view";
 import { Presentation } from "./presentation";
+import { LessonGame, type GameCtx } from "./lesson-game";
 
 import { ENGAGEMENT_LEVELS } from "@/lib/lesson-types";
 
@@ -237,6 +238,17 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
     if (stages[stageIdx].key !== "exit" && !(content.model === "5e" && stages[stageIdx].key === "practice") && stageIdx === unlocked && stageDone(stages[stageIdx], all)) previewAdvance(stageIdx, all, newXp);
   };
 
+  /** Оюн: окуучуда сервердин жообу колдонулат, алдын ала көрүүдө — браузердеги натыйжа. */
+  const gameCtx = (stageIdx: number, block: Block): GameCtx => ({
+    attemptId: attempt?.id,
+    onServer: (r) => apply({ kind: "answer", blockId: block.id, response: {} }, r),
+    onLocal: (answer) => {
+      const all = { ...answers, [block.id]: answer };
+      setAnswers(all);
+      if (stages[stageIdx].key !== "exit" && stageIdx === unlocked && stageDone(stages[stageIdx], all)) previewAdvance(stageIdx, all, xp);
+    },
+  });
+
   /** Интерактивдүү блогу жок бөлүк же exit ticket'ти тапшыруу баскычы үчүн. */
   const manualComplete = () => {
     if (attempt) return send({ kind: "complete", stageIdx: view });
@@ -335,8 +347,8 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
               {st.mission&&isInteractive(b)&&<p className="text-sm font-semibold text-accent">{missionChallenge(st,b.id)?"Жеке иш · ЖИ жана кеңешсиз, бир жолу тапшырылат":"Миссиянын машыгуусу"}</p>}
               {!missionAllows(st,b.id,answers)&&<p className="rounded-xl bg-surface-2 p-3 text-sm border border-line">Адегенде миссиянын мурунку тапшырмасын бүтүр. Андан кийин бул кадам ачылат.</p>}
               <TeamworkCard block={b} />
-              <DraftScope.Provider value={attempt?.id??null}><fieldset disabled={!missionAllows(st,b.id,answers)||!!finished && b.type !== "presentation"} className="flex min-w-0 flex-col gap-3">{renderBlock(b, answers[b.id], onAnswer(view, b), isExit, failed[b.id], b.type === "open" && b.compareTo ? answers[b.compareTo]?.response.text as string : undefined)}</fieldset></DraftScope.Provider>
-              {attempt && !isExit && !finished && isInteractive(b) && missionAllows(st,b.id,answers) && !missionChallenge(st,b.id) && <AiTutor key={`${attempt.id}:${b.id}`} attemptId={attempt.id} blockId={b.id} />}
+              <DraftScope.Provider value={attempt?.id??null}><fieldset disabled={!missionAllows(st,b.id,answers)||!!finished && b.type !== "presentation"} className="flex min-w-0 flex-col gap-3">{renderBlock(b, answers[b.id], onAnswer(view, b), isExit, failed[b.id], b.type === "open" && b.compareTo ? answers[b.compareTo]?.response.text as string : undefined, gameCtx(view, b))}</fieldset></DraftScope.Provider>
+              {attempt && !isExit && !finished && isInteractive(b) && b.type !== "game" && missionAllows(st,b.id,answers) && !missionChallenge(st,b.id) && <AiTutor key={`${attempt.id}:${b.id}`} attemptId={attempt.id} blockId={b.id} />}
               {reviews.filter(r => r.block_id === b.id).map(r => <div key={r.block_id} className="rounded-xl bg-good-soft p-4 border border-good/25"><p className="font-semibold">Мугалимдин баалоосу: {r.criteria_met.filter(Boolean).length}/{r.criteria_met.length} критерий</p>{b.type === "open" && b.rubric?.map((x,i) => <p key={i} className="mt-1 text-sm">{r.criteria_met[i] ? "Аткарылды" : "Дагы иштөө керек"}: {x}</p>)}<p className="mt-3 whitespace-pre-wrap">{r.feedback}</p></div>)}
               {b.support && missionAllows(st,b.id,answers) && <details className="rounded-xl bg-accent-soft p-3 border border-accent/20"><summary className="min-h-11 cursor-pointer font-semibold">Жардам керекпи?</summary><RichText text={b.support} /></details>}
               {b.extension && answers[b.id] && <details className="rounded-xl bg-surface-2 p-3 border border-line"><summary className="min-h-11 cursor-pointer font-semibold">Тереңдетип көр</summary><RichText text={b.extension} /></details>}
@@ -369,8 +381,10 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
   );
 }
 
-function renderBlock(b: Block, saved: SavedAnswer | undefined, onAnswer: AnswerFn, exitMode: boolean, failed?: number, comparison?: string) {
+function renderBlock(b: Block, saved: SavedAnswer | undefined, onAnswer: AnswerFn, exitMode: boolean, failed?: number, comparison?: string, game?: GameCtx) {
   switch (b.type) {
+    case "game":
+      return game ? <LessonGame key={b.id} block={b} saved={saved} {...game} /> : null;
     case "classification":return <Classification key={b.id} block={b} saved={saved} onAnswer={onAnswer} exitMode={exitMode} failed={failed}/>;
     case "spreadsheet":return <Spreadsheet key={b.id} block={b} saved={saved} onAnswer={onAnswer} exitMode={exitMode} failed={failed}/>;
     case "matching":

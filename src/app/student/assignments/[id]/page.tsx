@@ -1,4 +1,5 @@
-import {readLiveSession} from "@/lib/live-session";
+import {readStudentSession} from "@/lib/live-session";
+import { WaitingRoom } from "@/components/player/waiting-room";
 import { notFound } from "next/navigation";
 import type { SavedAnswer } from "@/components/player/blocks";
 import { LessonPlayer } from "@/components/player/lesson-player";
@@ -12,7 +13,7 @@ export default async function AssignmentPage({ params }: { params: Promise<{ id:
   const { supabase, profile } = await requireRole("student");
 
   // RLS: окуучу өз классынын тапшырмасын гана көрөт. Сабактын өзү — ошондон кийин, серверде.
-  const { data: a } = await supabase.from("assignments").select("id, lesson_id").eq("id", id).maybeSingle();
+  const { data: a } = await supabase.from("assignments").select("id, lesson_id, classes(name)").eq("id", id).maybeSingle<{ id: string; lesson_id: string; classes: { name: string } | null }>();
   const lesson = a ? await lessonContent(a.lesson_id) : null;
   if (!a || !lesson) notFound();
 
@@ -42,6 +43,11 @@ export default async function AssignmentPage({ params }: { params: Promise<{ id:
   }
   if (!attempt) notFound();
 
+  // «Класста өтөм»: мугалим баштаганча сабактын мазмуну жөнөтүлбөйт — күтүү бөлмөсү гана.
+  let live;
+  try { live = await readStudentSession(supabase, id); } catch { return <p role="alert">Сабактын режими жүктөлгөн жок. Баракты жаңыртыңыз.</p>; }
+  if (live?.waiting) return <WaitingRoom attemptId={attempt.id} title={lesson.title} className={a.classes?.name} backHref="/student" />;
+
   const { data: rows } = await supabase.from("answers").select("block_id, response, is_correct, tries").eq("attempt_id", attempt.id);
   const answers: Record<string, SavedAnswer> = {};
   for (const r of rows ?? []) answers[r.block_id] = { response: r.response ?? {}, is_correct: r.is_correct, tries: r.tries };
@@ -50,7 +56,7 @@ export default async function AssignmentPage({ params }: { params: Promise<{ id:
   // Оюн блокторуна суроолор туура жоопсуз кошулат; баалоо серверде (answerLessonGame).
   const content = await withGameQuestions(studentContent(lesson.content, answers, attempt.id), lesson.authorId, profile.id);
   const [{ data: session,error:clockError }, { data: reviews }, {data: wallet, error:walletError}] = await Promise.all([
-    readLiveSession(supabase,id).then(data=>({data,error:null})).catch(()=>({data:null,error:{message:"Сабак режими жүктөлгөн жок"}})),
+    Promise.resolve({data:live,error:null}),
     supabase.from("answer_reviews").select("block_id, criteria_met, feedback").eq("attempt_id", attempt.id),
     supabase.from("coin_wallets").select("balance").eq("student_id",profile.id).maybeSingle(),
   ]);

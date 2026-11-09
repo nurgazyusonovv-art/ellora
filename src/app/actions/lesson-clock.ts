@@ -1,7 +1,7 @@
 "use server";
 import {revalidatePath} from "next/cache";
 import {requireRole} from "@/lib/auth";
-import {readLiveSession} from "@/lib/live-session";
+import {readStudentSession} from "@/lib/live-session";
 import type {LiveSession} from "@/lib/classroom";
 export type ClockState={error?:string;success?:string};
 const commands=new Set(["start","next","back","pause","resume","add","auto","stop"]);
@@ -17,5 +17,5 @@ export async function pollLessonClock(attemptId:string):Promise<{session?:LiveSe
  const {supabase,profile}=await requireRole("student");
  const {data}=await supabase.from("attempts").select("assignment_id").eq("id",attemptId).eq("student_id",profile.id).maybeSingle();
  if(!data)return {error:"Сабак табылган жок."};
- try{return {session:await readLiveSession(supabase,data.assignment_id)};}catch{return {error:"Жалпы саат жаңырган жок. Байланышты текшериңиз."};}
+ try{return {session:await readStudentSession(supabase,data.assignment_id)};}catch{return {error:"Жалпы саат жаңырган жок. Байланышты текшериңиз."};}
 }

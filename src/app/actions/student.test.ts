@@ -36,6 +36,7 @@ const db = { attempts: [] as AttemptRec[], answers: [] as AnswerRec[] };
 const writes: string[] = [];
 let live: { max_stage: number; paused: boolean; timed?:boolean; ended?:boolean } | null = null;
 let gameSet: { author_id: string; questions: unknown[] } | null = null;
+let delivery: "class" | "self" = "self";
 
 /** Окуучунун клиенти: окуй гана алат, RLS: өз аракети жана анын жооптору. */
 function userClient() {
@@ -48,7 +49,7 @@ function userClient() {
         table === "coin_wallets" ? [{student_id:ME,balance:25}] : table === "lesson_sessions" ? (live ? [{assignment_id:"asg", ...live}] : []) : table === "attempts"
           ? db.attempts.filter((a) => a.student_id === ME)
           : table === "assignments"
-            ? [{ id: "asg", lesson_id: "L1" }] // окуучунун классынын тапшырмасы
+            ? [{ id: "asg", lesson_id: "L1", delivery }] // окуучунун классынын тапшырмасы
             : db.answers.filter((r) => db.attempts.some((a) => a.id === r.attempt_id && a.student_id === ME));
       const rows = () => visible().filter((r) => filters.every(([k, v]) => (r as Record<string, unknown>)[k] === v)).map((r) => ({ ...r }));
       const q = {
@@ -131,6 +132,7 @@ beforeEach(() => {
   db.answers = [];
   writes.length = 0;
   live = null;
+  delivery = "self";
   activeContent = content;
 });
 
@@ -384,5 +386,32 @@ describe("сабактын ичиндеги оюн", () => {
   it("кадимки submitAnswer аркылуу оюнду «бүтүрүүгө» болбойт", async () => {
     expect((await submitAnswer("a1", "g1", { complete: true })).error).toBeTruthy();
     expect(db.attempts[0].current_stage).toBe(0);
+  });
+});
+
+
+describe("«Класста өтөм» (0018)", () => {
+  it("мугалим баштаганча жооп кабыл алынбайт", async () => {
+    delivery = "class";
+    const b = content.stages[0].blocks.find((x) => x.type === "open")!;
+    const r = await submitAnswer("a1", b.id, { text: "Менин ойум" });
+    expect(r.error).toContain("баштай элек");
+    expect(writes).toEqual([]);
+    expect((await completeStage("a1", 0)).error).toContain("баштай элек");
+  });
+  it("мугалим баштагандан кийин ачылган бөлүккө жооп берилет, кийинкисине — жок", async () => {
+    delivery = "class";
+    live = { max_stage: 0, paused: false };
+    const b = content.stages[0].blocks.find((x) => x.type === "open")!;
+    expect((await submitAnswer("a1", b.id, { text: "Менин ойум" })).error).toBeUndefined();
+    db.attempts[0].current_stage = 1;
+    const next = content.stages[1].blocks.find((x) => x.type !== "text" && x.type !== "presentation" && x.type !== "code_example")!;
+    expect((await submitAnswer("a1", next.id, { prediction: "Божомол", phase: "prediction" })).error).toBeTruthy();
+  });
+  it("сабак жабылса жооп кабыл алынбайт", async () => {
+    delivery = "class";
+    live = { max_stage: 2, paused: false, ended: true };
+    const b = content.stages[0].blocks.find((x) => x.type === "open")!;
+    expect((await submitAnswer("a1", b.id, { text: "Кеч" })).error).toBe("Сабак аяктады.");
   });
 });

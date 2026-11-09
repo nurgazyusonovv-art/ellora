@@ -1,7 +1,7 @@
 "use server";
 import {missionChallenge} from "@/lib/missions";
 import {liveAllows} from "@/lib/classroom";
-import {readLiveSession} from "@/lib/live-session";
+import {readStudentSession} from "@/lib/live-session";
 
 import { requireRole } from "@/lib/auth";
 import { lessonContent } from "@/lib/student-lessons";
@@ -19,7 +19,7 @@ export async function askTutor(_: TutorState, fd: FormData): Promise<TutorState>
   const { data: assignment } = await supabase.from("assignments").select("lesson_id").eq("id", attempt.assignment_id).maybeSingle();
   if (!assignment) return { error: "Сабак табылган жок." };
   const lesson = await lessonContent(assignment.lesson_id);
-  let live;try{live=await readLiveSession(supabase,attempt.assignment_id);}catch{return {error:"Сабактын режими жүктөлгөн жок."};}
+  let live;try{live=await readStudentSession(supabase,attempt.assignment_id);}catch{return {error:"Сабактын режими жүктөлгөн жок."};}
   const found = lesson && findBlock(lesson.content, String(fd.get("blockId")));
   if(lesson&&found&&missionChallenge(lesson.content.stages[found.stageIdx],found.block.id))return {error:"Бул жеке иш. ЖИ жардамысыз өзүңдүн чечимиңди түшүндүр."};
   if (!lesson || !found || (!live?.timed && found.stageIdx > attempt.current_stage) || found.block.type === "text" || found.block.type === "presentation" || found.block.type === "code_example") return { error: "Тапшырма жеткиликтүү эмес." };

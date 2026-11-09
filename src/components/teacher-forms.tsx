@@ -50,6 +50,23 @@ export function AssignForm({ lessonId, classes,activityKind }: { lessonId: strin
           ))}
         </select>
       </label>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1.5 text-sm font-semibold">Кантип өтөсүз?</legend>
+        <label className="flex cursor-pointer items-start gap-3 rounded-md border border-line-strong bg-surface p-3 has-[:checked]:border-accent has-[:checked]:bg-accent-soft/50">
+          <input type="radio" name="delivery" value="class" defaultChecked className="mt-1 size-4 accent-accent" />
+          <span className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium">Класста өтөм — мен башкарам</span>
+            <span className="text-xs text-muted">Сабак мен «Баштоо» баскычын басканда ачылат. Кийинки бөлүккө мен өткөрөм.</span>
+          </span>
+        </label>
+        <label className="flex cursor-pointer items-start gap-3 rounded-md border border-line-strong bg-surface p-3 has-[:checked]:border-accent has-[:checked]:bg-accent-soft/50">
+          <input type="radio" name="delivery" value="self" className="mt-1 size-4 accent-accent" />
+          <span className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium">Өз алдынча / үй тапшырмасы</span>
+            <span className="text-xs text-muted">Окуучулар сабакты дароо ачып, өз ылдамдыгы менен өтөт.</span>
+          </span>
+        </label>
+      </fieldset>
       <Field label="Мөөнөт (милдеттүү эмес)" name="due_at" type="date" /><AssignmentTermFields activityKind={activityKind}/>
       <FormError message={state?.error} />
       <Button disabled={pending}>{pending ? "Жөнөтүлүүдө…" : "Класска жөнөтүү"}</Button>

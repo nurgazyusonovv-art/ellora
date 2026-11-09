@@ -1,7 +1,8 @@
 import {AssignmentTermForm} from "@/components/assignment-term-fields";
 import {ShareCard} from "@/components/share-card";
 import {reviewSource,sourceHash} from "@/lib/review-source";
-import {readLiveSession} from "@/lib/live-session";
+import {readDelivery,readLiveSession} from "@/lib/live-session";
+import { liveState } from "@/lib/classroom";
 import { ClassInsightsPanel } from "@/components/class-insights";
 import { classInsights } from "@/lib/class-insights";
 import { RevisionCard, RequestRevisionForm } from "@/components/revision-forms";
@@ -49,7 +50,8 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
     ? await supabase.from("answers").select("attempt_id, block_id, stage, response, is_correct, tries").in("attempt_id", attemptIds).returns<Answer[]>()
     : { data: [] as Answer[], error: null };
 
-  const [{ data: session, error: sessionError }, { data: reviews, error: reviewsError }, {data: revisions, error: revisionError}] = await Promise.all([
+  const [delivery, { data: session, error: sessionError }, { data: reviews, error: reviewsError }, {data: revisions, error: revisionError}] = await Promise.all([
+    readDelivery(supabase, id),
     readLiveSession(supabase,id).then(data=>({data,error:null})).catch(()=>({data:null,error:{message:"Сабак режими жүктөлгөн жок"}})),
     attemptIds.length ? supabase.from("answer_reviews").select("attempt_id, block_id, criteria_met, feedback").in("attempt_id", attemptIds) : Promise.resolve({ data: [], error: null }),
     attemptIds.length ? supabase.from("answer_revisions").select(REVISION_COLUMNS).in("attempt_id",attemptIds).order("revision_no").returns<Revision[]>() : Promise.resolve({data:[] as Revision[],error:null}),
@@ -89,7 +91,11 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
   return (
     <>
       <ShareCard assignmentId={id}/><AssignmentTermForm assignmentId={id} year={a.academic_year} quarter={a.quarter} kind={a.work_kind} activityKind={content.activityKind}/><AutoRefresh seconds={session?.timed?3:20} />
-      {sessionError ? <p className="rounded-xl bg-amber-soft p-4 text-sm text-amber border border-amber/25">Жандуу режим жана баалоо үчүн 0008 база жаңыртуусу керек.</p> : <SessionControls key={JSON.stringify(session)} assignmentId={id} session={session} content={content} />}
+      {sessionError ? <p className="rounded-xl bg-amber-soft p-4 text-sm text-amber border border-amber/25">Жандуу режим жана баалоо үчүн 0008 база жаңыртуусу керек.</p> : <>
+        <LiveLink id={id} state={liveState(delivery, session)} />
+        {/* «Класста өтөм» сабагы жандуу экрандан башкарылат; мурунку режимдер өз алдынча дайындамалар үчүн калат. */}
+        {delivery === "self" && <SessionControls key={JSON.stringify(session)} assignmentId={id} session={session} content={content} />}
+      </>}
       {content.teacherNotes && <details className="rounded-xl bg-accent-soft p-4 border border-accent/20"><summary className="min-h-11 cursor-pointer font-semibold">Сабакты өткөрүү боюнча көрсөтмө</summary><p className="leading-relaxed">{content.teacherNotes}</p></details>}
       <div className="flex flex-col gap-2">
         <span className="text-sm text-muted">
@@ -231,4 +237,18 @@ function FunnelRow({ label, n, total }: { label: string; n: number; total: numbe
 function dueInput(iso: string | null) {
   if (!iso) return "";
   return new Date(new Date(iso).getTime() + 6 * 36e5).toISOString().slice(0, 10);
+}
+
+
+function LiveLink({ id, state }: { id: string; state: ReturnType<typeof liveState> }) {
+  const text = state === "waiting" ? "Сабак али башталган жок." : state === "live" ? "Сабак азыр жүрүп жатат." : state === "paused" ? "Сабак тыныгууда." : state === "ended" ? "Сабак жабылды." : "Сабакты класста мугалим башкарган режимде өткөрө аласыз.";
+  return (
+    <Link href={`/teacher/live/${id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/25 bg-accent-soft p-4 transition-colors hover:border-accent/50">
+      <span className="flex flex-col gap-0.5">
+        <span className="font-medium text-accent-dark">Жандуу сабак экраны</span>
+        <span className="text-sm text-muted">{text} Баштоо, бөлүктөрдү которуу жана окуучуларды көзөмөлдөө — ушул жерде.</span>
+      </span>
+      <span className="text-sm font-medium text-accent">Ачуу →</span>
+    </Link>
+  );
 }

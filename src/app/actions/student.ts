@@ -2,8 +2,8 @@
 import {practicalSnapshot} from "@/lib/practical-evidence";
 import {missionAllows,missionChallenge,missionStudentBlock} from "@/lib/missions";
 
-import {readLiveSession} from "@/lib/live-session";
-import { liveAllows } from "@/lib/classroom";
+import {readStudentSession} from "@/lib/live-session";
+import { liveAllows, liveBlockedMessage } from "@/lib/classroom";
 import { requireRole } from "@/lib/auth";
 import { computeXp, exitResult, findBlock, gradeAnswer, stageDone, type Answers, type SavedAnswer } from "@/lib/grading";
 import type { Block } from "@/lib/lesson-types";
@@ -43,7 +43,7 @@ async function load(attemptId: string) {
   const { data: rows } = await supabase.from("answers").select("block_id, response, is_correct, tries").eq("attempt_id", attemptId);
   const answers: Answers = {};
   for (const r of rows ?? []) answers[r.block_id] = { response: r.response ?? {}, is_correct: r.is_correct, tries: r.tries };
-  let session;try{session=await readLiveSession(supabase,attempt.assignment_id);}catch{return null;}
+  let session;try{session=await readStudentSession(supabase,attempt.assignment_id);}catch{return null;}
   return { attempt, content: lesson.content, authorId: lesson.authorId, answers, session, supabase, profile };
 }
 
@@ -63,7 +63,7 @@ export async function submitAnswer(attemptId: string, blockId: string, response:
   const found = findBlock(content, blockId);
   if (!found) return { error: "Тапшырма табылган жок." };
   const { block, stageIdx } = found;
-  if (!liveAllows(ctx.session, stageIdx)) return { error: "Мугалим бөлүктү ачканда уланта аласың." };
+  if (!liveAllows(ctx.session, stageIdx)) return { error: liveBlockedMessage(ctx.session) };
   if (!ctx.session?.timed && stageIdx > attempt.current_stage) return { error: "Бул бөлүк али ачыла элек." };
 
   const stage = content.stages[stageIdx];
@@ -134,7 +134,7 @@ export async function answerLessonGame(attemptId: string, blockId: string, round
   if (!found || found.block.type !== "game") return { error: "Оюн табылган жок." };
   const { block, stageIdx } = found;
   if (ctx.session?.timed) return { error: "Жалпы таймер учурунда оюн ойнолбойт. Мугалимдин көрсөтмөсүн күт." };
-  if (!liveAllows(ctx.session, stageIdx)) return { error: "Мугалим бөлүктү ачканда уланта аласың." };
+  if (!liveAllows(ctx.session, stageIdx)) return { error: liveBlockedMessage(ctx.session) };
   if (stageIdx > attempt.current_stage) return { error: "Бул бөлүк али ачыла элек." };
 
   const admin = createAdminClient();
@@ -173,7 +173,7 @@ export async function completeStage(attemptId: string, stageIdx: number): Promis
     const r = exitResult(content, answers);
     return { ...await coinBalance(ctx), xp: computeXp(content, answers, true), current_stage: content.stages.length, finished: { score: r.score, total: r.total } };
   }
-  if (!liveAllows(ctx.session, stageIdx)) return { error: "Мугалим бөлүктү ачканда уланта аласың." };
+  if (!liveAllows(ctx.session, stageIdx)) return { error: liveBlockedMessage(ctx.session) };
   if(ctx.session?.timed){
     if(stageIdx!==4)return {error:"Кийинки бөлүккө жалпы таймер же мугалим өткөрөт."};
     if(!content.stages.every(stage=>stageDone(stage,answers)))return {error:"Сабакта аяктай элек тапшырмалар бар. Мугалим менен такта."};

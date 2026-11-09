@@ -16,7 +16,7 @@ import Link from "next/link";
 import { CoinIcon } from "@/components/coin-profile";
 import { STAGE_COINS } from "@/lib/coins";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { liveAllows, type LiveSession, type Review } from "@/lib/classroom";
+import { liveAllows, liveBlockedMessage, type LiveSession, type Review } from "@/lib/classroom";
 import { TeamworkCard } from "@/components/player/teamwork-card";
 import { AiTutor } from "@/components/player/ai-tutor";
 import { useEffect, useRef, useState } from "react";
@@ -71,6 +71,14 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
   },[clockAttemptId]);
   const wasTimed=useRef(!!initialLiveSession?.timed);
   useEffect(()=>{if(liveSession?.timed)setView(liveSession.max_stage);else if(wasTimed.current)setView(Math.min(unlockedRef.current,4));wasTimed.current=!!liveSession?.timed;},[liveSession?.timed,liveSession?.max_stage]);
+  // Мугалим башкарган (таймерсиз) сабак: мугалим жаңы бөлүк ачканда окуучу ошол бөлүккө өтөт (жеткен болсо).
+  const lastLiveStage=useRef(initialLiveSession&&!initialLiveSession.timed?initialLiveSession.max_stage:null);
+  useEffect(()=>{
+    if(!liveSession||liveSession.timed||liveSession.waiting){lastLiveStage.current=null;return;}
+    const next=liveSession.max_stage,prev=lastLiveStage.current;lastLiveStage.current=next;
+    if(prev!==null&&next>prev&&next<=unlockedRef.current)go(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[liveSession?.max_stage,liveSession?.timed,liveSession?.waiting]);
   const [presentationOpened,setPresentationOpened]=useState<Record<string,boolean>>({});
   const [coins,setCoins]=useState(initialCoinBalance);
   const coinRef=useRef(initialCoinBalance);
@@ -326,8 +334,8 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
       {attempt && reviews.length > 0 && <Link href="/student/revisions" className="flex min-h-11 items-center rounded-xl bg-accent-soft px-4 font-semibold text-accent border border-accent/20">Мугалимдин пикири бар: кайра иштөө тапшырмаларын көрүү →</Link>}
       {coinNotice && <div key={coinNotice.id} role="status" className="coin-reward flex items-center justify-between gap-3 rounded-2xl bg-amber-soft p-4 text-amber border border-amber/25"><span className="flex items-center gap-2 font-semibold"><CoinIcon/>+{coinNotice.amount} монета кошулду!</span><button type="button" className="min-h-11 px-2 text-sm font-semibold" onClick={()=>setCoinNotice(null)}>Жабуу</button></div>}
       {liveSession?.timed && <div className="rounded-xl bg-accent-soft p-4 border border-accent/20"><p className="text-sm font-semibold">Мугалим башкарган жалпы сабак · {liveSession.max_stage+1}/5</p><ClockDisplay session={liveSession}/><p className="mt-2 text-sm">Кийинки бөлүккө жалпы таймер же мугалим өткөрөт. Терип жаткан текст бул түзмөктө черновик болуп сакталат; ал жөнөтүлгөн жооп эмес.</p>{liveSession.ended&&<p className="mt-2 text-sm">Жалпы убакыт бүттү. Аяктай элек иш туура эмес деп автоматтык бааланбайт. Улантуу үчүн мугалим менен такта.</p>}</div>}
-      {liveSession && !liveSession.timed && <p role="status" className="rounded-xl bg-amber-soft p-4 text-sm text-amber border border-amber/25">{liveSession.paused ? "Мугалим сабакты талкуу үчүн токтотту. Азыр жооп жибербеңиз." : `Жандуу сабак: ${stageMeta(content, stages[liveSession.max_stage].key).label} бөлүгүнө чейин ачылган.`}</p>}
-      {!liveAllows(liveSession, view) ? <p className="rounded-xl bg-surface p-5">Бул бөлүк мугалим ачканда жеткиликтүү болот.</p> : (
+      {liveSession && !liveSession.timed && <p role="status" className={cx("rounded-md border p-4 text-sm", liveSession.paused || liveSession.ended ? "border-amber/25 bg-amber-soft text-amber" : "border-accent/20 bg-accent-soft text-accent-dark")}>{liveSession.ended ? "Сабак аяктады. Жоопторуң сакталды." : liveSession.paused ? "Мугалим сабакты талкуу үчүн токтотту. Тактага кара, азыр жооп жибербе." : unlocked < liveSession.max_stage ? `Мугалим ${liveSession.max_stage + 1}-бөлүккө өттү. Адегенде ${unlocked + 1}-бөлүктү бүтүр — анан кийинкиси ачылат.` : `Мугалим башкарган сабак: ${stageMeta(content, stages[liveSession.max_stage].key).label} бөлүгү ачык.`}</p>}
+      {!liveAllows(liveSession, view) ? <p className="rounded-lg border border-line bg-surface p-5">{liveBlockedMessage(liveSession)}</p> : (
         <section className="flex flex-col gap-4">
           {finished && isExit && <FinishCard score={finished.score} total={finished.total} xp={xp} backHref={backHref} preview={preview} />}
           <div className="flex flex-col gap-1.5">

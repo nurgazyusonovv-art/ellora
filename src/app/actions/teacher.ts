@@ -55,6 +55,7 @@ export async function assignLesson(_: FormState, fd: FormData): Promise<FormStat
   const lesson_id = String(fd.get("lesson_id") ?? "");
   const class_id = String(fd.get("class_id") ?? "");
   const due = String(fd.get("due_at") ?? "");
+  const delivery = fd.get("delivery") === "self" ? "self" : "class";
   if (!class_id) return { error: "Классты тандаңыз." };
   const { data: lesson } = await supabase.from("lessons").select("status,content").eq("id", lesson_id).eq("author_id",profile.id).maybeSingle();
   if (lesson?.status !== "published") return { error: "Адегенде сабакты жарыялаңыз (конструктордо «Жарыялоо»)." };
@@ -62,12 +63,13 @@ export async function assignLesson(_: FormState, fd: FormData): Promise<FormStat
   const {data:ownedClass}=await supabase.from("classes").select("id").eq("id",class_id).eq("teacher_id",profile.id).maybeSingle();if(!ownedClass)return {error:"Класс табылган жок."};
   const { data, error } = await supabase
     .from("assignments")
-    .insert({ ...term,lesson_id, class_id, due_at: due ? new Date(`${due}T23:59:00+06:00`).toISOString() : null })
+    .insert({ ...term,lesson_id, class_id, delivery, due_at: due ? new Date(`${due}T23:59:00+06:00`).toISOString() : null })
     .select("id")
     .single();
   if (error || !data) return { error: "Сабак жөнөтүлгөн жок: " + (error?.message ?? "") };
   revalidatePath("/teacher");
-  redirect(`/teacher/assignments/${data.id}`);
+  // «Класста өтөм» — мугалимдин жандуу сабак экранына: ал жерден «Сабакты баштоо».
+  redirect(delivery === "class" ? `/teacher/live/${data.id}` : `/teacher/assignments/${data.id}`);
 }
 
 /** Окуучу сырсөзүн унутса, мугалим жаңысын коёт. Окуучу мугалимдин классында болушу керек. */

@@ -10,6 +10,7 @@ import { computeBadges } from "@/lib/badges";
 import { classLeaderboard, shortName } from "@/lib/leaderboard";
 import { lessonTitles } from "@/lib/student-lessons";
 import { gameSetTitles } from "@/lib/game-data";
+import { liveState, type Delivery, type LiveState } from "@/lib/classroom";
 import { formatDate, type AttemptRow } from "@/lib/stats";
 import { getOwnReport } from "@/lib/student-report";
 
@@ -34,7 +35,17 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
   // RLS тапшырмаларды окуучунун класстары менен чектеди — аталыштарды ошолор үчүн гана алабыз.
   const titles = await lessonTitles([...new Set((assignments ?? []).map((a) => a.lesson_id))]);
   const list = (assignments ?? []).map((a) => ({ ...a, title: titles.get(a.lesson_id) ?? "Сабак", t: attemptOf(a.id) }));
-  const todo = list.filter((a) => !a.t?.finished_at);
+  // Сабактын абалы (0018): «Класста өтөм» сабагы мугалим баштаганча кулпуланган. Ката болсо — мурункудай.
+  const listIds = list.map((a) => a.id);
+  const [{ data: deliveries }, { data: sessions }] = listIds.length
+    ? await Promise.all([
+        supabase.from("assignments").select("id, delivery").in("id", listIds),
+        supabase.from("lesson_sessions").select("assignment_id, max_stage, paused, ended").in("assignment_id", listIds),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const stateOf = (id: string): LiveState =>
+    liveState((deliveries?.find((d) => d.id === id)?.delivery as Delivery | undefined) ?? "self", (sessions?.find((x) => x.assignment_id === id) as { max_stage: number; paused: boolean; ended: boolean } | undefined) ?? null);
+  const todo = list.filter((a) => !a.t?.finished_at).map((a) => ({ ...a, live: stateOf(a.id) })).sort((x, y) => Number(y.live === "live" || y.live === "paused") - Number(x.live === "live" || x.live === "paused"));
   // Оюндар: RLS дайындамаларды окуучунун класстары менен чектеди; аталыштар ошолор үчүн гана.
   const gameTitles = await gameSetTitles([...new Set((gameAssignments ?? []).map((g) => g.set_id))]);
   const games = (gameAssignments ?? []).map((g) => ({ ...g, set: gameTitles.get(g.set_id), progress: gameProgress?.find((p) => p.assignment_id === g.id) })).filter((g) => g.set);
@@ -116,7 +127,7 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
           <Link key={a.id} href={`/student/assignments/${a.id}`} className="flex flex-col gap-2.5 rounded-lg border border-line bg-surface p-4 transition-colors hover:border-line-strong hover:bg-surface-2/50">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-medium">{a.title}</span>
-              {a.t ? <Chip tone="accent">{a.t.current_stage}/5 бөлүк</Chip> : <Chip tone="warn">Жаңы</Chip>}
+              {a.live === "live" ? <Chip tone="good">Азыр жүрүп жатат</Chip> : a.live === "paused" ? <Chip tone="warn">Тыныгуу</Chip> : a.live === "waiting" ? <Chip>Мугалим баштаганда ачылат</Chip> : a.live === "ended" ? <Chip>Сабак аяктады</Chip> : a.t ? <Chip tone="accent">{a.t.current_stage}/5 бөлүк</Chip> : <Chip tone="warn">Жаңы</Chip>}
             </div>
             {a.t && <Progress value={(a.t.current_stage / 5) * 100} />}
             <span className="text-sm text-muted">

@@ -51,7 +51,7 @@ src/lib/
   stats.ts                окуучунун абалы (help/attention/done…)
   python.ts               Pyodide worker менен байланыш
   supabase/               server/client/admin клиенттери
-src/content/              даяр сабактар: lessons/*.ts + index.ts (LIBRARY), ktp/ (КТП үлгүлөрү)
+src/content/              index.ts (LIBRARY — китепкана, азыр бош), examples/ (демо/тест үлгүлөрү), ktp/ (КТП үлгүлөрү)
 supabase/migrations/      SQL схема + RLS
 design/mockups/           HTML макеттер (браузерде ач)
 docs/                     пландар жана спецификациялар

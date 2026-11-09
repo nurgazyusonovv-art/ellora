@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {defaultClassification} from "@/lib/classification";
 import {defaultSheet} from "@/lib/sheet";
 import {MISSION_EXAMPLE} from "@/lib/mission-example";
-import { legacyPythonIf as pythonIf } from "@/content/lessons/python-if";
+import { legacyPythonIf as pythonIf } from "@/content/examples/python-if";
 import { generatedLesson } from "@/lib/lesson-generator";
 import { lessonPlan } from "@/test/lesson-plan";
 import type { Block, McqBlock, ParsonsBlock } from "@/lib/lesson-types";

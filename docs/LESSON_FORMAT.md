@@ -1,7 +1,7 @@
 # Сабактын JSON форматы
 
 Сабактын мазмуну `lessons.content` талаасында JSON болуп сакталат. TypeScript түрлөрү: `src/lib/lesson-types.ts`
-(бул файл — бирдиктүү булак; айырма болсо, коддун айтканы туура). Толук мисалдар: `src/content/lessons/` (китепкана — `src/content/index.ts`).
+(бул файл — бирдиктүү булак; айырма болсо, коддун айтканы туура). Толук мисалдар: `src/content/examples/` (китепкана — `src/content/index.ts`, азыр бош).
 
 ```jsonc
 {

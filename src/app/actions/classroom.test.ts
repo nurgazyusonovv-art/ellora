@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { pythonIf } from "@/content/lessons/python-if";
+import { pythonIf } from "@/content/examples/python-if";
 const db=vi.hoisted(()=>({own:true,answered:true,write:vi.fn()}));
 vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));
 vi.mock("@/lib/auth",()=>({requireRole:async()=>({profile:{id:"teacher"},supabase:{from:(table:string)=>{const q={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:table==="attempts"?{assignment_id:"a"}:table==="assignments"?{class_id:"c",lessons:pythonIf}:table==="classes"?(db.own?{id:"c"}:null):db.answered?{block_id:"explain-1"}:null}),upsert:async(v:unknown)=>{db.write(table,v);return {error:null};},delete:()=>({eq:async()=>{db.write(table,"delete");return {error:null};}})};return q;}}})}));

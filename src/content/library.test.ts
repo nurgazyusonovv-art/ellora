@@ -1,11 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { LIBRARY } from "@/content";
+import { logicOperations } from "@/content/examples/logic-operations";
+import { logicProblemSolving } from "@/content/examples/logic-problem-solving";
+import { pythonIf } from "@/content/examples/python-if";
 import { findKtpTopic, KTP_TEMPLATES } from "@/content/ktp";
 import { computeXp, gradeAnswer, stageDone, type Answers } from "@/lib/grading";
 import { checkStructure, validateLesson } from "@/lib/lesson-edit";
 import { correctResponse } from "@/test/helpers";
 
-describe.each(LIBRARY)("китепкана: $slug", (l) => {
+// Китепкана азырынча бош; форматтын текшерүүлөрү демо/тест үлгүлөрүндө жана китепканада иштейт.
+const LESSONS = [
+  ...LIBRARY,
+  { slug: "logic-operations", ...logicOperations },
+  { slug: "logic-problem-solving", ...logicProblemSolving },
+  { slug: "python-if", ...pythonIf },
+];
+
+describe.each(LESSONS)("сабак үлгүсү: $slug", (l) => {
   it("формат жана жарыялоо алдындагы текшерүү", () => {
     expect(checkStructure(l.content)).toBeNull();
     expect(validateLesson(l.title, l.content)).toEqual([]);
@@ -47,5 +58,5 @@ describe.each(LIBRARY)("китепкана: $slug", (l) => {
 });
 
 it("slug'дар кайталанбайт", () => {
-  expect(new Set(LIBRARY.map((l) => l.slug)).size).toBe(LIBRARY.length);
+  expect(new Set(LESSONS.map((l) => l.slug)).size).toBe(LESSONS.length);
 });

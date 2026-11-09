@@ -1,6 +1,6 @@
 vi.mock("server-only",()=>({}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { pythonIf } from "@/content/lessons/python-if";
+import { pythonIf } from "@/content/examples/python-if";
 const state=vi.hoisted(()=>({attempt:{assignment_id:"asg",current_stage:4,finished_at:null} as object|null,live:null as object|null,allowed:true,rpc:vi.fn()}));
 vi.mock("@/lib/auth",()=>({requireRole:async()=>({profile:{id:"me"},supabase:{from:(table:string)=>{const q={select:()=>q,eq:()=>q,maybeSingle:async()=>({data:table==="attempts"?state.attempt:table==="assignments"?{lesson_id:"l"}:state.live,error:null})};return q;},rpc:async()=>{state.rpc();return {data:state.allowed,error:null};}}})}));
 vi.mock("@/lib/student-lessons",()=>({lessonContent:async()=>pythonIf}));

@@ -47,7 +47,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
       <section className="flex flex-col gap-4">
         <h2 className="text-base font-medium">Менин сабактарым</h2>
         {visibleLessons.length === 0 ? (
-          <div className="rounded-lg border border-accent/20 bg-accent-soft p-5 text-sm text-muted">{(lessons?.length ?? 0) === 0 ? "Азырынча сабак жок. Жаңы сабак түзүңүз же китепканадан даяр сабакты алыңыз." : "Тандалган шарттарга ылайык сабак табылган жок."}</div>
+          <div className="rounded-lg border border-accent/20 bg-accent-soft p-5 text-sm text-muted">{(lessons?.length ?? 0) === 0 ? "Азырынча сабак жок. «Жаңы сабак» баскычы менен биринчи сабагыңызды түзүңүз." : "Тандалган шарттарга ылайык сабак табылган жок."}</div>
         ) : (
           <div className="flex flex-col gap-3">
             {visibleLessons.map((l) => {
@@ -86,6 +86,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
         )}
       </section>
 
+      {LIBRARY.length > 0 && (
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-medium">Сабак китепканасы</h2>
         <p className="text-sm text-muted">Даяр сабакты өзүңүздүн сабактарыңызга көчүрүп, класска жөнөтө аласыз.</p>
@@ -108,6 +109,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
           ))}
         </div>
       </section>
+      )}
     </>
   );
 }

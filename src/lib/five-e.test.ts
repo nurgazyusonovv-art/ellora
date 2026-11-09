@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pythonIf, legacyPythonIf } from "@/content/lessons/python-if";
+import { pythonIf, legacyPythonIf } from "@/content/examples/python-if";
 import { checkStructure, validateLesson } from "@/lib/lesson-edit";
 import { gradeAnswer, stageDone, type SavedAnswer } from "@/lib/grading";
 import { stageMeta, type InvestigationBlock, type OpenBlock } from "@/lib/lesson-types";

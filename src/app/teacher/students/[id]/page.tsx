@@ -1,3 +1,5 @@
+import {PracticalEvidence} from "@/components/practical-evidence";
+import { SkillMap } from "@/components/skill-map";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CodeView } from "@/components/code";
@@ -25,6 +27,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   return (
     <>
       <PageTitle eyebrow={`${r.classes.join(", ")} · ${r.student.username ?? ""}`} title={r.student.name}>
+        <ButtonLink href="/teacher/quality">Класстын билим сапаты</ButtonLink>
         <ButtonLink href={`/teacher/students/${id}/report`}>
           <Icon name="book" size={16} />
           PDF отчет
@@ -38,6 +41,8 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         <StatTile icon="gauge" label="Орточо ишеним" value={s.avgConfidence === null ? "—" : `${s.avgConfidence} / 4`} />
       </div>
 
+      {r.skills && <SkillMap skills={r.skills} teacher/>}
+
       {trend.length > 0 && (
         <div className="grid gap-5 lg:grid-cols-[3fr_2fr]">
           <Card className="flex flex-col gap-2">
@@ -47,21 +52,21 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           </Card>
           <Card className="flex flex-col gap-3">
             <h2 className="font-semibold">Биринчи аракетте туура</h2>
-            <span className="font-display text-3xl font-bold">{s.firstTryPct === null ? "—" : `${s.firstTryPct}%`}</span>
+            <span className="font-display text-3xl font-semibold tracking-tight">{s.firstTryPct === null ? "—" : `${s.firstTryPct}%`}</span>
             <AccuracyBars rows={s.byType} />
           </Card>
         </div>
       )}
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg font-medium">
+        <h2 className="text-base font-medium">
           Бейдждер <span className="font-mono text-sm text-muted">{badges.filter((b) => b.earned).length}/{badges.length}</span>
         </h2>
         <BadgeGrid badges={badges} collapseLocked />
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg font-medium">Сабактар жана жооптор</h2>
+        <h2 className="text-base font-medium">Сабактар жана жооптор</h2>
         {r.lessons.length === 0 && <p className="text-muted">Бул окуучунун класстарына азырынча сабак жөнөтүлгөн жок.</p>}
         {r.lessons.map((l, i) => (
           <details key={l.assignmentId} className="group rounded-2xl border border-line bg-surface">
@@ -75,10 +80,10 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                 <path d="m6 9 6 6 6-6" />
               </svg>
             </summary>
-            <div className="flex flex-col border-t border-surface-2">
+            <div className="flex flex-col border-t border-line">
               {l.blocks.length === 0 && <p className="p-4 text-sm text-muted">Бул сабакта жооп талап кылган тапшырма жок.</p>}
               {l.blocks.map((b) => (
-                <div key={b.id} className="flex flex-col gap-1.5 border-b border-surface-2 px-4 py-3 last:border-0 sm:px-5">
+                <div key={b.id} id={`answer-${l.assignmentId}-${b.id}`} className="flex flex-col gap-1.5 border-b border-line px-4 py-3 last:border-0 sm:px-5">
                   <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted">
                     <span className="font-semibold tracking-[0.06em] uppercase">{b.stageLabel}</span>
                     <span>· {b.typeLabel}</span>
@@ -103,7 +108,8 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                     </span>
                   )}
                   {b.note && <span className="text-sm text-muted">{b.note}</span>}
-                  {b.code && <CodeView code={b.code} className="mt-1 text-[13px]" />}
+                  {b.practical&&<PracticalEvidence data={b.practical}/>}
+                  {!b.practical&&b.code && <CodeView code={b.code} className="mt-1 text-[13px]" />}
                 </div>
               ))}
             </div>
@@ -112,7 +118,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       </section>
 
       <p className="text-sm text-muted">
-        <Link href="/teacher/classes" className="font-semibold text-accent">
+        <Link href="/teacher/classes" className="text-sm font-medium text-muted hover:text-ink">
           ← Класстар
         </Link>
       </p>

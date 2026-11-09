@@ -15,19 +15,19 @@ export default async function AdminClasses() {
       <Card className="overflow-x-auto p-0 sm:p-0">
         <table className="w-full min-w-[760px] border-collapse text-sm">
           <thead>
-            <tr className="text-left text-xs tracking-[0.06em] text-muted uppercase">
-              <th className="px-5 py-3 font-semibold">Класс</th>
-              <th className="px-3 py-3 font-semibold">Мугалим</th>
-              <th className="px-3 py-3 font-semibold">Код</th>
-              <th className="px-3 py-3 text-right font-semibold">Окуучу</th>
-              <th className="px-3 py-3 text-right font-semibold">Тапшырма</th>
-              <th className="px-3 py-3 text-right font-semibold">Бүткөн</th>
-              <th className="px-5 py-3 text-right font-semibold">Орточо exit</th>
+            <tr className="border-b border-line bg-surface-2 text-left font-mono text-[11px] tracking-[0.06em] text-muted uppercase">
+              <th className="px-5 py-2.5 font-medium">Класс</th>
+              <th className="px-3 py-2.5 font-medium">Мугалим</th>
+              <th className="px-3 py-2.5 font-medium">Код</th>
+              <th className="px-3 py-2.5 text-right font-medium">Окуучу</th>
+              <th className="px-3 py-2.5 text-right font-medium">Тапшырма</th>
+              <th className="px-3 py-2.5 text-right font-medium">Бүткөн</th>
+              <th className="px-5 py-2.5 text-right font-medium">Орточо exit</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((c) => (
-              <tr key={c.id} className="border-t border-surface-2">
+              <tr key={c.id} className="border-t border-line transition-colors hover:bg-surface-2/50">
                 <td className="px-5 py-3 font-semibold">{c.name}</td>
                 <td className="px-3 py-3">
                   <div>{c.teacher}</div>

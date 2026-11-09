@@ -1,0 +1,6 @@
+import Link from "next/link";
+import {requireRole} from "@/lib/auth";
+import {TeamStudentCard} from "@/components/team-space-forms";
+import type {TeamTask} from "@/lib/team-spaces";
+export const metadata={title:"Жуп жана топ менен иштөө"};
+export default async function TeamsPage(){const {supabase}=await requireRole("student");const {data,error}=await supabase.rpc("my_team_spaces");const tasks=(data??[]) as TeamTask[];return <main className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-6"><Link href="/student" className="flex min-h-11 items-center text-sm font-medium text-muted hover:text-ink">← Менин сабактарым</Link><h1 className="text-2xl font-bold">Жуп жана топ менен иштөө</h1><p className="text-muted">Жалпы чечимди талкуула, өз салымыңды түшүндүр. Бул кошумча иш негизги сабактын баасын, прогрессин жана монетасын өзгөртпөйт. Топтоштордун өзгөртүүсүн көрүү үчүн жазганыңды сактап же көчүрүп алып, баракты жаңырт.</p>{error?<p role="alert">Топтук иштер азыр ачылган жок. Байланышты жана кызматтын жеткиликтүүлүгүн текшер.</p>:tasks.length?<>{tasks.length===20&&<p className="text-sm text-muted">Акыркы 20 жеткиликтүү иш көрсөтүлдү.</p>}{tasks.map(t=><TeamStudentCard key={`${t.id}:${t.version}`} task={t}/>)}</>:<p className="rounded-xl bg-surface p-4">Мугалим топко кошуп, негизги сабактын керектүү бөлүгү ачылганда бул жерде ишиң пайда болот.</p>}</main>;}

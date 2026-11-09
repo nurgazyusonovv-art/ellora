@@ -1,0 +1,16 @@
+import React from "react";
+import {beforeEach,expect,it,vi} from "vitest";
+vi.stubGlobal("React",React);
+const auth=vi.hoisted(()=>({role:null as null|"student"|"teacher"}));
+vi.mock("@/lib/auth",()=>({getSession:async()=>({profile:auth.role?{role:auth.role}:null})}));
+vi.mock("next/navigation",()=>({redirect:(path:string)=>{throw Error(`redirect:${path}`);}}));
+vi.mock("@/components/auth-forms",()=>({StudentSignInForm:()=>null,TeacherSignInForm:()=>null}));
+vi.mock("@/components/auth-shell",()=>({AuthShell:()=>null}));
+import StudentPage from "./student-login/page";
+import TeacherPage from "./login/page";
+beforeEach(()=>{auth.role=null;});
+it("сессия жок болсо эки кирүү формасы тең жеткиликтүү",async()=>{expect(await StudentPage({searchParams:Promise.resolve({})})).toBeTruthy();expect(await TeacherPage({searchParams:Promise.resolve({})})).toBeTruthy();});
+it("сакталган окуучу сессиясы эки кирүү барагынан сабактарга өтөт",async()=>{auth.role="student";await expect(StudentPage({searchParams:Promise.resolve({})})).rejects.toThrow("redirect:/student");await expect(TeacherPage({searchParams:Promise.resolve({})})).rejects.toThrow("redirect:/student");});
+it("QR шилтемеси сакталган сессия менен тапшырмага уланат",async()=>{auth.role="student";const next="/s/00000000-0000-4000-8000-000000000001";await expect(StudentPage({searchParams:Promise.resolve({next})})).rejects.toThrow(`redirect:${next}`);});
+it("сырткы кайтуу дареги кабыл алынбайт",async()=>{auth.role="student";await expect(StudentPage({searchParams:Promise.resolve({next:"https://evil.example"})})).rejects.toThrow("redirect:/student");});
+it("мугалим окуучу барагына өтпөйт",async()=>{auth.role="teacher";await expect(StudentPage({searchParams:Promise.resolve({})})).rejects.toThrow("redirect:/teacher");await expect(TeacherPage({searchParams:Promise.resolve({})})).rejects.toThrow("redirect:/teacher");});

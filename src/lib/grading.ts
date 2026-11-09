@@ -2,6 +2,7 @@
  * Жоопторду баалоо, бөлүктү бүтүрүү жана XP эрежелери. Серверде (src/app/actions/student.ts) — чечүүчү,
  * ойноткучта — дароо көрсөтүү үчүн. Эрежелер: docs/LESSON_FORMAT.md.
  */
+import {checkSheet} from "./sheet";
 import { isGraded, isInteractive, type Block, type LessonContent, type Stage } from "@/lib/lesson-types";
 
 export type SavedAnswer = { response: Record<string, unknown>; is_correct: boolean | null; tries: number };
@@ -10,7 +11,7 @@ export type Answers = Record<string, SavedAnswer>;
 export const EXIT_BONUS_XP = 20;
 
 const int = (v: unknown) => (typeof v === "number" && Number.isInteger(v) ? v : null);
-const ints = (v: unknown) => (Array.isArray(v) && v.every((x) => Number.isInteger(x)) ? (v as number[]) : null);
+const ints = (v: unknown) => (Array.isArray(v) && Array.from(v).every((x) => Number.isInteger(x)) ? (v as number[]) : null);
 
 type Graded = { response: Record<string, unknown>; is_correct: boolean | null } | { error: string };
 
@@ -18,6 +19,30 @@ type Graded = { response: Record<string, unknown>; is_correct: boolean | null } 
 export function gradeAnswer(block: Block, raw: Record<string, unknown>, prev: SavedAnswer | undefined, exit: boolean): Graded {
   const wasCorrect = prev?.is_correct === true;
   switch (block.type) {
+    case "classification": {
+      if(exit&&prev)return {error:"Баалоодо категориялоо бир жолу тапшырылат."};
+      if(prev?.is_correct)return {response:prev.response,is_correct:true};
+      const groups=ints(raw.groups);
+      if(!groups||groups.length!==block.items.length||groups.some(c=>c<0||c>=block.categories.length))return {error:"Ар объектке бирден категория танда."};
+      const positions=groups.map((c,i)=>c===block.items[i].category);
+      return {response:{groups,...(!exit?{positions}:{})},is_correct:positions.every(Boolean)};
+    }
+    case "spreadsheet": {
+      if(exit&&prev)return {error:"Баалоодо таблица бир жолу тапшырылат."};
+      if(prev?.is_correct)return {response:prev.response,is_correct:true};
+      const checked=checkSheet(block,raw.cells);if("error" in checked)return checked;
+      return {response:{cells:checked.cells,...(!exit?{positions:checked.positions}:{})},is_correct:checked.positions.every(Boolean)};
+    }
+    case "matching":
+    case "ordering": {
+      if(exit&&prev)return {error:"Баалоодо бул тапшырмага бир гана жолу жооп берилет."};
+      if(prev?.is_correct)return {response:prev.response,is_correct:true};
+      const values=ints(block.type==="matching"?raw.picks:raw.order);
+      const n=block.type==="matching"?block.pairs.length:block.steps.length;
+      if(!values||values.length!==n||new Set(values).size!==n||values.some(i=>i<0||i>=n))return {error:"Бардык элементти бирден танда."};
+      const positions=values.map((v,i)=>v===i);
+      return {response:{[block.type==="matching"?"picks":"order"]:values,...(!exit?{positions}:{})},is_correct:positions.every(Boolean)};
+    }
     case "mcq": {
       const picked = int(raw.picked);
       if (picked === null || picked < 0 || picked >= block.options.length) return { error: "Жооп туура эмес форматта." };
@@ -102,7 +127,7 @@ export function computeXp(content: LessonContent, answers: Answers, finished: bo
 
 export function exitResult(content: LessonContent, answers: Answers) {
   const exit = content.stages[content.stages.length - 1];
-  const mcqs = exit.blocks.filter((b) => b.type === "mcq");
+  const mcqs = exit.blocks.filter((b) => b.type === "mcq" || b.type === "classification" || b.type === "spreadsheet" || b.type === "matching" || b.type === "ordering");
   const conf = exit.blocks.find((b) => b.type === "confidence");
   const value = conf ? int(answers[conf.id]?.response.value) : null;
   return { score: mcqs.filter((b) => answers[b.id]?.is_correct).length, total: mcqs.length, confidence: value };

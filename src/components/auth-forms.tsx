@@ -22,7 +22,7 @@ export function TeacherSignInForm({ notice }: { notice?: string }) {
   const [state, act, pending] = useForm(teacherSignIn);
   return (
     <form action={act} className="flex flex-col gap-4">
-      {notice && <p className="rounded-[10px] bg-accent-soft px-3.5 py-2.5 text-sm">{notice}</p>}
+      {notice && <p className="rounded-md bg-accent-soft px-3.5 py-2.5 text-sm border border-accent/20">{notice}</p>}
       <Field label="Email" name="email" type="email" autoComplete="email" required />
       <Field label="Сырсөз" name="password" type="password" autoComplete="current-password" required />
       <FormError message={state?.error} />
@@ -51,31 +51,32 @@ export function TeacherSignUpForm() {
   );
 }
 
-export function StudentSignInForm() {
+export function StudentSignInForm({next}:{next?:string}) {
   const [state, act, pending] = useForm(studentSignIn);
   return (
-    <form action={act} className="flex flex-col gap-4">
+    <form action={act} className="flex flex-col gap-4"><input type="hidden" name="next" value={next??""}/>
       <Field label="Логин" name="username" autoComplete="username" autoCapitalize="none" placeholder="мисалы: aibek482" required />
       <Field label="Сырсөз" name="password" type="password" autoComplete="current-password" required />
+      <p className="text-sm text-muted">Бул браузер кирүүңдү эстеп калат. Кийинки жолу сабактарыңа түз өтөсүң. Жалпы компьютерде иштеп бүткөндө «Чыгуу» баскычын бас.</p>
       <FormError message={state?.error} />
       <Button disabled={pending}>{pending ? "Кирип жатат…" : "Кирүү"}</Button>
       <p className="text-sm text-muted">
-        Биринчи жолубу? <Link href="/join" className="font-semibold text-accent">Класс коду менен кошул</Link>
+        Биринчи жолубу? <Link href={next?`/join?next=${encodeURIComponent(next)}`:"/join"} className="font-semibold text-accent">Класс коду менен кошул</Link>
       </p>
     </form>
   );
 }
 
-export function StudentJoinForm({ code }: { code?: string }) {
+export function StudentJoinForm({ code,next }: { code?: string;next?:string }) {
   const [state, act, pending] = useForm(studentJoin);
   return (
-    <form action={act} className="flex flex-col gap-4">
+    <form action={act} className="flex flex-col gap-4"><input type="hidden" name="next" value={next??""}/>
       <Field
         label="Класс коду"
         name="code"
         defaultValue={code}
         autoCapitalize="characters"
-        className="rounded-[10px] border border-line bg-surface px-3 py-2.5 font-mono text-lg uppercase tracking-[0.2em]"
+        className="rounded-md border border-line bg-surface px-3 py-2.5 font-mono text-lg uppercase tracking-[0.2em]"
         placeholder="K7P2QX"
         maxLength={6}
         required

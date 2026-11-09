@@ -1,3 +1,4 @@
+import { SkillMap } from "@/components/skill-map";
 import Link from "next/link";
 import { PrintButton } from "@/components/print-button";
 import { ReportSheet } from "@/components/report-sheet";
@@ -13,11 +14,12 @@ export default async function MyReportPage() {
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-5 px-4 py-6 sm:px-6 print:max-w-none print:p-0">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <Link href="/student" className="text-sm font-semibold text-accent">
+        <Link href="/student" className="text-sm font-medium text-muted hover:text-ink">
           ← Менин сабактарым
         </Link>
         <PrintButton label="PDF сактоо" />
       </div>
+      {report.skills && <div className="print:hidden"><SkillMap skills={report.skills}/></div>}
       <ReportSheet report={report} />
     </main>
   );

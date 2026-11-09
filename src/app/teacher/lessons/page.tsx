@@ -25,6 +25,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageTitle title="Менин сабактарым">
+        <ButtonLink href="/lab" variant="secondary">Кодду кадамдап изилдөө</ButtonLink>
         <ButtonLink href="/teacher/lessons/new">Жаңы сабак</ButtonLink>
       </PageTitle>
 
@@ -44,19 +45,19 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
         {(filters.q || filters.grade || filters.status) && <ButtonLink href="/teacher/lessons" variant="ghost">Тазалоо</ButtonLink>}
       </form>
       <section className="flex flex-col gap-4">
-        <h2 className="font-display text-lg font-medium">Менин сабактарым</h2>
+        <h2 className="text-base font-medium">Менин сабактарым</h2>
         {visibleLessons.length === 0 ? (
-          <div className="rounded-3xl bg-accent-soft p-6 text-muted">{(lessons?.length ?? 0) === 0 ? "Азырынча сабак жок. Жаңы сабак түзүңүз же китепканадан даяр сабакты алыңыз." : "Тандалган шарттарга ылайык сабак табылган жок."}</div>
+          <div className="rounded-lg border border-accent/20 bg-accent-soft p-5 text-sm text-muted">{(lessons?.length ?? 0) === 0 ? "Азырынча сабак жок. Жаңы сабак түзүңүз же китепканадан даяр сабакты алыңыз." : "Тандалган шарттарга ылайык сабак табылган жок."}</div>
         ) : (
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-3">
             {visibleLessons.map((l) => {
               const assigned = (l.assignments as unknown as { count: number }[] | null)?.[0]?.count ?? 0;
               return (
-                <div key={l.id} className="lesson-tile flex flex-col gap-5 rounded-[28px] p-5 sm:flex-row sm:items-center sm:p-7">
-                  <LessonArt className="mx-auto w-40 shrink-0 sm:w-44" />
+                <div key={l.id} className="lesson-tile flex flex-col gap-4 rounded-lg border border-black/5 p-4 sm:flex-row sm:items-center sm:p-5">
+                  <LessonArt className="mx-auto w-28 shrink-0 sm:w-32" />
                   <div className="flex min-w-0 flex-1 flex-col gap-3 text-ink">
                   <Link href={`/teacher/lessons/${l.id}`} className="flex flex-col gap-2 hover:text-accent">
-                    <span className="text-xl font-semibold sm:text-2xl">{l.title}</span>
+                    <span className="text-lg font-medium">{l.title}</span>
                     <span className="text-sm text-muted">
                       {l.grade ? `${l.grade}-класс · ` : ""}
                       {l.topic}
@@ -66,7 +67,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
                     {l.status === "published" ? <Chip tone="good">Даяр</Chip> : <Chip>Долбоор</Chip>}
                     {assigned > 0 && <span className="text-xs text-muted">{assigned} класска жөнөтүлгөн</span>}
                   </span>
-                  <div className="-mx-2 mt-auto flex flex-wrap items-center gap-1 border-t border-surface-2 pt-2">
+                  <div className="-mx-2 mt-auto flex flex-wrap items-center gap-1 border-t border-line pt-2">
                     <ButtonLink href={`/teacher/lessons/${l.id}/preview`} variant="ghost" className="min-h-11 px-3">
                       Көрүү
                     </ButtonLink>
@@ -77,7 +78,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
                     <DeleteLessonButton id={l.id} title={l.title} assigned={assigned} />
                   </div>
                   </div>
-                  <Link href={`/teacher/lessons/${l.id}`} aria-label={`${l.title}: ачуу`} className="flex size-12 shrink-0 items-center justify-center self-end rounded-full bg-current"><Icon name="arrow" className="text-white" size={24} /></Link>
+                  <Link href={`/teacher/lessons/${l.id}`} aria-label={`${l.title}: ачуу`} className="flex size-9 shrink-0 items-center justify-center self-end rounded-md border border-black/5 bg-current"><Icon name="arrow" className="text-white" size={16} /></Link>
                 </div>
               );
             })}
@@ -86,15 +87,15 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg font-medium">Сабак китепканасы</h2>
+        <h2 className="text-base font-medium">Сабак китепканасы</h2>
         <p className="text-sm text-muted">Даяр сабакты өзүңүздүн сабактарыңызга көчүрүп, класска жөнөтө аласыз.</p>
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-3">
           {library.length === 0 && <p className="text-sm text-muted">Китепканадан ылайыктуу сабак табылган жок.</p>}
           {library.map((l) => (
-            <div key={l.slug} className="lesson-tile flex flex-col gap-5 rounded-[28px] p-5 sm:flex-row sm:items-center sm:p-7">
-              <LessonArt className="mx-auto w-40 shrink-0 sm:w-44" />
+            <div key={l.slug} className="lesson-tile flex flex-col gap-4 rounded-lg border border-black/5 p-4 sm:flex-row sm:items-center sm:p-5">
+              <LessonArt className="mx-auto w-28 shrink-0 sm:w-32" />
               <div className="flex min-w-0 flex-1 flex-col gap-3 text-ink">
-                <span className="text-xl font-semibold sm:text-2xl">{l.title}</span>
+                <span className="text-lg font-medium">{l.title}</span>
                 <span className="text-sm text-muted">
                   {l.grade}-класс · {l.content.stages.reduce((s, st) => s + st.minutes, 0)} мүнөт · 5 бөлүк
                 </span>

@@ -1,4 +1,6 @@
 import "server-only";
+import {practicalEvidence,type PracticalEvidence} from "./practical-evidence";
+import { skillMap, skillEvidence, type SkillProgress, type SkillEvidence } from "@/lib/skills";
 import type { createClient } from "@/lib/supabase/server";
 import { BLOCK_LABELS, blockSummary } from "@/lib/lesson-edit";
 import { CONFIDENCE_LABELS, isGraded, isInteractive, stageMeta, type Block, type LessonContent } from "@/lib/lesson-types";
@@ -7,9 +9,10 @@ import { lessonsByIds } from "@/lib/student-lessons";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-type AnswerRow = { attempt_id: string; block_id: string; stage: number; response: Record<string, unknown> | null; is_correct: boolean | null; tries: number };
+type AnswerRow = { updated_at?: string; attempt_id: string; block_id: string; stage: number; response: Record<string, unknown> | null; is_correct: boolean | null; tries: number };
 type AssignmentRow = {
   id: string;
+  lesson_id?: string;
   class_id: string;
   created_at: string;
   due_at: string | null;
@@ -17,6 +20,7 @@ type AssignmentRow = {
 };
 
 export type BlockResult = {
+  practical?:PracticalEvidence;
   id: string;
   stageLabel: string;
   type: Block["type"];
@@ -52,6 +56,7 @@ export type LessonResult = {
 };
 
 export type StudentReport = {
+  skills?: SkillProgress[];
   student: { id: string; name: string; username: string | null };
   classes: string[];
   lessons: LessonResult[];
@@ -83,6 +88,12 @@ function describe(b: Block, a: AnswerRow | undefined): Pick<BlockResult, "answer
         note: a.is_correct ? (wrong.length ? `Адегенде: ${wrong.join(", ")}` : undefined) : `Туура жооп: ${b.options[b.correct]}`,
       };
     }
+    case "classification":return {answer:a.is_correct?"Объекттерди туура топтоштурду":"Категорияларды кайра салыштыруу керек"};
+    case "spreadsheet":return {answer:"Таблицанын уячалары жана формулалары"};
+    case "matching":
+      return {answer:a.is_correct?"Бардык байланыштарды туура дал келтирди":"Дал келтирүүдө кайра каралуучу байланыштар бар"};
+    case "ordering":
+      return {answer:a.is_correct?"Кадамдарды туура иреттеди":"Кадамдардын иретин кайра караш керек"};
     case "parsons":
       return { answer: a.is_correct ? "Программаны туура курду" : "Саптардын тартиби туура эмес" };
     case "bug_hunt": {
@@ -117,6 +128,7 @@ type Input = {
 
 export function buildReport({ student, classNames, classIds, assignments, attempts, answers, details }: Input): StudentReport {
   const lessons: LessonResult[] = [];
+  const evidence: SkillEvidence[] = [];
   const typeStats = new Map<Block["type"], { n: number; ok: number }>();
   const graded: StudentReport["graded"] = [];
   let gradedN = 0;
@@ -131,6 +143,7 @@ export function buildReport({ student, classNames, classIds, assignments, attemp
       for (const b of st.blocks) {
         if (!isInteractive(b) && !(b.type === "open")) continue;
         const ans = mine.find((x) => x.block_id === b.id);
+        evidence.push(...skillEvidence(b, ans, {lessonId:a.lesson_id ?? a.id, assignmentId:a.id, blockId:b.id, title:a.lessons.title, date:ans?.updated_at ?? a.created_at}));
         const isGradedBlock = isGraded(b);
         if (isGradedBlock && ans) {
           graded.push({ type: b.type, correct: ans.is_correct === true, tries: ans.tries });
@@ -154,6 +167,7 @@ export function buildReport({ student, classNames, classIds, assignments, attemp
           isCorrect: ans?.is_correct ?? null,
           tries: ans?.tries ?? 0,
           ...describe(b, ans),
+          ...(ans?{practical:practicalEvidence(b,ans)}:{}),
         });
       }
     }
@@ -183,6 +197,7 @@ export function buildReport({ student, classNames, classIds, assignments, attemp
   const avg = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : null);
 
   return {
+    skills: skillMap(evidence),
     student: { id: student.id, name: student.full_name, username: student.username },
     classes: classIds.map((id) => classNames.get(id)!).filter(Boolean),
     lessons,
@@ -205,7 +220,7 @@ async function attemptsAndAnswers(supabase: Supabase, studentId: string, assignm
     : { data: [] as AttemptRow[] };
   const tIds = (attempts ?? []).map((t) => t.id);
   const { data: answers } = tIds.length
-    ? await supabase.from("answers").select("attempt_id, block_id, stage, response, is_correct, tries").in("attempt_id", tIds).returns<AnswerRow[]>()
+    ? await supabase.from("answers").select("attempt_id, block_id, stage, response, is_correct, tries, updated_at").in("attempt_id", tIds).returns<AnswerRow[]>()
     : { data: [] as AnswerRow[] };
   return { attempts: attempts ?? [], answers: answers ?? [] };
 }
@@ -225,7 +240,7 @@ export async function getStudentReport(supabase: Supabase, teacherId: string, st
 
   const { data: assignments } = await supabase
     .from("assignments")
-    .select("id, class_id, created_at, due_at, lessons(title, topic, content)")
+    .select("id, lesson_id, class_id, created_at, due_at, lessons(title, topic, content)")
     .in("class_id", classIds)
     .order("created_at", { ascending: true })
     .returns<AssignmentRow[]>();

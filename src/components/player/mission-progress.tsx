@@ -1,0 +1,7 @@
+import {missionProgress} from "@/lib/missions";
+import type {Stage} from "@/lib/lesson-types";
+import type {Answers} from "@/lib/grading";
+export function MissionProgress({stage,answers}:{stage:Stage;answers:Answers}){
+ if(!stage.mission)return null;const steps=missionProgress(stage,answers),last=steps.at(-1);
+ return <section aria-label="Миссиянын жүрүшү" className="flex min-w-0 flex-col gap-3 rounded-2xl border border-accent bg-accent-soft p-4 sm:p-5"><p className="text-sm font-semibold text-accent">Миссия · {steps.filter(s=>s.done).length}/{steps.length} кадам тапшырылды</p><h3 className="break-words font-display text-xl font-semibold tracking-tight">{stage.mission.title}</h3><p className="whitespace-pre-wrap break-words">{stage.mission.story}</p><p className="break-words text-sm"><strong>Максат: </strong>{stage.mission.goal}</p><ol className="flex flex-col gap-2">{steps.map((s,i)=><li key={s.id} className="rounded-xl border border-line bg-surface px-3 py-2 text-sm">{s.done?"✓":"○"} {i+1}. {s.independent?"Жаңы мисалды өз алдынча чечүү":`Машыгуу ${i+1}`} · {s.done?(s.independent?"Тапшырылды — мугалим карайт":s.graded?"Аткарылды":"Жооп тапшырылды"):s.submitted?"Оңдоп кайра аракет кыл":"Күтүүдө"}</li>)}</ol><p role="status" className="text-sm text-muted">{last?.done?"Миссиянын иштери тапшырылды. Жеке түшүндүрмөнү мугалим критерий менен карайт. Бул автоматтык өздөштүрүү баасы эмес.":"Машыгууларды ирети менен аткар. Акыркы жеке иште кеңеш жана ЖИ колдонулбайт. Жалпы таймер болсо, бөлүктүн убактысын эске ал."}</p></section>;
+}

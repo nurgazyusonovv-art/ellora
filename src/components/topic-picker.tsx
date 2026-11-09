@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { findKtpTopic, type Ktp } from "@/content/ktp";
+import {SKILLS} from "@/lib/skills";
+import {KTP_KINDS, findKtpTopic, type Ktp } from "@/content/ktp";
 
 const CUSTOM = "custom";
-const fieldCls = "w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 text-base font-normal text-ink placeholder:text-muted/70";
+const fieldCls = "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-base font-normal text-ink placeholder:text-muted/70";
 
 /**
  * Сабактын темасы: класстын КТП'си (мугалимдин өз планы же үлгү) болсо — тизмеден тандалат, болбосо (же «Башка тема») — колго жазылат.
@@ -26,6 +27,7 @@ export function TopicPicker({
 }) {
   const ktp = grade ? plans[grade] : undefined;
   const found = findKtpTopic(ktp, value);
+  const selected=found?ktp?.sections[found.section].topics[found.topic]:undefined;
   const [custom, setCustom] = useState(!!value && !found);
   const showSelect = !!ktp && !(custom && !found);
 
@@ -75,6 +77,7 @@ export function TopicPicker({
           onChange={(e) => onChange(e.target.value)}
         />
       )}
+      {selected&&<div className="rounded-xl bg-accent-soft p-3 text-sm font-normal border border-accent/20"><p>{KTP_KINDS[selected.kind??"lesson"]}{selected.quarter?` · ${selected.quarter}-чейрек`:""}</p><p className="mt-1">Көндүмдөр: {selected.skills?.map(id=>SKILLS[id]).join(" · ")||"КТПде белгилей аласыз"}</p>{selected.product&&<p className="mt-1">Күтүлгөн иш: {selected.product}</p>}</div>}
       <span className="text-xs font-normal text-muted">
         {ktp ? (
           <>

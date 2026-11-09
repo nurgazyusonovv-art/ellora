@@ -60,7 +60,7 @@ export function InstallButton() {
             setEvt(null);
           } else setHelp((h) => !h);
         }}
-        className="inline-flex min-h-11 items-center gap-2 self-start rounded-[10px] border border-line bg-surface px-3.5 text-sm font-semibold hover:bg-surface-2"
+        className="inline-flex min-h-11 items-center gap-2 self-start rounded-md border border-line bg-surface px-3.5 text-sm font-semibold hover:bg-surface-2"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <rect x="6" y="2" width="12" height="20" rx="2.5" />
@@ -69,7 +69,7 @@ export function InstallButton() {
         Телефонго орнотуу
       </button>
       {help && (
-        <p className="rounded-[10px] bg-accent-soft px-3.5 py-2.5 text-sm">
+        <p className="rounded-md bg-accent-soft px-3.5 py-2.5 text-sm border border-accent/20">
           {"Safari'де"} ылдыйдагы <b>«Бөлүшүү»</b> баскычын басып, <b>«На экран Домой» / «Add to Home Screen»</b> тандаңыз.
         </p>
       )}

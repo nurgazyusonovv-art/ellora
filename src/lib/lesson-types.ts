@@ -12,7 +12,7 @@ export const STAGE_META: Record<StageKey, { label: string; sub: string }> = {
 };
 
 export const FIVE_E_META: Record<StageKey, { label: string; sub: string; guidance: string }> = {
-  discover: { label: "Кызыктыруу", sub: "Баштапкы ой", guidance: "Турмуштук көйгөй коюп, окуучунун баштапкы оюн чогултуңуз. Даяр жоопту ачпаңыз." },
+  discover: { label: "Кызыктыруу", sub: "Баштапкы ой", guidance: "Жөнөкөй эстөөдөн салыштырууга, андан божомол жана далилге өтүңүз. Бир нече кыска суроо же кызыктуу тапшырма бериңиз. Даяр жоопту ачпаңыз." },
   learning: { label: "Изилдөө", sub: "Сынап көрүү", guidance: "Божомол, сынап көрүү, байкоо жана жыйынтык үчүн изилдөө тапшырмасын кошуңуз. Жаңылыш божомол үчүн бөгөт болбосун." },
   practice: { label: "Түшүндүрүү", sub: "Далил менен түшүндүрүү", guidance: "Алгач окуучу байкоосун өз сөзү менен түшүндүрсүн. Андан кийин түшүнүк, термин жана мисал бериңиз." },
   reinforce: { label: "Колдонуу", sub: "Жаңы кырдаал", guidance: "Башка кырдаалда өз алдынча чечиле турган маселе, баалоо критерийлери жана тереңдетүү тапшырмасын бериңиз." },
@@ -23,16 +23,23 @@ export function stageMeta(content: LessonContent, key: StageKey) {
   return content.model === "5e" ? FIVE_E_META[key] : STAGE_META[key];
 }
 
-type Base = { id: string; support?: string; extension?: string; collaboration?: "individual" | "pair" | "group" };
+export type Teamwork = { instructions: string; roles: string[]; outcome: string; size: number };
+
+type Base = { id: string; skills?: import("@/lib/skills").SkillId[]; teamwork?: Teamwork; support?: string; extension?: string; collaboration?: "individual" | "pair" | "group" };
 
 export type InvestigationBlock = Base & {
   type: "investigation";
   prompt: string;
   procedure: string;
   code?: string;
+  /** Эки даяр моделдин бири. Башка Python кодун чечмелебейт. */
+  simulation?: "condition" | "loop";
 };
 
 /** Жөнөкөй текст. `**калың**` жана `код` белгилерин колдойт, абзацтар бош сап менен бөлүнөт. */
+export type SlideImage = { src: string; alt: string; caption: string; credit: string };
+export type LessonSlide = { image?: SlideImage; title: string; body: string; icon: "idea" | "computer" | "table" | "check"; diagram: string[]; question: string };
+export type PresentationBlock = Base & { type: "presentation"; title: string; slides: LessonSlide[] };
 export type TextBlock = Base & { type: "text"; title?: string; body: string };
 
 /** Көрсөтүлүүчү код мисалы (Python). */
@@ -85,7 +92,11 @@ export type BugHuntBlock = Base & {
 };
 
 /** Ачык жооп. Туура/туура эмес деп бааланбайт. `feedback` жооп берилгенден кийин көрсөтүлөт. */
+export const ENGAGEMENT_LEVELS = { 1: "Жөнөкөй", 2: "Ойлонуп көр", 3: "Татаалыраак" } as const;
+export type Engagement = { level: 1 | 2 | 3; kind: "question" | "activity" };
+
 export type OpenBlock = Base & {
+  engagement?: Engagement;
   type: "open";
   prompt: string;
   placeholder?: string;
@@ -101,6 +112,7 @@ export type OpenBlock = Base & {
 export type ConfidenceBlock = Base & { type: "confidence"; prompt: string };
 
 export type Block =
+  | PresentationBlock
   | TextBlock
   | CodeExampleBlock
   | McqBlock
@@ -109,21 +121,34 @@ export type Block =
   | BugHuntBlock
   | OpenBlock
   | ConfidenceBlock
-  | InvestigationBlock;
+  | InvestigationBlock
+  | MatchingBlock
+  | OrderingBlock
+  | SpreadsheetBlock
+  | ClassificationBlock;
 
-export type Stage = { key: StageKey; title: string; intro?: string; minutes: number; blocks: Block[] };
+export type MatchingBlock = Base & { type:"matching"; prompt:string; pairs:{left:string;right:string}[]; explain?:string; xp?:number; shuffled?:boolean };
+export type OrderingBlock = Base & { type:"ordering"; prompt:string; steps:string[]; explain?:string; xp?:number; shuffled?:boolean };
+
+export type SpreadsheetBlock = Base & {type:"spreadsheet";prompt:string;rows:number;columns:number;initialCells:Record<string,string>;locked:string[];checks:{cell:string;expected:string;formula:boolean}[];xp?:number;checksHidden?:boolean};
+
+export type ClassificationBlock = Base & {type:"classification";prompt:string;categories:string[];items:{text:string;category:number}[];explain?:string;xp?:number;shuffled?:boolean};
+
+export type Mission = {title:string;story:string;goal:string;challengeId:string};
+export type Stage = { mission?:Mission; key: StageKey; title: string; intro?: string; minutes: number; blocks: Block[] };
 
 /** `duration` — мугалим тандаган сабактын жалпы узактыгы (мүнөт). Жок болсо 45 деп эсептелет. */
-export type LessonContent = { version: 1; model?: "5e"; objectives?: string[]; successCriteria?: string[]; teacherNotes?: string; duration?: number; stages: Stage[] };
+export type LessonContent = {
+  activityKind?: "game" | "quarterly"; version: 1; model?: "5e"; objectives?: string[]; successCriteria?: string[]; teacherNotes?: string; duration?: number; stages: Stage[] };
 
 /** Бул блок стадияны бүтүрүү үчүн жооп талап кылабы. */
 export function isInteractive(b: Block) {
-  return b.type !== "text" && b.type !== "code_example" && !(b.type === "open" && b.optional);
+  return b.type !== "presentation" && b.type !== "text" && b.type !== "code_example" && !(b.type === "open" && b.optional);
 }
 
 /** Бул блок туура/туура эмес деп бааланабы. */
 export function isGraded(b: Block) {
-  return b.type === "mcq" || b.type === "code_task" || b.type === "parsons" || b.type === "bug_hunt";
+  return b.type === "classification" || b.type === "spreadsheet" || b.type === "matching" || b.type === "ordering" || b.type === "mcq" || b.type === "code_task" || b.type === "parsons" || b.type === "bug_hunt";
 }
 
 export const CONFIDENCE_LABELS = ["Түшүнбөдүм", "Жарым-жартылай", "Түшүндүм", "Башкага түшүндүрө алам"];

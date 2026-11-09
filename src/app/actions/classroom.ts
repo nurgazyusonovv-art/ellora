@@ -1,4 +1,5 @@
 "use server";
+import {reviewSource,sourceHash} from "@/lib/review-source";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { findBlock } from "@/lib/grading";
@@ -19,7 +20,7 @@ export async function controlSession(_: ClassroomState, fd: FormData): Promise<C
   } else {
     const max = Number(fd.get("maxStage"));
     if (!Number.isInteger(max) || max < 0 || max > 4 || mode !== "live") return { error: "Бөлүк туура эмес тандалды." };
-    const { error } = await supabase.from("lesson_sessions").upsert({ assignment_id: id, max_stage: max, paused: fd.get("paused") === "true", updated_at: new Date().toISOString() });
+    const { error } = await supabase.from("lesson_sessions").upsert({ assignment_id: id, timed:false,deadline:null,ended:false,max_stage: max, paused: fd.get("paused") === "true", updated_at: new Date().toISOString() });
     if (error) return { error: "Сессия сакталган жок. База жаңыртылганын текшериңиз." };
   }
   revalidatePath(`/teacher/assignments/${id}`);
@@ -37,12 +38,15 @@ export async function reviewAnswer(_: ClassroomState, fd: FormData): Promise<Cla
   if (!classroom || !assignment?.lessons) return { error: "Жооп табылган жок." };
   const block = findBlock(assignment.lessons.content, blockId)?.block;
   if (block?.type !== "open" || !block.rubric?.length) return { error: "Бул тапшырмада баалоо критерийи жок." };
-  const { data: answer } = await supabase.from("answers").select("block_id").eq("attempt_id", attemptId).eq("block_id", blockId).maybeSingle();
+  const { data: answer } = await supabase.from("answers").select("block_id,response").eq("attempt_id", attemptId).eq("block_id", blockId).maybeSingle();
   if (!answer) return { error: "Окуучу бул суроого жооп бере элек." };
+  const snapshot=reviewSource(block,answer.response);
+  const expected=fd.get("sourceHash");if(expected&&expected!==sourceHash(snapshot))return {error:"Жооп же критерий өзгөрдү. Баракты жаңыртып кайра баалаңыз."};
+  if(fd.get("aiApplied")==="true"&&fd.get("aiConfirmed")!=="true")return {error:"ЖИ сунушун карап чыкканыңызды белгилеңиз."};
   const criteria = reviewCriteria(fd.get("criteria"), block.rubric.length);
   const feedback = String(fd.get("feedback") ?? "").trim();
   if (!criteria || !feedback || feedback.length > 2000) return { error: "Критерийлерди текшерип, 2000 белгиге чейин пикир жазыңыз." };
-  const { error } = await supabase.from("answer_reviews").upsert({ attempt_id: attemptId, block_id: blockId, teacher_id: profile.id, criteria_met: criteria, feedback, updated_at: new Date().toISOString() });
+  const { error } = await supabase.from("answer_reviews").upsert({ attempt_id: attemptId, block_id: blockId, teacher_id: profile.id, source_snapshot:snapshot, criteria_met: criteria, feedback, updated_at: new Date().toISOString() });
   if (error) return { error: "Баа сакталган жок. База жаңыртылганын текшериңиз." };
   revalidatePath(`/teacher/assignments/${attempt!.assignment_id}`);
   revalidatePath(`/student/assignments/${attempt!.assignment_id}`);

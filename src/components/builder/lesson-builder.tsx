@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import {insertMissionPractice} from "@/lib/missions";
+import {MissionEditor} from "./mission-editor";
+import { LessonAiEditor } from "@/components/builder/lesson-ai-editor";
+import { applyEdit } from "@/lib/lesson-ai-edit";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { publishLesson, saveLesson, type LessonDraft } from "@/app/actions/teacher";
+import { SKILLS, type SkillId } from "@/lib/skills";
+import { engagementSequence } from "@/lib/engagement";
+import { TeamworkEditor, teamworkBlock } from "@/components/builder/teamwork-editor";
 import { BlockEditor } from "@/components/builder/block-editors";
 import { TopicPicker } from "@/components/topic-picker";
 import { GRADES } from "@/lib/grades";
@@ -22,7 +29,7 @@ import {
   type BlockType,
   type Issue,
 } from "@/lib/lesson-edit";
-import { isGraded, stageMeta, FIVE_E_META, type Block, type Stage } from "@/lib/lesson-types";
+import { isGraded, isInteractive, stageMeta, FIVE_E_META, ENGAGEMENT_LEVELS, type Block, type Stage } from "@/lib/lesson-types";
 
 type SaveState =
   | { state: "saved"; at?: string }
@@ -31,7 +38,7 @@ type SaveState =
   | { state: "blocked" }
   | { state: "error"; message: string };
 
-const inputCls = "w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 text-[15px] text-ink placeholder:text-muted/70";
+const inputCls = "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-[15px] text-ink placeholder:text-muted/70";
 
 export function LessonBuilder({
   id,
@@ -146,7 +153,7 @@ export function LessonBuilder({
 
   const addBlock = (type: BlockType) => {
     const bid = nextBlockId(latest.current.content, stage.key);
-    setStage((s) => ({ ...s, blocks: [...s.blocks, newBlock(type, bid)] }));
+    setStage((s) => insertMissionPractice(s,newBlock(type,bid)));
     setSelected(bid);
     requestAnimationFrame(() => document.getElementById(`block-${bid}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
@@ -187,11 +194,11 @@ export function LessonBuilder({
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="min-w-0 flex flex-col gap-6">
       {/* ───────── Башы ───────── */}
       <header className="flex flex-col gap-4 border-b border-line pb-5 lg:flex-row lg:items-end">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <Link href={`/teacher/lessons/${id}`} className="text-sm font-semibold text-accent hover:underline">
+          <Link href={`/teacher/lessons/${id}`} className="text-sm font-medium text-muted hover:text-ink hover:underline">
             ← Сабактын барагына
           </Link>
           <input
@@ -199,7 +206,7 @@ export function LessonBuilder({
             value={draft.title}
             placeholder="Сабактын аты"
             onChange={(e) => update((d) => ({ ...d, title: e.target.value }))}
-            className="-mx-2 rounded-[10px] border border-transparent bg-transparent px-2 py-1 font-display text-2xl font-bold hover:border-line focus:border-line focus:bg-surface sm:text-[26px]"
+            className="-mx-2 rounded-md border border-transparent bg-transparent px-2 py-1 font-display text-2xl font-semibold tracking-tight hover:border-line focus:border-line focus:bg-surface sm:text-[26px]"
           />
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted">
             {published ? <Chip tone="good">Жарыяланган</Chip> : <Chip>Долбоор</Chip>}
@@ -283,7 +290,7 @@ export function LessonBuilder({
 
         {/* ───────── Бөлүктүн блоктору ───────── */}
         <section className="flex min-w-0 flex-col gap-4" aria-label={`${stageMeta(draft.content, stage.key).label}: блоктор`}>
-          {draft.content.model === "5e" && <p className="rounded-xl bg-accent-soft p-4 text-sm leading-relaxed">{FIVE_E_META[stage.key].guidance}</p>}
+          {draft.content.model === "5e" && <p className="rounded-xl bg-accent-soft p-4 text-sm leading-relaxed border border-accent/20">{FIVE_E_META[stage.key].guidance}</p>}
           <div className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4 sm:p-5">
             <Eyebrow>
               {stageIdx + 1}-бөлүк · {stageMeta(draft.content, stage.key).label}
@@ -317,8 +324,31 @@ export function LessonBuilder({
             </label>
           </div>
 
+          {stage.key === "discover" && <div className="rounded-2xl bg-accent-soft p-4 text-sm border border-accent/20">
+            <p className="font-semibold">Жөнөкөйдөн татаалга: эстөө → салыштыруу → божомолду негиздөө</p>
+            <p className="mt-2 text-muted">Бир нече кыска суроо жана кызыктуу аракет кошуңуз. Баштапкы ойлор туура же туура эмес деп бааланбайт. Үлгүнүн текстин темаңызга ылайыктап оңдоңуз.</p>
+            <button type="button" className="mt-3 min-h-11 rounded-xl border border-accent bg-surface px-4 font-semibold text-accent" onClick={() => {
+              const blocks = engagementSequence(latest.current.content);
+              setStage(s => ({...s, blocks: [...s.blocks, ...blocks]}));
+              setSelected(blocks[0].id);
+            }}>+ Үч кадамдуу үлгү кошуу</button>
+          </div>}
+
+          <MissionEditor stage={stage} content={draft.content} onChange={next=>setStage(()=>next)}/>
+          <LessonAiEditor key={`${stageIdx}-${selected ?? "stage"}`} lessonId={id} draft={draft} stageIndex={stageIdx} selected={selected} published={published}
+            onApply={(proposal,basis)=>{
+              if(JSON.stringify(latest.current)!==basis)return "Сабак өзгөрдү. ЖИ сунушун кайра түзүңүз.";
+              const next=applyEdit(latest.current,proposal);
+              if(!next)return "Сунуш текшерүүдөн өткөн жок. Сабак өзгөргөн жок.";
+              update(()=>next);return null;
+            }}
+            onUndo={(before,after)=>{
+              if(JSON.stringify(latest.current)!==after)return "Сабак андан кийин өзгөрдү. Башка өзгөртүүлөр жоголбошу үчүн автоматтык артка кайтаруу токтотулду.";
+              update(()=>JSON.parse(before) as LessonDraft);return null;
+            }} />
+
           {stage.blocks.length === 0 && (
-            <p className="rounded-2xl border-2 border-dashed border-line px-5 py-8 text-center text-muted">
+            <p className="rounded-2xl border border-dashed border-line-strong px-5 py-8 text-center text-muted">
               Бул бөлүктө азырынча блок жок. Оң жактагы тизмеден блок түрүн тандаңыз.
             </p>
           )}
@@ -351,18 +381,24 @@ export function LessonBuilder({
                   <IconButton label="Блокту өчүрүү" danger onClick={() => removeBlock(b)} d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
                 </div>
                 {open && (
-                  <div className="flex flex-col gap-4 border-t border-surface-2 p-4 sm:p-5">
+                  <div className="flex flex-col gap-4 border-t border-line p-4 sm:p-5">
                     {errs && (
-                      <ul className="flex flex-col gap-1 rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">
+                      <ul className="flex flex-col gap-1 rounded-md bg-bad-soft px-4 py-3 text-sm text-bad border border-bad/25">
                         {errs.map((m) => (
                           <li key={m}>{m}</li>
                         ))}
                       </ul>
                     )}
+                    {stage.key === "discover" && b.type === "open" && <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="flex flex-col gap-1.5 text-sm font-semibold">Татаалдык деңгээли<select className={inputCls} value={b.engagement?.level ?? ""} onChange={e => changeBlock({...b, engagement:e.target.value ? {level:Number(e.target.value) as 1|2|3,kind:b.engagement?.kind ?? "question"}:undefined})}><option value="">Белгиленген жок</option>{([1,2,3] as const).map(level=><option key={level} value={level}>{level}. {ENGAGEMENT_LEVELS[level]}</option>)}</select></label>
+                      {b.engagement && <label className="flex flex-col gap-1.5 text-sm font-semibold">Түрү<select className={inputCls} value={b.engagement.kind} onChange={e => changeBlock({...b,engagement:{...b.engagement!,kind:e.target.value as "question"|"activity"}})}><option value="question">Суроо</option><option value="activity">Кызыктуу тапшырма</option></select></label>}
+                    </div>}
+                    <Button type="button" variant="secondary" onClick={()=>document.getElementById("lesson-ai-editor")?.scrollIntoView({behavior:"smooth",block:"start"})}>Бул тапшырманы ЖИ менен оңдоо ↑</Button>
                     <BlockEditor block={b} onChange={changeBlock} />
                     <label className="flex flex-col gap-1.5 text-sm font-semibold">Жардам берүүчү кеңеш<textarea className={inputCls} rows={2} value={b.support ?? ""} onChange={e => changeBlock({ ...b, support: e.target.value || undefined })} /></label>
                     <label className="flex flex-col gap-1.5 text-sm font-semibold">Тереңдетүү тапшырмасы<textarea className={inputCls} rows={2} value={b.extension ?? ""} onChange={e => changeBlock({ ...b, extension: e.target.value || undefined })} /></label>
-                    <label className="flex flex-col gap-1.5 text-sm font-semibold">Иштөө формасы<select className={inputCls} value={b.collaboration ?? "individual"} onChange={e => changeBlock({ ...b, collaboration: e.target.value as "individual" | "pair" | "group" })}><option value="individual">Жеке</option><option value="pair">Жуп менен</option><option value="group">Топ менен</option></select></label>
+                    {isInteractive(b) && b.type !== "confidence" && <fieldset className="rounded-xl border border-line p-3"><legend className="px-1 text-sm font-semibold">Көндүмдөр (үчкө чейин)</legend><p className="mb-2 text-xs text-muted">Бул тапшырма кайсы көндүмгө далил берет? ЖИ сунуштаган белгилерди да текшериңиз. Суроо же критерий чындап текшерген көндүмдү гана белгилеңиз.</p><div className="grid gap-1 sm:grid-cols-2">{(Object.keys(SKILLS) as SkillId[]).map(skill=><label key={skill} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={b.skills?.includes(skill) ?? false} disabled={!b.skills?.includes(skill) && (b.skills?.length ?? 0)>=3} onChange={e=>changeBlock({...b,skills:e.target.checked?[...(b.skills??[]),skill]:(b.skills??[]).filter(x=>x!==skill)})}/>{SKILLS[skill]}</label>)}</div></fieldset>}
+                    <TeamworkEditor block={b} onChange={changeBlock} />
                   </div>
                 )}
               </article>
@@ -375,12 +411,13 @@ export function LessonBuilder({
           <div className="flex flex-col gap-2.5">
             <Eyebrow>Блок кошуу · {stageMeta(draft.content, stage.key).label}</Eyebrow>
             <div className="grid grid-cols-2 gap-2">
-              {BLOCK_TYPES.map((t) => (
+              {(["pair", "group"] as const).map(mode=><button type="button" key={mode} className="min-h-11 rounded-xl border border-accent bg-accent-soft px-3 py-2 text-left text-sm font-semibold text-accent" onClick={()=>{const bid=nextBlockId(latest.current.content,stage.key);setStage(s=>insertMissionPractice(s,teamworkBlock(bid,mode)));setSelected(bid);}}>+ {mode==="pair"?"Жуптук тапшырма":"Топтук тапшырма"}</button>)}
+              {BLOCK_TYPES.filter(t=>!["classification","spreadsheet","matching","ordering"].includes(t)||[3,4].includes(stageIdx)).map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => addBlock(t)}
-                  className="flex min-h-11 items-center gap-1.5 rounded-[10px] border border-line bg-surface px-3 py-2 text-left text-sm hover:border-accent hover:bg-accent-soft"
+                  className="flex min-h-11 items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-2 text-left text-sm transition-colors hover:border-line-strong hover:bg-surface-2/40 hover:bg-accent-soft"
                 >
                   <span aria-hidden className="font-semibold text-accent">
                     +
@@ -434,13 +471,13 @@ function TimeBox({
   const diff = duration - total;
   const options = DURATION_OPTIONS.includes(duration) ? DURATION_OPTIONS : [...DURATION_OPTIONS, duration].sort((a, b) => a - b);
   return (
-    <div className="mt-1 flex flex-col gap-2.5 rounded-xl bg-amber-soft p-3.5 text-[13px] leading-relaxed text-amber">
+    <div className="mt-1 flex flex-col gap-2.5 rounded-xl bg-amber-soft p-3.5 text-[13px] leading-relaxed text-amber border border-amber/25">
       <label className="flex flex-col gap-1.5 font-semibold">
         Сабактын узактыгы
         <select
           value={duration}
           onChange={(e) => onDuration(Number(e.target.value))}
-          className="min-h-11 rounded-[10px] border border-line bg-surface px-3 text-[15px] font-normal text-ink"
+          className="min-h-11 rounded-md border border-line bg-surface px-3 text-[15px] font-normal text-ink"
         >
           {options.map((m) => (
             <option key={m} value={m}>
@@ -461,7 +498,7 @@ function TimeBox({
         )}
       </span>
       {diff !== 0 && (
-        <button type="button" onClick={onSpread} className="min-h-11 rounded-[10px] border border-amber/30 bg-surface px-3 text-left font-semibold text-ink hover:bg-surface-2">
+        <button type="button" onClick={onSpread} className="min-h-11 rounded-md border border-amber/30 bg-surface px-3 text-left font-semibold text-ink hover:bg-surface-2">
           {duration} мүнөттү бөлүктөргө бөлүштүрүү
         </button>
       )}
@@ -528,7 +565,7 @@ function IconButton({ label, d, onClick, disabled, danger }: { label: string; d:
       onClick={onClick}
       disabled={disabled}
       className={cx(
-        "grid size-11 shrink-0 place-items-center rounded-[10px] text-muted disabled:opacity-30",
+        "grid size-11 shrink-0 place-items-center rounded-md text-muted disabled:opacity-30",
         danger ? "hover:bg-bad-soft hover:text-bad" : "hover:bg-surface-2 hover:text-ink",
       )}
     >

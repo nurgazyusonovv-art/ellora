@@ -1,5 +1,6 @@
 "use server";
 
+import {assignmentTerm} from "@/lib/assignment-term";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { LIBRARY } from "@/content";
@@ -50,16 +51,18 @@ export async function addLibraryLesson(slug: string) {
 }
 
 export async function assignLesson(_: FormState, fd: FormData): Promise<FormState> {
-  const { supabase } = await requireRole("teacher");
+  const { supabase,profile } = await requireRole("teacher");
   const lesson_id = String(fd.get("lesson_id") ?? "");
   const class_id = String(fd.get("class_id") ?? "");
   const due = String(fd.get("due_at") ?? "");
   if (!class_id) return { error: "Классты тандаңыз." };
-  const { data: lesson } = await supabase.from("lessons").select("status").eq("id", lesson_id).maybeSingle();
+  const { data: lesson } = await supabase.from("lessons").select("status,content").eq("id", lesson_id).eq("author_id",profile.id).maybeSingle();
   if (lesson?.status !== "published") return { error: "Адегенде сабакты жарыялаңыз (конструктордо «Жарыялоо»)." };
+  const term=assignmentTerm(fd,lesson.content?.activityKind);if("error" in term)return {error:term.error};
+  const {data:ownedClass}=await supabase.from("classes").select("id").eq("id",class_id).eq("teacher_id",profile.id).maybeSingle();if(!ownedClass)return {error:"Класс табылган жок."};
   const { data, error } = await supabase
     .from("assignments")
-    .insert({ lesson_id, class_id, due_at: due ? new Date(`${due}T23:59:00+06:00`).toISOString() : null })
+    .insert({ ...term,lesson_id, class_id, due_at: due ? new Date(`${due}T23:59:00+06:00`).toISOString() : null })
     .select("id")
     .single();
   if (error || !data) return { error: "Сабак жөнөтүлгөн жок: " + (error?.message ?? "") };
@@ -120,10 +123,11 @@ export type SaveResult = { error?: string; savedAt?: string };
 
 /** Конструктордун автосактоосу. Жарыяланган сабак толук текшерүүдөн өтпөсө сакталбайт. */
 export async function saveLesson(id: string, draft: LessonDraft): Promise<SaveResult> {
-  const { supabase } = await requireRole("teacher");
+  const { supabase, profile } = await requireRole("teacher");
+  if (!draft || typeof draft.title !== "string" || typeof draft.topic !== "string") return { error: "Сабактын форматы туура эмес." };
   const bad = checkStructure(draft.content);
   if (bad) return { error: bad };
-  const { data: cur } = await supabase.from("lessons").select("status").eq("id", id).maybeSingle();
+  const { data: cur } = await supabase.from("lessons").select("status").eq("id", id).eq("author_id", profile.id).maybeSingle();
   if (!cur) return { error: "Сабак табылган жок." };
   if (cur.status === "published") {
     const issues = validateLesson(draft.title, draft.content);
@@ -140,9 +144,12 @@ export async function saveLesson(id: string, draft: LessonDraft): Promise<SaveRe
       updated_at,
     })
     .eq("id", id)
+    .eq("author_id", profile.id)
+    // Окуп текшергенден кийин жарыяланып кетсе, долбоордун толук эмес мазмунун жазбайбыз.
+    .eq("status", cur.status)
     .select("id")
     .maybeSingle();
-  if (error || !data) return { error: "Сакталган жок: " + (error?.message ?? "укук жок") };
+  if (error || !data) return { error: "Сакталган жок. Байланышты текшериңиз же сабактын абалы өзгөрсө, баракты кайра ачыңыз." };
   return { savedAt: updated_at };
 }
 

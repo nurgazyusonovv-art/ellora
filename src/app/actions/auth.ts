@@ -1,4 +1,5 @@
 "use server";
+import {safeStudentNext} from "@/lib/sharing";
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -48,7 +49,7 @@ export async function studentSignIn(_: FormState, fd: FormData): Promise<FormSta
     password: String(fd.get("password") ?? ""),
   });
   if (error) return { error: "Логин же сырсөз туура эмес. Унутуп калсаңыз, мугалимиңизге кайрылыңыз." };
-  redirect("/student");
+  redirect(safeStudentNext(fd.get("next")));
 }
 
 /** Жаңы окуучу класс коду менен катталат: аккаунт түзүлөт, класска кошулат жана кирет. */
@@ -97,7 +98,7 @@ export async function studentJoin(_: FormState, fd: FormData): Promise<FormState
 
   const supabase = await createClient();
   await supabase.auth.signInWithPassword({ email: studentEmail(username), password });
-  redirect(`/student?welcome=${encodeURIComponent(username)}`);
+  const next=safeStudentNext(fd.get("next"));redirect(next==="/student"?`/student?welcome=${encodeURIComponent(username)}`:next);
 }
 
 /** Кирген окуучу дагы бир класска кошулат. */
@@ -110,6 +111,6 @@ export async function joinAnotherClass(_: FormState, fd: FormData): Promise<Form
 
 export async function signOut() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({scope:"local"});
   redirect("/");
 }

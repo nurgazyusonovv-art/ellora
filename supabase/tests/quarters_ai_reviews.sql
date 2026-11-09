@@ -1,0 +1,42 @@
+begin;
+create function pg_temp.expect(actual text,expected text) returns void language plpgsql as $$begin if actual is distinct from expected then raise exception 'Expected %, got %',expected,actual;end if;end$$;
+insert into auth.users(id,raw_user_meta_data) values
+ ('00000000-0000-0000-0000-000000016001','{"role":"teacher","full_name":"Term teacher"}'),('00000000-0000-0000-0000-000000016002','{"role":"student","full_name":"Term student"}'),('00000000-0000-0000-0000-000000016003','{"role":"student","full_name":"Other student"}'),('00000000-0000-0000-0000-000000016004','{"role":"teacher","full_name":"Other teacher"}');
+insert into classes(id,teacher_id,name,join_code) values('10000000-0000-0000-0000-000000016001','00000000-0000-0000-0000-000000016001','Quarter test','TERM16');
+insert into class_members(class_id,student_id) values('10000000-0000-0000-0000-000000016001','00000000-0000-0000-0000-000000016002');
+insert into lessons(id,author_id,title,content) values('20000000-0000-0000-0000-000000016001','00000000-0000-0000-0000-000000016001','Quarter test','{"version":1,"stages":[{"key":"exit","blocks":[{"id":"o","type":"open","prompt":"Explain","rubric":["Evidence","Reason"]}]}]}');
+insert into assignments(id,lesson_id,class_id,academic_year,quarter,work_kind) values('30000000-0000-0000-0000-000000016001','20000000-0000-0000-0000-000000016001','10000000-0000-0000-0000-000000016001',2026,1,'quarterly');
+insert into attempts(id,assignment_id,student_id) values('40000000-0000-0000-0000-000000016001','30000000-0000-0000-0000-000000016001','00000000-0000-0000-0000-000000016002');
+insert into answers(attempt_id,block_id,stage,response) values('40000000-0000-0000-0000-000000016001','o',4,'{"text":"Evidence given"}');
+set local role authenticated;set local request.jwt.claim.sub='00000000-0000-0000-0000-000000016004';
+select pg_temp.expect(reserve_review_request('40000000-0000-0000-0000-000000016001')::text,'false');
+select pg_temp.expect((select count(*)::text from quarter_grades),'0');
+do $$begin begin insert into quarter_settings(class_id,academic_year,quarter) values('10000000-0000-0000-0000-000000016001',2026,1);raise exception 'foreign_settings_allowed';exception when insufficient_privilege then null;end;end$$;
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000016002';
+select pg_temp.expect(reserve_review_request('40000000-0000-0000-0000-000000016001')::text,'false');
+select pg_temp.expect(has_table_privilege('authenticated','public.quarter_grades','UPDATE')::text,'false');
+select pg_temp.expect(has_table_privilege('authenticated','public.ai_review_suggestions','INSERT')::text,'false');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000016001';
+select pg_temp.expect(reserve_review_request('40000000-0000-0000-0000-000000016001')::text,'true');
+select pg_temp.expect(reserve_review_request('40000000-0000-0000-0000-000000016001')::text,'false');
+insert into quarter_settings(class_id,academic_year,quarter,daily_weight) values('10000000-0000-0000-0000-000000016001',2026,1,60);
+insert into answer_reviews(attempt_id,block_id,teacher_id,criteria_met,feedback,source_snapshot) values('40000000-0000-0000-0000-000000016001','o','00000000-0000-0000-0000-000000016001',array[true,false],'Improve','{"prompt":"Explain","rubric":["Evidence","Reason"],"response":{"text":"Evidence given"}}');
+do $$begin begin update answer_reviews set source_snapshot='{"prompt":"Explain","rubric":["Evidence","Reason"],"response":{"text":"Old answer"}}' where attempt_id='40000000-0000-0000-0000-000000016001';raise exception 'stale_review_allowed';exception when raise_exception then if sqlerrm<>'review_source_changed' then raise;end if;end;end$$;
+insert into quarter_grades(class_id,student_id,academic_year,quarter,teacher_id,grade,note,basis_hash,snapshot) values('10000000-0000-0000-0000-000000016001','00000000-0000-0000-0000-000000016002',2026,1,'00000000-0000-0000-0000-000000016001',4,'Teacher approved',repeat('a',64),'{}');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000016002';
+select pg_temp.expect((select count(*)::text from quarter_grades),'1');
+select pg_temp.expect((select count(*)::text from quarter_settings),'0');
+select pg_temp.expect((select count(*)::text from ai_review_suggestions),'0');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000016003';
+select pg_temp.expect((select count(*)::text from quarter_grades),'0');
+reset role;
+-- 200 сурам/24 саат, кулпуланган лимит.
+delete from ai_review_usage where teacher_id='00000000-0000-0000-0000-000000016001';
+insert into ai_review_usage(teacher_id,requested_at) select '00000000-0000-0000-0000-000000016001',now()-interval '1 hour' from generate_series(1,200);
+set local role authenticated;set local request.jwt.claim.sub='00000000-0000-0000-0000-000000016001';
+select pg_temp.expect(reserve_review_request('40000000-0000-0000-0000-000000016001')::text,'false');
+reset role;
+-- Класстан чыгаруу бекитилген тарыхты өчүрбөйт.
+delete from class_members where class_id='10000000-0000-0000-0000-000000016001';
+select pg_temp.expect((select count(*)::text from quarter_grades where class_id='10000000-0000-0000-0000-000000016001'),'1');
+rollback;

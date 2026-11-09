@@ -1,0 +1,28 @@
+import {it,expect} from "vitest";
+import {generatedLesson,lessonGenerationSchema} from "./lesson-generator";
+import {lessonPlan} from "@/test/lesson-plan";
+import {defaultClassification} from "./classification";
+import {defaultSheet,sheetAddress} from "./sheet";
+import {classInsights} from "./class-insights";
+import {skillEvidence,skillMap} from "./skills";
+it("бардык жаңы практикалык блоктор ЖИ схемасы жана отчет менен байланышат",()=>{
+ const input={topic:"Маалымат",grade:7,duration:45,context:"",pairs:false,groups:false,groupSize:4,interactive:true,spreadsheet:true,classification:true};
+ const c=defaultClassification("x"),s=defaultSheet("s");
+ const schema=lessonGenerationSchema(4,true,false,true,true);
+ const skillTags={explore:["testing"],explain:["explanation"],application:["spreadsheets"],pairTask:["information"],groupTask:["information"],exit1:["information"],exit2:["spreadsheets"],exit3:["testing"],reflection:["explanation"],sheet:["spreadsheets"],classification:["information"],applicationGame:["information"],exitGame:["algorithm"]};
+ expect(schema.required).toContain("skillTags");
+ const lesson=generatedLesson({...lessonPlan(),skillTags,classification:{prompt:c.prompt,categories:c.categories,items:c.items,explain:c.explain},sheet:{prompt:s.prompt,cells:Array.from({length:6},(_,r)=>Array.from({length:4},(_,col)=>s.initialCells[sheetAddress(r,col)]??"")),locked:s.locked,checks:s.checks},applicationGame:{prompt:"Дал келтир",pairs:[{left:"А",right:"Бир"},{left:"Б",right:"Эки"},{left:"В",right:"Үч"}],explain:"Далил"},exitGame:{prompt:"Иретте",steps:["Бир","Эки","Үч"],explain:"Далил"}},input)!;
+ expect(lesson).toBeTruthy();const blocks=lesson.content.stages.flatMap(s=>s.blocks);
+ expect(blocks.find(b=>b.type==="spreadsheet")?.skills).toEqual(["spreadsheets"]);
+ expect(blocks.find(b=>b.type==="classification")?.skills).toEqual(["information"]);
+ expect(blocks.find(b=>b.type==="matching")?.skills).toEqual(["information"]);
+ expect(blocks.find(b=>b.type==="ordering")?.skills).toEqual(["algorithm"]);
+ expect(blocks.some(b=>b.id==="l2"||b.id==="r2"||b.id==="e3")).toBe(false);
+ const sheet=blocks.find(b=>b.type==="spreadsheet")!;
+ const answer={attempt_id:"t",block_id:sheet.id,response:{},is_correct:true,tries:2};
+ const insights=classInsights({content:lesson.content,members:[{student_id:"u",profiles:{full_name:"Үлгү"}}],attempts:[{id:"t",student_id:"u",current_stage:3}],answers:[answer],reviews:[],revisions:[]});
+ expect(insights.skills.find(s=>s.id==="spreadsheets")).toMatchObject({help:1,met:0,students:1});
+ const evidence=skillEvidence(sheet,answer,{lessonId:"l",assignmentId:"a",blockId:sheet.id,title:"Таблица",date:"2026-10-25"});
+ expect(skillMap(evidence).find(s=>s.id==="spreadsheets")?.status).toBe("practice");
+ expect(insights.skills.some(s=>s.id==="information"&&s.students>0)).toBe(false);
+});

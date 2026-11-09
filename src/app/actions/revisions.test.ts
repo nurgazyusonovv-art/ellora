@@ -1,0 +1,16 @@
+import {beforeEach,describe,expect,it,vi} from "vitest";
+const state=vi.hoisted(()=>({role:"teacher",rpc:vi.fn(),refresh:vi.fn()}));
+vi.mock("next/cache",()=>({revalidatePath:(...args:unknown[])=>state.refresh(...args)}));
+vi.mock("@/lib/auth",()=>({requireRole:async(role:string)=>{if(role!==state.role)throw Error("forbidden");return {supabase:{rpc:state.rpc}};}}));
+import {requestRevision,submitRevision,reviewRevision} from "./revisions";
+const id="00000000-0000-0000-0000-000000004001";
+const fd=(values:Record<string,string>)=>{const f=new FormData();for(const[k,v]of Object.entries(values))f.set(k,v);return f;};
+beforeEach(()=>{state.role="teacher";state.rpc.mockReset().mockResolvedValue({data:"ok",error:null});state.refresh.mockClear();});
+describe("Кайра иштөө аракеттери",()=>{
+ it("ролдорду текшерет",async()=>{state.role="student";await expect(requestRevision({},fd({attemptId:id,blockId:"p1",feedback:"Оңдо"}))).rejects.toThrow();await expect(reviewRevision({},fd({revisionId:id,criteria:"[true]",feedback:"Пикир"}))).rejects.toThrow();state.role="teacher";await expect(submitRevision({},fd({revisionId:id,text:"Жооп"}))).rejects.toThrow();expect(state.rpc).not.toHaveBeenCalled();});
+ it("өтүнүчтө кардар берген окуучу/мугалим же баштапкы жооп колдонулбайт",async()=>{const r=await requestRevision({},fd({attemptId:id,blockId:"p1",feedback:"Мисал келтир",studentId:"other",teacherId:"other",previous_response:"fake"}));expect(r.success).toBeTruthy();expect(state.rpc).toHaveBeenCalledWith("request_answer_revision",{p_attempt:id,p_block:"p1",p_feedback:"Мисал келтир"});});
+ it("жараксыз id, бош жана узун текстти четке кагат",async()=>{expect((await requestRevision({},fd({attemptId:"bad",blockId:"p",feedback:"Оңдо"}))).error).toBeTruthy();state.role="student";expect((await submitRevision({},fd({revisionId:id,text:" "}))).error).toBeTruthy();expect((await submitRevision({},fd({revisionId:id,text:"x".repeat(5001)}))).error).toBeTruthy();expect(state.rpc).not.toHaveBeenCalled();});
+ it("тапшыруу сыйлык же баа параметрин кабыл албайт",async()=>{state.role="student";await submitRevision({},fd({revisionId:id,text:" Оңдолгон жооп ",xp:"999",criteria:"[true]",status:"reviewed"}));expect(state.rpc).toHaveBeenCalledWith("submit_answer_revision",{p_id:id,p_text:"Оңдолгон жооп"});});
+ it("критерийде boolean гана кабыл алынат",async()=>{expect((await reviewRevision({},fd({revisionId:id,criteria:'["true"]',feedback:"Пикир"}))).error).toBeTruthy();expect(state.rpc).not.toHaveBeenCalled();await reviewRevision({},fd({revisionId:id,criteria:'[true,false]',feedback:"Далилиң жакшырды"}));expect(state.rpc).toHaveBeenCalledWith("review_answer_revision",{p_id:id,p_criteria:[true,false],p_feedback:"Далилиң жакшырды"});});
+ it("RPC абалдары жана ички каталар туура көрсөтүлөт",async()=>{state.role="student";state.rpc.mockResolvedValue({data:"already_submitted",error:null});expect((await submitRevision({},fd({revisionId:id,text:"Жооп"}))).error).toContain("мурда тапшырылган");expect(state.refresh).not.toHaveBeenCalled();state.rpc.mockResolvedValue({data:null,error:{message:"secret details"}});expect(JSON.stringify(await submitRevision({},fd({revisionId:id,text:"Жооп"})))).not.toContain("secret");});
+});

@@ -154,7 +154,7 @@ export default async function TeacherHome() {
 
       <div className="grid gap-6 xl:grid-cols-[2fr_1fr] lg:items-start">
         <Card className="flex flex-col gap-4">
-          <h2 className="font-display text-lg font-medium">Жүрүп жаткан тапшырмалар</h2>
+          <h2 className="text-base font-medium">Жүрүп жаткан тапшырмалар</h2>
           {rows.length === 0 && (
             <p className="text-sm text-muted">
               Азырынча тапшырма жок.{" "}
@@ -165,9 +165,9 @@ export default async function TeacherHome() {
             </p>
           )}
           {rows.map((r) => (
-            <Link key={r.id} href={`/teacher/assignments/${r.id}`} className="lesson-tile flex flex-col gap-4 rounded-3xl p-5 hover:ring-2 hover:ring-accent">
+            <Link key={r.id} href={`/teacher/assignments/${r.id}`} className="lesson-tile flex flex-col gap-4 rounded-lg border border-black/5 p-4 transition-shadow hover:ring-1 hover:ring-accent/40">
               <div className="flex items-center gap-4">
-                <LessonArt className="hidden w-28 shrink-0 sm:block" />
+                <LessonArt className="hidden w-20 shrink-0 sm:block" />
               <div className="flex flex-1 flex-wrap items-center justify-between gap-2 text-ink">
                 <div className="flex flex-col">
                   <span className="font-semibold">{r.lessons?.title}</span>
@@ -201,14 +201,14 @@ export default async function TeacherHome() {
         </Card>
 
         <Card className="flex flex-col gap-3">
-          <h2 className="font-display text-lg font-medium">Көңүл буруңуз</h2>
+          <h2 className="text-base font-medium">Көңүл буруңуз</h2>
           {attentionEmpty && <p className="text-sm text-muted">Азырынча баары жакшы: жардамга муктаж окуучу жок.</p>}
 
           {needHelp.map((t) => (
             <Link
               key={t.id}
               href={`/teacher/assignments/${t.assignment_id}`}
-              className="flex flex-col gap-0.5 border-b border-surface-2 pb-3 last:border-0 hover:text-accent"
+              className="flex flex-col gap-0.5 border-b border-line pb-3 last:border-0 hover:text-accent"
             >
               <span className="font-semibold">
                 {t.name} · {t.a?.classes?.name}
@@ -224,7 +224,7 @@ export default async function TeacherHome() {
           ))}
 
           {hardest && (
-            <Link href={`/teacher/assignments/${hardest.a.id}`} className="flex flex-col gap-0.5 border-b border-surface-2 pb-3 last:border-0 hover:text-accent">
+            <Link href={`/teacher/assignments/${hardest.a.id}`} className="flex flex-col gap-0.5 border-b border-line pb-3 last:border-0 hover:text-accent">
               <span className="font-semibold">Эң кыйын суроо</span>
               <span className="text-sm text-muted">
                 «{hardest.prompt}» · {hardest.a.classes?.name} класстын {hardest.pct}%ы гана биринчи аракетте туура жооп берди ({hardest.n}{" "}
@@ -234,7 +234,7 @@ export default async function TeacherHome() {
           )}
 
           {reminders.map((r) => (
-            <div key={r.id} className="flex flex-col gap-0.5 border-b border-surface-2 pb-3 last:border-0">
+            <div key={r.id} className="flex flex-col gap-0.5 border-b border-line pb-3 last:border-0">
               <span className="font-semibold">
                 {r.classes?.name} · {r.notStarted.length} окуучу баштай элек
               </span>
@@ -251,18 +251,18 @@ export default async function TeacherHome() {
 
       {hasClasses && (
         <section className="flex flex-col gap-3">
-          <h2 className="font-display text-lg font-medium">Менин класстарым</h2>
+          <h2 className="text-base font-medium">Менин класстарым</h2>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             {classes!.map((c) => {
               const avg = avgExit(c.id);
               return (
-                <Link key={c.id} href={`/teacher/classes/${c.id}`} className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-5 hover:border-accent">
+                <Link key={c.id} href={`/teacher/classes/${c.id}`} className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-5 transition-colors hover:border-line-strong hover:bg-surface-2/40">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="font-display text-xl font-bold">{c.name}</span>
+                    <span className="text-lg font-medium">{c.name}</span>
                     <span className="text-sm text-muted">{membersOf(c.id).length} окуучу</span>
                   </div>
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-xs font-semibold tracking-[0.06em] text-muted uppercase">Кошулуу коду</span>
+                    <span className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Кошулуу коду</span>
                     <span className="font-mono text-base tracking-[0.15em]">{c.join_code}</span>
                   </div>
                   <span className="text-[13px] text-muted">{avg === null ? "Натыйжа азырынча жок" : `Орточо exit ticket: ${avg}%`}</span>
@@ -271,7 +271,7 @@ export default async function TeacherHome() {
             })}
             <Link
               href="/teacher/classes"
-              className="flex min-h-36 flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line font-semibold text-accent hover:border-accent hover:bg-accent-soft"
+              className="flex min-h-36 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-line-strong text-sm font-medium text-muted transition-colors hover:border-accent hover:text-accent"
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
                 <path d="M12 5v14M5 12h14" />
@@ -288,16 +288,16 @@ export default async function TeacherHome() {
 function Stat({ label, value, sub, href }: { label: string; value: number; sub?: string; href?: string }) {
   const body = (
     <>
-      <span className="text-xs font-semibold tracking-[0.06em] text-muted uppercase">{label}</span>
+      <span className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted">{label}</span>
       <span className="flex items-baseline gap-2">
-        <span className="font-display text-2xl font-bold tabular-nums">{value}</span>
+        <span className="font-mono text-2xl font-medium tracking-tight tabular-nums">{value}</span>
         {sub && <span className="text-xs text-muted">{sub}</span>}
       </span>
     </>
   );
-  const cls = "flex flex-col gap-2 rounded-3xl bg-surface-2 px-5 py-5";
+  const cls = "flex flex-col gap-2 rounded-lg border border-line bg-surface px-4 py-4";
   return href ? (
-    <Link href={href} className={cx(cls, "hover:border-accent")}>
+    <Link href={href} className={cx(cls, "transition-colors hover:border-line-strong hover:bg-surface-2/50")}>
       {body}
     </Link>
   ) : (

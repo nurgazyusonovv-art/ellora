@@ -1,12 +1,27 @@
 "use client";
+import {Classification} from "./classification";
+import {Spreadsheet} from "./spreadsheet";
+import {missionAllows,missionChallenge,missionStudentBlock} from "@/lib/missions";
+import {MissionProgress} from "./mission-progress";
+import {ClockDisplay} from "@/components/lesson-clock";
+import {DraftScope} from "./lesson-draft";
+import {pollLessonClock} from "@/app/actions/lesson-clock";
+import { explanationView } from "@/lib/explanation-view";
+import { Presentation } from "./presentation";
+
+import { ENGAGEMENT_LEVELS } from "@/lib/lesson-types";
 
 import Link from "next/link";
+import { CoinIcon } from "@/components/coin-profile";
+import { STAGE_COINS } from "@/lib/coins";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { liveAllows, type LiveSession, type Review } from "@/lib/classroom";
+import { TeamworkCard } from "@/components/player/teamwork-card";
 import { AiTutor } from "@/components/player/ai-tutor";
 import { useEffect, useRef, useState } from "react";
 import { completeStage, submitAnswer, type Progress } from "@/app/actions/student";
 import {
+  InteractiveTask,
   Investigation,
   BugHunt,
   CodeExample,
@@ -37,22 +52,52 @@ type Props = {
   initialAnswers?: Record<string, SavedAnswer>;
   liveSession?: LiveSession | null;
   reviews?: Review[];
+  initialCoinBalance?: number | null;
 };
 
-export function LessonPlayer({ title, content, backHref, attempt, initialAnswers = {}, liveSession = null, reviews = [] }: Props) {
+export function LessonPlayer({ title, content, backHref, attempt, initialAnswers = {}, liveSession: initialLiveSession = null, reviews = [], initialCoinBalance = null }: Props) {
   const preview = !attempt;
+  const clockAttemptId=attempt?.id;
+  const [liveSession,setLiveSession]=useState(initialLiveSession);
+  useEffect(()=>{setLiveSession(initialLiveSession);},[initialLiveSession]);
+  useEffect(()=>{
+    if(!clockAttemptId)return;
+    let active=true,busy=false;
+    const sync=async()=>{if(busy)return;busy=true;try{const r=await pollLessonClock(clockAttemptId);if(active){if(r.error)setSaveError(r.error);else if(r.session!==undefined)setLiveSession(r.session);}}catch{if(active)setSaveError("Жалпы саат жаңырган жок. Байланышты текшериңиз.");}finally{busy=false;}};
+    const timer=setInterval(()=>{if(document.visibilityState==="visible")void sync();},3000);
+    const visible=()=>{if(document.visibilityState==="visible")void sync();};document.addEventListener("visibilitychange",visible);
+    return()=>{active=false;clearInterval(timer);document.removeEventListener("visibilitychange",visible);};
+  },[clockAttemptId]);
+  const wasTimed=useRef(!!initialLiveSession?.timed);
+  useEffect(()=>{if(liveSession?.timed)setView(liveSession.max_stage);else if(wasTimed.current)setView(Math.min(unlockedRef.current,4));wasTimed.current=!!liveSession?.timed;},[liveSession?.timed,liveSession?.max_stage]);
+  const [presentationOpened,setPresentationOpened]=useState<Record<string,boolean>>({});
+  const [coins,setCoins]=useState(initialCoinBalance);
+  const coinRef=useRef(initialCoinBalance);
+  const [coinNotice,setCoinNotice]=useState<{amount:number;id:number}|null>(null);
+  useEffect(()=>{coinRef.current=initialCoinBalance;setCoins(initialCoinBalance);},[initialCoinBalance]);
   // Окуучу режиминде блоктор жооптон кийин серверден жаңыланат (туура жооп ачылат).
   const [stages, setStages] = useState(content.stages);
   const [answers, setAnswers] = useState<Record<string, SavedAnswer>>(initialAnswers);
   const [unlocked, setUnlocked] = useState(attempt?.current_stage ?? 0); // 5 = бүттү
   const [xp, setXp] = useState(attempt?.xp ?? 0);
-  const [view, setView] = useState(Math.min(attempt?.current_stage ?? 0, liveSession?.max_stage ?? 4, stages.length - 1));
+  const [view, setView] = useState(initialLiveSession?.timed ? initialLiveSession.max_stage : Math.min(attempt?.current_stage ?? 0, initialLiveSession?.max_stage ?? 4, stages.length - 1));
   const [saveError, setSaveError] = useState<string | null>(null);
   const [failed, setFailed] = useState<Record<string, number>>({});
   const [finished, setFinished] = useState<{ score: number; total: number } | null>(
     attempt && attempt.current_stage >= stages.length ? { score: attempt.exit_score ?? 0, total: attempt.exit_total ?? 0 } : null,
   );
   const topRef = useRef<HTMLDivElement>(null);
+  const stageNavRef = useRef<HTMLOListElement>(null);
+  useEffect(()=>{
+    const nav=stageNavRef.current;if(!nav)return;
+    const reveal=()=>{
+      const active=nav.querySelector<HTMLElement>('[aria-current="step"]');
+      if(!active||nav.scrollWidth<=nav.clientWidth)return;
+      nav.scrollTo({left:Math.max(0,active.offsetLeft-nav.offsetLeft-(nav.clientWidth-active.clientWidth)/2),behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
+    };
+    reveal();const observer=new ResizeObserver(reveal);observer.observe(nav);
+    return ()=>observer.disconnect();
+  },[view]);
   /** Серверге жооптор ирети менен жөнөтүлөт — XP жана бөлүк туура эсептелсин. */
   const queue = useRef<Promise<void>>(Promise.resolve());
   const unlockedRef = useRef(unlocked);
@@ -102,6 +147,11 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
       return setSaveError(r.error);
     }
     setSaveError(null);
+    if (r.coinBalance !== undefined) {
+      const earned = coinRef.current === null ? 0 : r.coinBalance - coinRef.current;
+      coinRef.current=r.coinBalance;setCoins(r.coinBalance);
+      if(earned>0)setCoinNotice({amount:earned,id:Date.now()});
+    }
     if (blockId && r.answer) setAnswers((a) => ({ ...a, [blockId]: r.answer! }));
     // Чечилгенде сервер блоктун ачык көрүнүшүн жиберет (туура жооп, түшүндүрмө…).
     if (r.block) {
@@ -112,7 +162,7 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
     if (r.finished) setFinished(r.finished);
     if (r.current_stage !== undefined) {
       const next = r.current_stage;
-      if (next > unlockedRef.current && next < stages.length && liveAllows(liveSession, next)) setTimeout(() => go(next), 900);
+      if (!liveSession?.timed && next > unlockedRef.current && next < stages.length && liveAllows(liveSession, next)) setTimeout(() => go(next), 900);
       unlockedRef.current = next;
       setUnlocked(next);
     }
@@ -176,7 +226,7 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
 
     if (attempt) {
       // Туура жообу жашырылган блокто сервердин чечимин күтөбүз; калгандарын дароо көрсөтөбүз.
-      if (!(isGraded(block) && isCorrect === null)) setAnswers(all);
+      if (!liveSession?.timed && !(isGraded(block) && isCorrect === null)) setAnswers(all);
       return send({ kind: "answer", blockId: block.id, response });
     }
     setAnswers(all);
@@ -184,7 +234,7 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
     const gained = isCorrect && !prev?.is_correct && "xp" in block && block.xp && stages[stageIdx].key !== "exit" ? block.xp : 0;
     const newXp = xp + gained;
     if (gained) setXp(newXp);
-    if (stages[stageIdx].key !== "exit" && stageIdx === unlocked && stageDone(stages[stageIdx], all)) previewAdvance(stageIdx, all, newXp);
+    if (stages[stageIdx].key !== "exit" && !(content.model === "5e" && stages[stageIdx].key === "practice") && stageIdx === unlocked && stageDone(stages[stageIdx], all)) previewAdvance(stageIdx, all, newXp);
   };
 
   /** Интерактивдүү блогу жок бөлүк же exit ticket'ти тапшыруу баскычы үчүн. */
@@ -194,62 +244,61 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
   };
 
   const st = stages[view];
-  const canNext = view < stages.length - 1 && (preview || (unlocked > view && liveAllows(liveSession, view + 1)));
+  const canNext = !liveSession?.timed && view < stages.length - 1 && (preview || (unlocked > view && liveAllows(liveSession, view + 1)));
   const isExit = st.key === "exit";
-  const explanation = content.model === "5e" && st.key === "practice" ? st.blocks.find(b => b.type === "open" && !b.optional) : undefined;
-  const explainReady = !explanation || !!answers[explanation.id];
+  const explanation = explanationView(st,content.model,answers,preview,!!presentationOpened[st.key]);
+  const explainReady = explanation.ready;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pt-4 pb-16 sm:px-6" ref={topRef}>
-      {attempt && <AutoRefresh />}
+    <div className="lesson-player mx-auto flex min-w-0 w-full max-w-3xl flex-col gap-5 px-4 pt-4 pb-16 sm:px-6" ref={topRef}>
+      {attempt && !liveSession?.timed && <AutoRefresh />}
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <Link href={backHref} className="text-sm font-semibold text-accent">
+        <Link href={backHref} className="flex min-h-11 items-center text-sm font-medium text-muted hover:text-ink">
           ← Артка
         </Link>
         <div className="flex items-center gap-2">
           {preview && <span className="rounded-full bg-amber-soft px-2.5 py-1 text-xs font-semibold text-amber">Алдын ала көрүү · жооптор сакталбайт</span>}
-          <span className="flex items-center gap-2 rounded-full border border-line bg-surface py-1 pr-3 pl-1 text-sm">
-            <b className="rounded-full bg-amber-soft px-2.5 py-0.5 font-mono whitespace-nowrap text-amber">{xp} XP</b>
-          </span>
+          {coins !== null && <Link href="/student/shop" className="flex min-h-11 items-center gap-1.5 rounded-full border border-amber/25 bg-amber-soft px-3 text-sm font-medium text-amber lg:min-h-9" aria-label={`Дүкөн: ${coins} монета`}><CoinIcon/>{coins}</Link>}
+          <b className="rounded-full border border-amber/25 bg-amber-soft px-2.5 py-0.5 font-mono text-sm font-medium whitespace-nowrap text-amber">{xp} XP</b>
         </div>
       </header>
-      <h1 className="font-display text-xl font-bold sm:text-2xl">{title}</h1>
+      <h1 className="text-xl font-medium sm:text-2xl">{title}</h1>
 
-      {content.model === "5e" && view === 0 && <div className="grid gap-4 rounded-2xl bg-surface p-4 sm:grid-cols-2"><div><h2 className="mb-2 font-semibold">Сабактын максаты</h2><ul className="list-disc pl-5 text-sm">{content.objectives?.map(x => <li key={x}>{x}</li>)}</ul></div><div><h2 className="mb-2 font-semibold">Ийгилик критерийлери</h2><ul className="list-disc pl-5 text-sm">{content.successCriteria?.map(x => <li key={x}>{x}</li>)}</ul></div></div>}
-      <nav aria-label="Сабактын бөлүктөрү" className="sticky top-0 z-10 -mx-4 bg-bg px-4 py-2 sm:-mx-6 sm:px-6">
-        <ol className="grid grid-cols-5 gap-1.5">
+      {content.model === "5e" && view === 0 && <div className="grid gap-4 rounded-lg border border-line bg-surface p-4 sm:grid-cols-2"><div><h2 className="mb-2 text-sm font-medium">Сабактын максаты</h2><ul className="list-disc pl-5 text-sm">{content.objectives?.map(x => <li key={x}>{x}</li>)}</ul></div><div><h2 className="mb-2 text-sm font-medium">Ийгилик критерийлери</h2><ul className="list-disc pl-5 text-sm">{content.successCriteria?.map(x => <li key={x}>{x}</li>)}</ul></div></div>}
+      <nav aria-label="Сабактын бөлүктөрү" className="lesson-stage-nav sticky top-0 z-10 -mx-4 border-b border-line bg-surface-2/90 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+        <ol ref={stageNavRef} className="flex gap-1.5 overflow-x-auto pb-1 sm:grid sm:grid-cols-5">
           {stages.map((s, i) => {
-            const locked = !preview && (i > unlocked || !liveAllows(liveSession, i));
-            const done = preview ? false : i < unlocked;
+            const locked = !preview && ((!liveSession?.timed && i > unlocked) || !liveAllows(liveSession, i));
+            const done = preview || liveSession?.timed ? false : i < unlocked;
             return (
-              <li key={s.key}>
+              <li key={s.key} className="min-w-28 flex-1 sm:min-w-0">
                 <button
                   type="button"
                   disabled={locked}
                   onClick={() => go(i)}
                   aria-current={i === view ? "step" : undefined}
                   className={cx(
-                    "flex w-full flex-col items-start gap-0.5 overflow-hidden rounded-[10px] border bg-surface px-2 py-1.5 text-left sm:px-2.5 sm:py-2",
-                    i === view ? "border-accent shadow-[inset_0_-3px_0_var(--color-accent)]" : "border-line",
+                    "flex min-h-11 w-full flex-col items-start gap-0.5 overflow-hidden rounded-md border bg-surface px-2 py-1.5 text-left sm:px-2.5 sm:py-2",
+                    i === view ? "border-accent bg-accent-soft/60 ring-1 ring-accent/20" : "border-line hover:border-line-strong",
                     locked && "opacity-45",
                   )}
                 >
                   <span className="font-mono text-[11px] text-muted">
                     {i + 1}/5 {done && <span className="font-bold text-good">✓</span>}
                   </span>
-                  <span title={stageMeta(content, s.key).label} className="w-full truncate text-xs font-semibold sm:text-sm">{stageMeta(content, s.key).label}</span>
+                  <span title={stageMeta(content, s.key).label} className="w-full truncate text-xs font-medium sm:text-sm">{stageMeta(content, s.key).label}</span>
                 </button>
               </li>
             );
           })}
         </ol>
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
+        <div className="mt-2 h-1 overflow-hidden rounded-full bg-line">
           <div className="h-full bg-accent transition-[width] duration-500" style={{ width: `${(Math.min(unlocked, stages.length) / stages.length) * 100}%` }} />
         </div>
       </nav>
 
       {offline && (
-        <p role="status" className="flex items-center gap-2 rounded-[10px] bg-amber-soft px-4 py-2.5 text-sm text-amber">
+        <p role="status" className="flex items-center gap-2 rounded-md bg-amber-soft px-4 py-2.5 text-sm text-amber border border-amber/25">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
             <path d="M2 8.8a15 15 0 0 1 4.2-2.6M9.5 5.2A15 15 0 0 1 22 8.8M5 12.9a10 10 0 0 1 3.2-2M13 10.1a10 10 0 0 1 6 2.8M8.5 16.4a5 5 0 0 1 7 0M12 20h.01M3 3l18 18" />
           </svg>
@@ -257,40 +306,49 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
         </p>
       )}
       {saveError && !offline && (
-        <p role="alert" className="rounded-[10px] bg-bad-soft px-4 py-2.5 text-sm text-bad">
+        <p role="alert" className="rounded-md bg-bad-soft px-4 py-2.5 text-sm text-bad border border-bad/25">
           {saveError}
         </p>
       )}
 
-      {liveSession && <p role="status" className="rounded-xl bg-amber-soft p-4 text-sm text-amber">{liveSession.paused ? "Мугалим сабакты талкуу үчүн токтотту. Азыр жооп жибербеңиз." : `Жандуу сабак: ${stageMeta(content, stages[liveSession.max_stage].key).label} бөлүгүнө чейин ачылган.`}</p>}
+      {attempt && reviews.length > 0 && <Link href="/student/revisions" className="flex min-h-11 items-center rounded-xl bg-accent-soft px-4 font-semibold text-accent border border-accent/20">Мугалимдин пикири бар: кайра иштөө тапшырмаларын көрүү →</Link>}
+      {coinNotice && <div key={coinNotice.id} role="status" className="coin-reward flex items-center justify-between gap-3 rounded-2xl bg-amber-soft p-4 text-amber border border-amber/25"><span className="flex items-center gap-2 font-semibold"><CoinIcon/>+{coinNotice.amount} монета кошулду!</span><button type="button" className="min-h-11 px-2 text-sm font-semibold" onClick={()=>setCoinNotice(null)}>Жабуу</button></div>}
+      {liveSession?.timed && <div className="rounded-xl bg-accent-soft p-4 border border-accent/20"><p className="text-sm font-semibold">Мугалим башкарган жалпы сабак · {liveSession.max_stage+1}/5</p><ClockDisplay session={liveSession}/><p className="mt-2 text-sm">Кийинки бөлүккө жалпы таймер же мугалим өткөрөт. Терип жаткан текст бул түзмөктө черновик болуп сакталат; ал жөнөтүлгөн жооп эмес.</p>{liveSession.ended&&<p className="mt-2 text-sm">Жалпы убакыт бүттү. Аяктай элек иш туура эмес деп автоматтык бааланбайт. Улантуу үчүн мугалим менен такта.</p>}</div>}
+      {liveSession && !liveSession.timed && <p role="status" className="rounded-xl bg-amber-soft p-4 text-sm text-amber border border-amber/25">{liveSession.paused ? "Мугалим сабакты талкуу үчүн токтотту. Азыр жооп жибербеңиз." : `Жандуу сабак: ${stageMeta(content, stages[liveSession.max_stage].key).label} бөлүгүнө чейин ачылган.`}</p>}
       {!liveAllows(liveSession, view) ? <p className="rounded-xl bg-surface p-5">Бул бөлүк мугалим ачканда жеткиликтүү болот.</p> : (
         <section className="flex flex-col gap-4">
           {finished && isExit && <FinishCard score={finished.score} total={finished.total} xp={xp} backHref={backHref} preview={preview} />}
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold tracking-[0.07em] text-muted uppercase">
+            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
               {view + 1}-бөлүк · {stageMeta(content, st.key).label} · ~{st.minutes} мүн
+              {attempt && coins !== null && <span className="ml-2 normal-case text-amber">Биринчи жолу бүтүргөндө +{STAGE_COINS[view]} монета</span>}
             </span>
-            <h2 className="font-display text-xl font-bold">{st.title}</h2>
+            <h2 className="text-xl font-medium">{st.title}</h2>
             {st.intro && <p className="text-muted">{st.intro}</p>}
           </div>
 
-          {!explainReady && <p className="rounded-xl bg-accent-soft p-4 text-sm">Адегенде байкооңду өз сөзүң менен түшүндүр. Андан кийин сабактын түшүндүрмөсү ачылат.</p>}
-          {st.blocks.filter(b => explainReady || b.id === explanation?.id).map((b) => (
-            <div key={b.id} className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4 sm:p-5">
-              {b.collaboration && b.collaboration !== "individual" && <p className="text-sm font-semibold text-accent">{b.collaboration === "pair" ? "Жуп менен иштөө" : "Топ менен иштөө"} · талкуулагыла, ар бириң өз жообуңарды сактагыла.</p>}
-              <fieldset disabled={!!finished} className="flex min-w-0 flex-col gap-3">{renderBlock(b, answers[b.id], onAnswer(view, b), isExit, failed[b.id], b.type === "open" && b.compareTo ? answers[b.compareTo]?.response.text as string : undefined)}</fieldset>
-              {attempt && !isExit && !finished && isInteractive(b) && <AiTutor key={`${attempt.id}:${b.id}`} attemptId={attempt.id} blockId={b.id} />}
-              {reviews.filter(r => r.block_id === b.id).map(r => <div key={r.block_id} className="rounded-xl bg-good-soft p-4"><p className="font-semibold">Мугалимдин баалоосу: {r.criteria_met.filter(Boolean).length}/{r.criteria_met.length} критерий</p>{b.type === "open" && b.rubric?.map((x,i) => <p key={i} className="mt-1 text-sm">{r.criteria_met[i] ? "Аткарылды" : "Дагы иштөө керек"}: {x}</p>)}<p className="mt-3 whitespace-pre-wrap">{r.feedback}</p></div>)}
-              {b.support && <details className="rounded-xl bg-accent-soft p-3"><summary className="min-h-11 cursor-pointer font-semibold">Жардам керекпи?</summary><RichText text={b.support} /></details>}
-              {b.extension && answers[b.id] && <details className="rounded-xl bg-surface-2 p-3"><summary className="min-h-11 cursor-pointer font-semibold">Тереңдетип көр</summary><RichText text={b.extension} /></details>}
+          <MissionProgress stage={st} answers={answers}/>
+          {!explainReady && <div className="flex flex-col gap-3 rounded-xl bg-accent-soft p-4 text-sm border border-accent/20"><p>Адегенде байкооңду өз сөзүң менен түшүндүрүп көр. Жообуңду жөнөткөндөн кийин толук түшүндүрмө ачылат.</p>{explanation.hasPresentation && <><p>Бул бөлүктө слайддык презентация бар. Аны көрүп, андан кийин да өз жообуңду жаза аласың.</p>{!presentationOpened[st.key] && <Button type="button" className="self-start" onClick={()=>setPresentationOpened(all=>({...all,[st.key]:true}))}>Презентацияны көрүү</Button>}</>}</div>}
+          {explanation.blocks.map(b=>missionStudentBlock(st,b)).map((b) => (
+            <div key={b.id} id={`block-${b.id}`} className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4 shadow-xs sm:p-5">
+              {st.key === "discover" && b.type === "open" && b.engagement && <p className="text-sm font-semibold text-accent">{b.engagement.level}. {ENGAGEMENT_LEVELS[b.engagement.level]} · {b.engagement.kind === "activity" ? "Кызыктуу тапшырма" : "Суроо"}</p>}
+              {st.mission&&isInteractive(b)&&<p className="text-sm font-semibold text-accent">{missionChallenge(st,b.id)?"Жеке иш · ЖИ жана кеңешсиз, бир жолу тапшырылат":"Миссиянын машыгуусу"}</p>}
+              {!missionAllows(st,b.id,answers)&&<p className="rounded-xl bg-surface-2 p-3 text-sm border border-line">Адегенде миссиянын мурунку тапшырмасын бүтүр. Андан кийин бул кадам ачылат.</p>}
+              <TeamworkCard block={b} />
+              <DraftScope.Provider value={attempt?.id??null}><fieldset disabled={!missionAllows(st,b.id,answers)||!!finished && b.type !== "presentation"} className="flex min-w-0 flex-col gap-3">{renderBlock(b, answers[b.id], onAnswer(view, b), isExit, failed[b.id], b.type === "open" && b.compareTo ? answers[b.compareTo]?.response.text as string : undefined)}</fieldset></DraftScope.Provider>
+              {attempt && !isExit && !finished && isInteractive(b) && missionAllows(st,b.id,answers) && !missionChallenge(st,b.id) && <AiTutor key={`${attempt.id}:${b.id}`} attemptId={attempt.id} blockId={b.id} />}
+              {reviews.filter(r => r.block_id === b.id).map(r => <div key={r.block_id} className="rounded-xl bg-good-soft p-4 border border-good/25"><p className="font-semibold">Мугалимдин баалоосу: {r.criteria_met.filter(Boolean).length}/{r.criteria_met.length} критерий</p>{b.type === "open" && b.rubric?.map((x,i) => <p key={i} className="mt-1 text-sm">{r.criteria_met[i] ? "Аткарылды" : "Дагы иштөө керек"}: {x}</p>)}<p className="mt-3 whitespace-pre-wrap">{r.feedback}</p></div>)}
+              {b.support && missionAllows(st,b.id,answers) && <details className="rounded-xl bg-accent-soft p-3 border border-accent/20"><summary className="min-h-11 cursor-pointer font-semibold">Жардам керекпи?</summary><RichText text={b.support} /></details>}
+              {b.extension && answers[b.id] && <details className="rounded-xl bg-surface-2 p-3 border border-line"><summary className="min-h-11 cursor-pointer font-semibold">Тереңдетип көр</summary><RichText text={b.extension} /></details>}
             </div>
           ))}
 
-          {view === unlocked && (isExit || !st.blocks.some(isInteractive)) && (
+          {(!liveSession?.timed ? view === unlocked : isExit && !liveSession.ended) && (isExit || (content.model === "5e" && st.key === "practice") || !st.blocks.some(isInteractive)) && (
             <div className="flex flex-wrap items-center gap-3">
-              <Button onClick={manualComplete} disabled={!stageDone(st, answers)}>
-                {isExit ? "Билетти тапшыруу" : "Түшүндүм, улантуу"}
+              <Button onClick={manualComplete} disabled={!stageDone(st, answers) || (!!liveSession?.timed && !stages.every(s=>stageDone(s,answers)))}>
+                {isExit ? "Билетти тапшыруу" : "Окуп чыктым, улантуу"}
               </Button>
+              {isExit && liveSession?.timed && !stages.every(s=>stageDone(s,answers)) && <p className="text-sm text-muted">Аяктай элек иштер бар. Мугалим менен улантуу жолун такта.</p>}
               {isExit && !stageDone(st, answers) && <span className="text-sm text-muted">Бардык суроолорго жооп бер.</span>}
             </div>
           )}
@@ -298,12 +356,12 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
       )}
 
       <div className="flex justify-between gap-3">
-        <Button variant="secondary" disabled={view === 0} onClick={() => go(view - 1)}>
+        <Button variant="secondary" disabled={view === 0 || !!liveSession?.timed} onClick={() => go(view - 1)}>
           ← Мурунку
         </Button>
         {view < stages.length - 1 && (
           <Button disabled={!canNext} onClick={() => go(view + 1)}>
-            {canNext ? "Кийинки бөлүк →" : "Тапшырмаларды бүтүр"}
+            {liveSession?.timed?"Жалпы өтүүнү күт":canNext ? "Кийинки бөлүк →" : "Тапшырмаларды бүтүр"}
           </Button>
         )}
       </div>
@@ -313,6 +371,13 @@ export function LessonPlayer({ title, content, backHref, attempt, initialAnswers
 
 function renderBlock(b: Block, saved: SavedAnswer | undefined, onAnswer: AnswerFn, exitMode: boolean, failed?: number, comparison?: string) {
   switch (b.type) {
+    case "classification":return <Classification key={b.id} block={b} saved={saved} onAnswer={onAnswer} exitMode={exitMode} failed={failed}/>;
+    case "spreadsheet":return <Spreadsheet key={b.id} block={b} saved={saved} onAnswer={onAnswer} exitMode={exitMode} failed={failed}/>;
+    case "matching":
+    case "ordering":
+      return <InteractiveTask key={b.id} block={b} saved={saved} onAnswer={onAnswer} exitMode={exitMode} failed={failed}/>;
+    case "presentation":
+      return <Presentation key={b.id} block={b} />;
     case "investigation":
       return <Investigation block={b} saved={saved} onAnswer={onAnswer} />;
     case "text":
@@ -340,16 +405,17 @@ function renderBlock(b: Block, saved: SavedAnswer | undefined, onAnswer: AnswerF
 }
 
 function FinishCard({ score, total, xp, backHref, preview }: { score: number; total: number; xp: number; backHref: string; preview: boolean }) {
-  const msg = score === total ? "Мыкты! Тесттин бардык суроолору туура." : score >= total / 2 ? "Жакшы натыйжа." : "Бул теманы дагы бир кайталап алалы.";
+  const msg = score === total ? "Мыкты! Баалоодогу бардык тапшырмалар туура." : score >= total / 2 ? "Жакшы натыйжа." : "Бул теманы дагы бир кайталап алалы.";
   return (
-    <section className="flex flex-col items-start gap-4 rounded-2xl border border-line bg-surface p-6">
-      <span className="font-display text-5xl font-bold text-accent tabular-nums">
+    <section className="flex flex-col items-start gap-4 rounded-lg border border-line bg-surface p-6 shadow-xs">
+      <span className="font-mono text-5xl font-medium tracking-tight text-accent tabular-nums">
         {score}/{total}
       </span>
-      <h2 className="font-display text-xl font-bold">{msg}</h2>
+      <h2 className="text-xl font-medium">{msg}</h2>
       <p className="text-muted">
         {preview ? "Алдын ала көрүү: окуучу ушул экранды көрөт." : `Жоопторуң мугалимге жөнөтүлдү. Бул сабактан ${xp} XP топтодуң.`}
       </p>
+      {!preview && <Link href="/student/shop" className="flex min-h-11 items-center gap-2 rounded-xl bg-amber-soft px-4 py-2 font-semibold text-amber border border-amber/25"><CoinIcon/>Монета капчыгым жана дүкөн →</Link>}
       <Link href={backHref} className="font-semibold text-accent">
         {preview ? "Сабакка кайтуу →" : "Сабактарыма кайтуу →"}
       </Link>

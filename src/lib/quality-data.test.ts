@@ -1,0 +1,7 @@
+import {it,expect,vi} from "vitest";
+vi.mock("server-only",()=>({}));
+import {qualityRows} from "./quality-data";
+it("толук маалыматты демейки чек менен кесип салбай чогултат",async()=>{const range=vi.fn().mockResolvedValueOnce({data:[1,2],error:null,count:3}).mockResolvedValueOnce({data:[3],error:null,count:3});expect(await qualityRows({range})).toEqual([1,2,3]);expect(range).toHaveBeenLastCalledWith(2,501);});
+it("жарым маалымат жана ката жасалма пайызга айланбайт",async()=>{await expect(qualityRows({range:vi.fn().mockResolvedValue({data:null,error:{message:"hidden"},count:null})})).rejects.toThrow();await expect(qualityRows({range:vi.fn().mockResolvedValue({data:[],error:null,count:2})})).rejects.toThrow();});
+it("жооп бербеген тармакта чексиз күтпөйт жана сурамды токтотот",async()=>{vi.useFakeTimers();try{let signal:AbortSignal|undefined;const query={range:()=>new Promise<never>(()=>{}),abortSignal:(value:AbortSignal)=>{signal=value;return query;}};const pending=qualityRows(query,50);const assertion=expect(pending).rejects.toThrow(/созулду/);await vi.advanceTimersByTimeAsync(51);await assertion;expect(signal?.aborted).toBe(true);}finally{vi.useRealTimers();}});
+it("беттөөдө жалпы сан өзгөрсө аралаш жыйынтыкты колдонбойт",async()=>{const range=vi.fn().mockResolvedValueOnce({data:[1],error:null,count:3}).mockResolvedValueOnce({data:[2],error:null,count:4});await expect(qualityRows({range})).rejects.toThrow(/өзгөрдү/);});

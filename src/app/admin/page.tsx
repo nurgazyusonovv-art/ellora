@@ -36,11 +36,11 @@ export default async function AdminHome() {
 
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         <Card className="flex flex-col gap-3">
-          <h2 className="font-display text-lg font-medium">Мектептер</h2>
+          <h2 className="text-base font-medium">Мектептер</h2>
           {o.schools.length === 0 && <p className="text-sm text-muted">Азырынча мугалим катталган жок.</p>}
           <ul className="flex flex-col">
             {o.schools.map((s) => (
-              <li key={s.name} className="flex items-center justify-between gap-3 border-b border-surface-2 py-2.5 last:border-0">
+              <li key={s.name} className="flex items-center justify-between gap-3 border-b border-line py-2.5 last:border-0">
                 <span className="min-w-0 truncate font-semibold">{s.name}</span>
                 <span className="shrink-0 text-sm text-muted">
                   {s.teachers} мугалим · {s.students} окуучу
@@ -52,14 +52,14 @@ export default async function AdminHome() {
 
         <Card className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="font-display text-lg font-medium">Жаңы катталган мугалимдер</h2>
+            <h2 className="text-base font-medium">Жаңы катталган мугалимдер</h2>
             <Link href="/admin/teachers" className="text-sm font-semibold text-accent">
               Баары
             </Link>
           </div>
           <ul className="flex flex-col">
             {recent.map((t) => (
-              <li key={t.id} className="flex items-center justify-between gap-3 border-b border-surface-2 py-2.5 last:border-0">
+              <li key={t.id} className="flex items-center justify-between gap-3 border-b border-line py-2.5 last:border-0">
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate font-semibold">{t.name}</span>
                   <span className="truncate text-sm text-muted">{t.school || "Мектеп көрсөтүлгөн эмес"}</span>

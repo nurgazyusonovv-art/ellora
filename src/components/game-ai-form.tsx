@@ -1,0 +1,12 @@
+"use client";
+import {useActionState} from "react";
+import Link from "next/link";
+import {generateGame} from "@/app/actions/game-ai";
+import type {LessonAiState} from "@/app/actions/lesson-ai";
+import {GAME_TYPES} from "@/lib/game-types";
+import {GRADES} from "@/lib/grades";
+import {Button,Field,FormError} from "./ui";
+export function GameAiForm(){
+ const [state,action,pending]=useActionState<LessonAiState,FormData>(generateGame,{});
+ return <form action={action} className="flex min-w-0 flex-col gap-4"><Field label="Оюндун темасы" name="topic" placeholder="Мисалы: Электрондук таблицадагы формулалар" required maxLength={200}/><div className="grid gap-3 sm:grid-cols-3"><label className="flex flex-col gap-2 text-sm font-semibold">Класс<select name="grade" defaultValue={7} className="shadow-xs min-h-11 rounded-xl border border-line-strong bg-surface p-2">{GRADES.map(g=><option key={g} value={g}>{g}-класс</option>)}</select></label><label className="flex flex-col gap-2 text-sm font-semibold">Оюндун түрү<select name="kind" className="shadow-xs min-h-11 rounded-xl border border-line-strong bg-surface p-2">{Object.entries(GAME_TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label><Field label="Жуп/кадам/объект саны" name="count" type="number" min={4} max={8} defaultValue={4} required/></div><label className="flex flex-col gap-2 text-sm font-semibold">Кошумча каалоо<textarea name="context" maxLength={1500} rows={3} className="shadow-xs rounded-xl border border-line-strong bg-surface p-3" placeholder="Кайсы түшүнүктү же көндүмдү машыктыруу керек?"/></label><p className="text-sm text-muted">Тема, класс жана каалооңуз OpenAI кызматына жөнөтүлөт. Окуучулардын жеке маалыматтарын жазбаңыз. Оюн долбоор болуп сакталат: жоопторун текшерип, анан жарыялаңыз. Сабактар менен жалпы лимит — күнүнө 10 долбоор.</p><Button disabled={pending}>{pending?"ЖИ оюн түзүүдө…":"ЖИ менен оюн түзүү"}</Button><FormError message={state.error}/>{state.warning&&<p role="status" className="text-sm text-muted">{state.warning}</p>}{state.lessonId&&<p role="status"><Link href={`/teacher/lessons/${state.lessonId}/edit`} className="flex min-h-11 items-center font-semibold text-accent">Оюн даяр — ачып текшерүү →</Link></p>}{state.generationId&&<Link href={`/teacher/lessons/generate/${state.generationId}`} className="flex min-h-11 items-center text-sm text-accent">Сурамдын жыйынтыгын көрүү →</Link>}</form>;
+}

@@ -24,7 +24,7 @@ export default async function AdminStudents({ searchParams }: { searchParams: Pr
             name="q"
             defaultValue={q}
             placeholder="Аты же логини"
-            className="min-h-11 rounded-[10px] border border-line bg-surface px-3 text-base font-normal"
+            className="shadow-xs min-h-11 rounded-md border border-line-strong bg-surface px-3 text-base font-normal"
           />
         </label>
         <Button variant="secondary">Издөө</Button>
@@ -33,18 +33,18 @@ export default async function AdminStudents({ searchParams }: { searchParams: Pr
       <Card className="overflow-x-auto p-0 sm:p-0">
         <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
-            <tr className="text-left text-xs tracking-[0.06em] text-muted uppercase">
-              <th className="px-5 py-3 font-semibold">Окуучу</th>
-              <th className="px-3 py-3 font-semibold">Логин</th>
-              <th className="px-3 py-3 font-semibold">Класс</th>
-              <th className="px-3 py-3 text-right font-semibold">Бүткөн</th>
-              <th className="px-3 py-3 text-right font-semibold">XP</th>
-              <th className="px-5 py-3 font-semibold">Жардам</th>
+            <tr className="border-b border-line bg-surface-2 text-left font-mono text-[11px] tracking-[0.06em] text-muted uppercase">
+              <th className="px-5 py-2.5 font-medium">Окуучу</th>
+              <th className="px-3 py-2.5 font-medium">Логин</th>
+              <th className="px-3 py-2.5 font-medium">Класс</th>
+              <th className="px-3 py-2.5 text-right font-medium">Бүткөн</th>
+              <th className="px-3 py-2.5 text-right font-medium">XP</th>
+              <th className="px-5 py-2.5 font-medium">Жардам</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((s) => (
-              <tr key={s.id} className="border-t border-surface-2 align-middle">
+              <tr key={s.id} className="border-t border-line transition-colors hover:bg-surface-2/50 align-middle">
                 <td className="px-5 py-3 font-semibold">{s.name}</td>
                 <td className="px-3 py-3 font-mono">{s.username}</td>
                 <td className="px-3 py-3">{s.classes.join(", ") || "—"}</td>

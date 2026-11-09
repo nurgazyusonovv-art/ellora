@@ -1,3 +1,11 @@
+import {AssignmentTermForm} from "@/components/assignment-term-fields";
+import {ShareCard} from "@/components/share-card";
+import {reviewSource,sourceHash} from "@/lib/review-source";
+import {readLiveSession} from "@/lib/live-session";
+import { ClassInsightsPanel } from "@/components/class-insights";
+import { classInsights } from "@/lib/class-insights";
+import { RevisionCard, RequestRevisionForm } from "@/components/revision-forms";
+import { REVISION_COLUMNS, canRevise, type Revision } from "@/lib/revisions";
 import { SessionControls, ReviewForm } from "@/components/classroom-forms";
 import type { Review } from "@/lib/classroom";
 import Link from "next/link";
@@ -9,7 +17,7 @@ import { requireRole } from "@/lib/auth";
 import { CONFIDENCE_LABELS, stageMeta, type LessonContent, type McqBlock } from "@/lib/lesson-types";
 import { formatDate, STATUS_META, studentStatus, type AttemptRow } from "@/lib/stats";
 
-type Answer = { attempt_id: string; block_id: string; stage: number; response: unknown; is_correct: boolean | null };
+type Answer = { attempt_id: string; block_id: string; stage: number; response: unknown; is_correct: boolean | null; tries: number };
 
 export default async function ResultsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -17,18 +25,18 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
 
   const { data: a } = await supabase
     .from("assignments")
-    .select("id, due_at, class_id, lessons(title, content), classes(name)")
+    .select("id, due_at, class_id, academic_year, quarter, work_kind, lessons(title, content), classes(name)")
     .eq("id", id)
     .maybeSingle<{
       id: string;
-      due_at: string | null;
+      due_at: string | null; academic_year:number|null;quarter:number|null;work_kind:string;
       class_id: string;
       lessons: { title: string; content: LessonContent } | null;
       classes: { name: string } | null;
     }>();
   if (!a || !a.lessons) notFound();
 
-  const [{ data: members }, { data: attempts }] = await Promise.all([
+  const [{ data: members, error: membersError }, { data: attempts, error: attemptsError }] = await Promise.all([
     supabase
       .from("class_members")
       .select("student_id, profiles(full_name)")
@@ -37,15 +45,18 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
     supabase.from("attempts").select("*").eq("assignment_id", id).returns<AttemptRow[]>(),
   ]);
   const attemptIds = (attempts ?? []).map((t) => t.id);
-  const { data: answers } = attemptIds.length
-    ? await supabase.from("answers").select("attempt_id, block_id, stage, response, is_correct").in("attempt_id", attemptIds).returns<Answer[]>()
-    : { data: [] as Answer[] };
+  const { data: answers, error: answersError } = attemptIds.length
+    ? await supabase.from("answers").select("attempt_id, block_id, stage, response, is_correct, tries").in("attempt_id", attemptIds).returns<Answer[]>()
+    : { data: [] as Answer[], error: null };
 
-  const [{ data: session, error: sessionError }, { data: reviews }] = await Promise.all([
-    supabase.from("lesson_sessions").select("max_stage, paused").eq("assignment_id", id).maybeSingle(),
-    attemptIds.length ? supabase.from("answer_reviews").select("attempt_id, block_id, criteria_met, feedback").in("attempt_id", attemptIds) : Promise.resolve({ data: [] }),
+  const [{ data: session, error: sessionError }, { data: reviews, error: reviewsError }, {data: revisions, error: revisionError}] = await Promise.all([
+    readLiveSession(supabase,id).then(data=>({data,error:null})).catch(()=>({data:null,error:{message:"Сабак режими жүктөлгөн жок"}})),
+    attemptIds.length ? supabase.from("answer_reviews").select("attempt_id, block_id, criteria_met, feedback").in("attempt_id", attemptIds) : Promise.resolve({ data: [], error: null }),
+    attemptIds.length ? supabase.from("answer_revisions").select(REVISION_COLUMNS).in("attempt_id",attemptIds).order("revision_no").returns<Revision[]>() : Promise.resolve({data:[] as Revision[],error:null}),
   ]);
   const content = a.lessons.content;
+  const insightsError = membersError || attemptsError || answersError || reviewsError || revisionError;
+  const insights = insightsError ? null : classInsights({content,members:members??[],attempts:attempts??[],answers:answers??[],reviews:(reviews??[]) as {attempt_id:string;block_id:string;criteria_met:boolean[]}[],revisions:revisions??[]});
   const exitStage = content.stages.findIndex((s) => s.key === "exit");
   const exitMcqs = (content.stages[exitStage]?.blocks ?? []).filter((b): b is McqBlock => b.type === "mcq");
   const exitOpen = content.stages[exitStage]?.blocks.find((b) => b.type === "open");
@@ -77,9 +88,9 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
 
   return (
     <>
-      <AutoRefresh />
-      {sessionError ? <p className="rounded-xl bg-amber-soft p-4 text-sm text-amber">Жандуу режим жана баалоо үчүн 0008 база жаңыртуусу керек.</p> : <SessionControls key={JSON.stringify(session)} assignmentId={id} session={session} content={content} />}
-      {content.teacherNotes && <details className="rounded-xl bg-accent-soft p-4"><summary className="min-h-11 cursor-pointer font-semibold">Сабакты өткөрүү боюнча көрсөтмө</summary><p className="leading-relaxed">{content.teacherNotes}</p></details>}
+      <ShareCard assignmentId={id}/><AssignmentTermForm assignmentId={id} year={a.academic_year} quarter={a.quarter} kind={a.work_kind} activityKind={content.activityKind}/><AutoRefresh seconds={session?.timed?3:20} />
+      {sessionError ? <p className="rounded-xl bg-amber-soft p-4 text-sm text-amber border border-amber/25">Жандуу режим жана баалоо үчүн 0008 база жаңыртуусу керек.</p> : <SessionControls key={JSON.stringify(session)} assignmentId={id} session={session} content={content} />}
+      {content.teacherNotes && <details className="rounded-xl bg-accent-soft p-4 border border-accent/20"><summary className="min-h-11 cursor-pointer font-semibold">Сабакты өткөрүү боюнча көрсөтмө</summary><p className="leading-relaxed">{content.teacherNotes}</p></details>}
       <div className="flex flex-col gap-2">
         <span className="text-sm text-muted">
           <Link href={`/teacher/classes/${a.class_id}`} className="text-accent">{a.classes?.name}</Link> · Мөөнөт: {formatDate(a.due_at)}
@@ -119,7 +130,7 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
           <span className="text-xs text-muted">Туура жооп бергендердин үлүшү.</span>
         </Card>
 
-        <div className="flex flex-col gap-2.5 rounded-2xl border border-[#a9d3c7] bg-accent-soft p-5 sm:p-6">
+        <div className="flex flex-col gap-2.5 rounded-2xl border border-accent/25 bg-accent-soft p-5 sm:p-6">
           <h2 className="font-semibold">Кийинки сабакка сунуш</h2>
           {finished.length < 3 ? (
             <p className="text-sm">Кеминде 3 окуучу бүткөндө сунуш пайда болот.</p>
@@ -130,7 +141,7 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
                   Сабакты кыска кайталоо менен баштаңыз: «{weakest.q.prompt.replace(/`/g, "")}» суроосуна {weakest.pct}% гана туура жооп берди.
                 </p>
               ) : (
-                <p className="text-[15px] leading-relaxed">Класс теманы жакшы өздөштүрдү. Кийинки темага өтсөңүз болот.</p>
+                <p className="text-[15px] leading-relaxed">Бул тесттерде жалпы кайталоого ачык белги жок. Түшүндүрмө, колдонуу жана текшерилбеген жоопторду да караңыз.</p>
               )}
               {helpNames.length > 0 && <p className="text-[15px] leading-relaxed">Жеке иштеңиз: {helpNames.slice(0, 5).join(", ")}.</p>}
             </>
@@ -138,22 +149,24 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
+      {insights ? <ClassInsightsPanel data={insights} assignmentId={id}/> : <p role="alert" className="rounded-xl bg-amber-soft p-4 text-sm text-amber border border-amber/25">Класстын далилдери толук ачылган жок. Байланышты же база жаңыртылганын текшериңиз; бош маалыматтан жыйынтык чыгарылган жок.</p>}
+
       <Card className="overflow-x-auto p-0 sm:p-0">
         <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
-            <tr className="text-left text-xs tracking-[0.06em] text-muted uppercase">
-              <th className="px-5 py-3 font-semibold">Окуучу</th>
-              <th className="px-3 py-3 font-semibold">Бөлүк</th>
-              <th className="px-3 py-3 font-semibold">XP</th>
-              <th className="px-3 py-3 font-semibold">Exit ticket</th>
-              <th className="px-3 py-3 font-semibold">Ишеним</th>
-              <th className="px-3 py-3 font-semibold">Түшүнбөгөнү</th>
-              <th className="px-5 py-3 font-semibold">Абалы</th>
+            <tr className="border-b border-line bg-surface-2 text-left font-mono text-[11px] tracking-[0.06em] text-muted uppercase">
+              <th className="px-5 py-2.5 font-medium">Окуучу</th>
+              <th className="px-3 py-2.5 font-medium">Бөлүк</th>
+              <th className="px-3 py-2.5 font-medium">XP</th>
+              <th className="px-3 py-2.5 font-medium">Exit ticket</th>
+              <th className="px-3 py-2.5 font-medium">Ишеним</th>
+              <th className="px-3 py-2.5 font-medium">Түшүнбөгөнү</th>
+              <th className="px-5 py-2.5 font-medium">Абалы</th>
             </tr>
           </thead>
           <tbody>
             {students.map((s) => (
-              <tr key={s.id} className="border-t border-surface-2">
+              <tr key={s.id} className="border-t border-line transition-colors hover:bg-surface-2/50">
                 <td className="px-5 py-3 font-semibold">
                   <Link href={`/teacher/students/${s.id}`} className="hover:text-accent hover:underline">
                     {s.name}
@@ -173,6 +186,9 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
         </table>
         {students.length === 0 && <p className="px-5 pb-5 text-sm text-muted">Класста окуучу жок.</p>}
       </Card>
+      <Link href={`/teacher/assignments/${id}/teams`} className="flex min-h-11 items-center font-semibold text-accent">Жуп жана топ иштерин уюштуруу →</Link>
+      <Link href={`/teacher/assignments/${id}/pathways`} className="flex min-h-11 items-center rounded-xl bg-accent-soft px-4 font-semibold text-accent border border-accent/20">Колдоо менен / негизги / тереңдетилген практика →</Link>
+      <Link href={`/teacher/assignments/${id}/repetition`} className="flex min-h-11 items-center rounded-xl bg-accent-soft px-4 font-semibold text-accent border border-accent/20">Аралык кайталоону пландоо жана жыйынтыктар →</Link>
       <section className="flex flex-col gap-4">
         <h2 className="text-xl font-semibold">Окуучунун далили жана өз алдынча колдонуу</h2>
         <p className="text-sm text-muted">Тесттин баллы өзүнчө. Түшүндүрмө жана колдонуу төмөнкү критерийлер менен мугалим тарабынан бааланат.</p>
@@ -184,8 +200,15 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
             const r = answer?.response as Record<string, string> | undefined;
             if (!r) return <p key={b.id} className="text-sm text-muted">{"prompt" in b ? b.prompt : ""}: жооп жок</p>;
             const review = (reviews ?? []).find(x => x.attempt_id === s.t!.id && x.block_id === b.id) as Review | undefined;
+            const history=(revisions??[]).filter(x=>x.attempt_id===s.t!.id&&x.block_id===b.id);
+            const last=history.at(-1);
+            const stageKey=content.stages.find(st=>st.blocks.some(x=>x.id===b.id))!.key;
             const initial = b.type === "open" && b.compareTo ? (answers ?? []).find(x => x.attempt_id === s.t!.id && x.block_id === b.compareTo)?.response as {text?: string} | undefined : undefined;
-            return <div key={b.id} className="flex flex-col gap-3 border-t border-line pt-4"><h3 className="font-semibold">{"prompt" in b ? b.prompt : ""}</h3>{initial?.text && <p className="rounded-xl bg-accent-soft p-3 whitespace-pre-wrap">Баштапкы ой: {initial.text}</p>}{b.type === "investigation" ? <><p className="whitespace-pre-wrap">Божомол: {r.prediction}</p><p className="whitespace-pre-wrap">Байкоо: {r.observations}</p><p className="whitespace-pre-wrap">Жыйынтык: {r.conclusion}</p></> : <p className="whitespace-pre-wrap">{r.text}</p>}{b.type === "open" && b.rubric?.length && !sessionError && <ReviewForm key={JSON.stringify(review)} attemptId={s.t!.id} blockId={b.id} rubric={b.rubric} review={review} />}</div>;
+            return <div key={b.id} id={`class-answer-${s.id}-${b.id}`} className="flex flex-col gap-3 border-t border-line pt-4"><h3 className="font-semibold">{"prompt" in b ? b.prompt : ""}</h3>{initial?.text && <p className="rounded-xl bg-accent-soft p-3 whitespace-pre-wrap border border-accent/20">Баштапкы ой: {initial.text}</p>}{b.type === "investigation" ? <><p className="whitespace-pre-wrap">Божомол: {r.prediction}</p><p className="whitespace-pre-wrap">Байкоо: {r.observations}</p><p className="whitespace-pre-wrap">Жыйынтык: {r.conclusion}</p></> : <p className="whitespace-pre-wrap">{r.text}</p>}{b.type === "open" && b.rubric?.length && !sessionError && <ReviewForm initialSourceHash={sourceHash(reviewSource(b,r))} key={JSON.stringify(review)} attemptId={s.t!.id} blockId={b.id} rubric={b.rubric} review={review} />}
+            {history.map(revision=><RevisionCard key={revision.id} revision={revision} teacher/>)}
+            {canRevise(b,stageKey)&&review&&!revisionError&&(!last||last.status==="reviewed")&&<RequestRevisionForm key={last?.id??"first"} attemptId={s.t!.id} blockId={b.id} feedback={last?.feedback??review.feedback}/>}
+            {revisionError&&canRevise(b,stageKey)&&<p className="text-sm text-muted">Кайра иштөө тарыхы жеткиликсиз. База жаңыртылганын текшериңиз.</p>}
+            </div>;
           })}</div></details>;
         })}
       </section>

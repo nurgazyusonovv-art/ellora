@@ -1,8 +1,11 @@
+import type { SkillId } from "@/lib/skills";
+import { isGraded } from "@/lib/lesson-types";
 import type { LibraryLesson } from "@/content";
 import type { InvestigationBlock, OpenBlock } from "@/lib/lesson-types";
 
 /** Китепкананын жаңы көчүрмөлөрү гана өзгөрөт; базага көчүрүлгөн эски сабактарга тийбейт. */
 export function fiveELesson(base: LibraryLesson, config: {
+  skill: SkillId;
   objectives: string[]; criteria: string[];
   investigation: Omit<InvestigationBlock, "id" | "type">;
   application: Omit<OpenBlock, "id" | "type">;
@@ -11,7 +14,7 @@ export function fiveELesson(base: LibraryLesson, config: {
   const initial = engage.blocks.find(b => b.type === "open");
   const duration = base.content.duration ?? 45;
   const minutes = duration === 40 ? [5, 10, 8, 12, 5] : [5, 12, 8, 15, 5];
-  return { ...base, content: {
+  const lesson: LibraryLesson = { ...base, content: {
     ...base.content, model: "5e", objectives: config.objectives, successCriteria: config.criteria,
     teacherNotes: "Баштапкы жоопту баалабаңыз. Изилдөөдөн кийин 2–3 окуучунун байкоосун талкуулаңыз. Түшүндүрүүдө окуучулардын далилдерине таяныңыз. Колдонуу тапшырмасын критерийлер менен баалаңыз. Бир телефон менен иштеген жупта ар ким өз оюн айтсын.",
     stages: [
@@ -30,4 +33,6 @@ export function fiveELesson(base: LibraryLesson, config: {
       ] },
     ],
   } };
+  for (const stage of lesson.content.stages) stage.blocks = stage.blocks.map(b => isGraded(b) ? {...b,skills:[config.skill]} : b.type === "investigation" ? {...b,skills:[config.skill,"testing"]} : b.type === "open" && b.rubric ? {...b,skills:["explanation"]} : b);
+  return lesson;
 }

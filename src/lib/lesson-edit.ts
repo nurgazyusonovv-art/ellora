@@ -1,9 +1,19 @@
+import {classificationError,defaultClassification} from "./classification";
+import {defaultSheet,sheetError} from "@/lib/sheet";
+import { missionError } from "@/lib/missions";
+import { validSlides } from "@/lib/presentation";
+import { isSkillId } from "@/lib/skills";
 /** Сабак конструктору үчүн жардамчылар. Серверде да, браузерде да колдонулат. */
 import { STAGE_KEYS, FIVE_E_META, isGraded, type Block, type LessonContent, type StageKey } from "@/lib/lesson-types";
 
 export type BlockType = Block["type"];
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
+  classification: "Категорияларга бөлүштүрүү",
+  spreadsheet: "Электрондук таблица",
+  matching: "Дал келтирүү",
+  ordering: "Кадамдарды иреттөө",
+  presentation: "Презентация",
   investigation: "Изилдөө",
   text: "Текст",
   code_example: "Код мисалы",
@@ -58,6 +68,14 @@ export function nextBlockId(content: LessonContent, stage: StageKey) {
 
 export function newBlock(type: BlockType, id: string): Block {
   switch (type) {
+    case "classification":return defaultClassification(id);
+    case "spreadsheet":return defaultSheet(id);
+    case "matching":
+      return {id,type,prompt:"Маанилерди дал келтир.",pairs:[{left:"",right:""},{left:"",right:""},{left:"",right:""}],explain:"",xp:10};
+    case "ordering":
+      return {id,type,prompt:"Кадамдарды туура иретке кой.",steps:["","",""],explain:"",xp:10};
+    case "presentation":
+      return {id,type,title:"Түшүндүрмө",slides:Array.from({length:5},()=>({title:"",body:"",icon:"idea",diagram:["",""],question:""}))};
     case "investigation":
       return { id, type, prompt: "", procedure: "" };
     case "text":
@@ -81,7 +99,7 @@ export function newBlock(type: BlockType, id: string): Block {
 
 /** Блоктун кыска аталышы (тизмеде көрсөтүү үчүн). */
 export function blockSummary(b: Block) {
-  const s = b.type === "text" ? b.title || b.body : b.type === "code_example" ? b.caption || b.code.split("\n")[0] : b.prompt;
+  const s = b.type === "presentation" ? b.title : b.type === "text" ? b.title || b.body : b.type === "code_example" ? b.caption || b.code.split("\n")[0] : b.prompt;
   const one = (s ?? "").replace(/\s+/g, " ").trim();
   return one.length > 80 ? one.slice(0, 80) + "…" : one;
 }
@@ -101,6 +119,7 @@ export function validateLesson(title: string, content: LessonContent): Issue[] {
   }
   content.stages.forEach((st, si) => {
     const add = (message: string, blockId?: string) => out.push({ stage: si, blockId, message });
+    const missionIssue=missionError(st);if(missionIssue)add(missionIssue);
     if (blank(st.title)) add("Бөлүктүн аталышын жазыңыз.");
     if (!(st.minutes > 0)) add("Бөлүктүн убактысын жазыңыз (мүнөт).");
     if (st.blocks.length === 0) add("Бөлүктө жок дегенде бир блок болушу керек.");
@@ -114,10 +133,34 @@ export function validateLesson(title: string, content: LessonContent): Issue[] {
       if (st.key === "reinforce" && !st.blocks.some(b => (b.type === "open" && b.rubric?.length) || b.type === "code_task")) add("Жаңы кырдаалга код тапшырмасын же критерийи бар ачык жооп кошуңуз.");
       if (st.key === "exit" && !st.blocks.some(b => b.type === "open" && b.compareTo && !b.optional)) add("Баштапкы ойду салыштыруу үчүн ачык жооп кошуңуз.");
     }
+    const levels = st.key === "discover" ? st.blocks.flatMap(b => b.type === "open" && b.engagement ? [b.engagement.level] : []) : [];
+    if (levels.some((level,i) => i > 0 && level < levels[i-1])) add("Кызыктыруу тапшырмаларын жөнөкөйдөн татаалга иреттеңиз.");
     for (const b of st.blocks) {
       const bad = (m: string) => add(m, b.id);
       if ("xp" in b && isGraded(b) && b.xp !== undefined && !(b.xp >= 0)) bad("XP терс сан болбосун.");
+      if (b.teamwork && b.collaboration !== "individual" && b.collaboration) {
+        if (blank(b.teamwork.instructions) || blank(b.teamwork.outcome)) bad("Бирге иштөө кадамдарын жана жалпы жыйынтыкты жазыңыз.");
+        if (b.teamwork.roles.length !== b.teamwork.size || b.teamwork.roles.some(x => blank(x))) bad("Ар бир катышуучуга роль жазыңыз.");
+      }
       switch (b.type) {
+        case "classification":
+          if(blank(b.prompt))bad("Категориялоонун тапшырмасын жазыңыз.");
+          if(!["reinforce","exit"].includes(st.key))bad("Категориялоону Колдонуу же Баалоого кошуңуз.");
+          break;
+        case "spreadsheet":
+          if(blank(b.prompt))bad("Таблицанын тапшырмасын жазыңыз.");
+          if(!["reinforce","exit"].includes(st.key))bad("Таблица тапшырмасын Колдонуу же Баалоого кошуңуз.");
+          break;
+        case "matching":
+        case "ordering":
+          if(blank(b.prompt))bad("Тапшырманын шартын жазыңыз.");
+          if(!["reinforce","exit"].includes(st.key))bad("Бул интерактивди Колдонуу же Баалоо бөлүгүнө кошуңуз.");
+          break;
+        case "presentation":
+          if (st.key !== "practice") bad("Презентацияны түшүндүрүү бөлүгүнө кошуңуз.");
+          if (b.slides.some(s=>s.image && blank(s.image.alt))) bad("Сүрөттүн альтернативдүү түшүндүрмөсүн жазыңыз.");
+          if (blank(b.title) || b.slides.some(s => blank(s.title) || blank(s.body) || s.diagram.some(blank))) bad("Презентациянын аталышын, текстин жана схемасын толтуруңуз.");
+          break;
         case "investigation":
           if (blank(b.prompt)) bad("Изилдөөнүн суроосун жазыңыз.");
           if (blank(b.procedure)) bad("Сынап көрүүнүн кадамдарын жазыңыз.");
@@ -169,11 +212,13 @@ export function validateLesson(title: string, content: LessonContent): Issue[] {
 
 /** Сактоодон мурун түзүлүштү текшерүү (бузук JSON базага түшпөсүн). Ката болсо — текст. */
 export function checkStructure(content: unknown): string | null {
+  if (new TextEncoder().encode(JSON.stringify(content)).length > 850000) return "Сабактын көлөмү өтө чоң. Сүрөттөрдү азайтыңыз.";
   const c = content as LessonContent;
   if (!c || c.version !== 1 || !Array.isArray(c.stages)) return "Сабактын форматы туура эмес.";
   if (c.duration !== undefined && !(Number.isInteger(c.duration) && c.duration > 0 && c.duration <= 180))
     return "Сабактын узактыгы 1–180 мүнөт болсун.";
   if (c.stages.length !== 5 || c.stages.some((s, i) => !s || s.key !== STAGE_KEYS[i])) return "Сабакта 5 бөлүк ушул тартипте болушу керек.";
+  if(c.activityKind!==undefined&&!["game","quarterly"].includes(c.activityKind))return "Иштин түрү туура эмес.";
   if (c.model !== undefined && c.model !== "5e") return "Сабактын модели туура эмес.";
   for (const values of [c.objectives, c.successCriteria]) if (values !== undefined && (!Array.isArray(values) || values.length > 20 || values.some(x => typeof x !== "string" || x.length > 1000))) return "Максаттар же критерийлер туура эмес.";
   if (c.teacherNotes !== undefined && (typeof c.teacherNotes !== "string" || c.teacherNotes.length > 20000)) return "Мугалимдин нускамасы туура эмес.";
@@ -183,11 +228,26 @@ export function checkStructure(content: unknown): string | null {
     for (const b of s.blocks) {
       if (!b || typeof b.id !== "string" || !b.id || !(b.type in BLOCK_LABELS)) return "Белгисиз блок бар.";
       if ([b.support, b.extension].some(x => x !== undefined && (typeof x !== "string" || x.length > 10000)) || (b.collaboration !== undefined && !["individual", "pair", "group"].includes(b.collaboration))) return "Тапшырманын жардамы же иштөө режими туура эмес.";
+      if (b.teamwork !== undefined && (!b.teamwork || typeof b.teamwork !== "object" || typeof b.teamwork.instructions !== "string" || b.teamwork.instructions.length > 10000 || typeof b.teamwork.outcome !== "string" || b.teamwork.outcome.length > 1000 || !Array.isArray(b.teamwork.roles) || b.teamwork.roles.length > 6 || b.teamwork.roles.some(x => typeof x !== "string" || x.length > 1000) || !Number.isInteger(b.teamwork.size) || (b.collaboration === "pair" ? b.teamwork.size !== 2 : b.teamwork.size < 3 || b.teamwork.size > 6) || !["pair", "group"].includes(b.collaboration ?? ""))) return "Бирге иштөө тапшырмасынын форматы туура эмес.";
+      if (b.skills !== undefined && (!Array.isArray(b.skills) || b.skills.length > 3 || new Set(b.skills).size !== b.skills.length || !b.skills.every(isSkillId))) return "Бир тапшырмага тизмеден үчкө чейин кайталанбаган көндүм тандаңыз.";
+      if(b.type==="classification"){const issue=classificationError(b);if(issue)return issue;}
+      if(b.type==="spreadsheet"){const issue=sheetError(b);if(issue)return issue;}
+      if (b.type === "matching" || b.type === "ordering") {
+        if(typeof b.prompt!=="string" || b.prompt.length>3000 || (b.explain!==undefined&&(typeof b.explain!=="string"||b.explain.length>3000)) || (b.xp!==undefined&&(!Number.isInteger(b.xp)||b.xp<0||b.xp>100)))return "Интерактив тапшырманын шарты же упайы туура эмес.";
+        const texts=b.type==="ordering"?b.steps:Array.isArray(b.pairs)?b.pairs.flatMap(p=>p&&typeof p==="object"?[p.left,p.right]:[null]):null;
+        if(!Array.isArray(texts)||texts.length<(b.type==="ordering"?3:6)||texts.length>(b.type==="ordering"?8:16)||texts.some(x=>typeof x!=="string"||!x.trim()||x.length>500))return "Интерактивде 3–8 толтурулган кадам же жуп болсун (ар бири 500 белгиге чейин).";
+        const lists=b.type==="ordering"?[b.steps]:[b.pairs.map(p=>p.left),b.pairs.map(p=>p.right)];
+        if(lists.some(xs=>new Set(xs.map(x=>x.trim().toLocaleLowerCase())).size!==xs.length))return "Кадамдар же дал келтирүү варианттары кайталанбасын.";
+      }
+      if (b.type === "presentation" && (typeof b.title !== "string" || b.title.length > 150 || !validSlides(b.slides))) return "Презентация 5–6 толук слайддан турсун.";
       if (b.type === "investigation" && (typeof b.prompt !== "string" || typeof b.procedure !== "string" || (b.code !== undefined && typeof b.code !== "string"))) return "Изилдөөнүн форматы туура эмес.";
+      if (b.type === "investigation" && b.simulation !== undefined && b.simulation !== "condition" && b.simulation !== "loop") return "Кадамдык машыктыргычтын түрү туура эмес.";
+      if (b.type === "open" && b.engagement !== undefined && (!b.engagement || ![1,2,3].includes(b.engagement.level) || !["question","activity"].includes(b.engagement.kind))) return "Кызыктыруу тапшырмасынын деңгээли же түрү туура эмес.";
       if (b.type === "open" && ((b.lockOnSubmit !== undefined && typeof b.lockOnSubmit !== "boolean") || (b.compareTo !== undefined && typeof b.compareTo !== "string") || (b.rubric !== undefined && (!Array.isArray(b.rubric) || b.rubric.length > 20 || b.rubric.some(x => typeof x !== "string" || x.length > 1000))))) return "Ачык жооптун критерийлери туура эмес.";
       if (ids.has(b.id)) return `Блоктун id'си кайталанып калды: ${b.id}`;
       ids.add(b.id);
     }
+    const missionIssue=missionError(s);if(missionIssue)return missionIssue;
   }
   return null;
 }

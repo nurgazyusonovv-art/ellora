@@ -1,0 +1,10 @@
+import {beforeEach,it,expect,vi} from "vitest";
+const db=vi.hoisted(()=>({role:"teacher",upsert:vi.fn()}));
+vi.mock("next/cache",()=>({revalidatePath:vi.fn()}));vi.mock("next/navigation",()=>({redirect:vi.fn()}));
+vi.mock("@/lib/auth",()=>({requireRole:async(role:string)=>{if(role!==db.role)throw Error("forbidden");return {profile:{id:"teacher"},supabase:{from:()=>({upsert:db.upsert})}};}}));
+import {saveKtp} from "./ktp";
+import {KTP_TEMPLATES,checkKtpSections} from "@/content/ktp";
+beforeEach(()=>{db.role="teacher";db.upsert.mockReset();db.upsert.mockResolvedValue({error:null});});
+it("көндүм/практикалык/чейректик JSON мугалимдин өз планына сакталат жана кайра окулат",async()=>{const draft={year:"2026–2027",sections:structuredClone(KTP_TEMPLATES[7].sections)};expect(await saveKtp(7,draft)).toHaveProperty("savedAt");const payload=db.upsert.mock.calls[0][0];expect(payload.teacher_id).toBe("teacher");expect(payload.sections).toEqual(draft.sections);expect(checkKtpSections(JSON.parse(JSON.stringify(payload.sections)))).toBeNull();expect(payload.sections.flatMap((s:{topics:unknown[]})=>s.topics)).toHaveLength(59);});
+it("бузук белгилер базага жөнөтүлбөйт",async()=>{expect((await saveKtp(7,{year:"",sections:[{title:"Б",hours:1,topics:[{title:"Т",skills:["unknown"] as never}]}]})).error).toBeTruthy();expect(db.upsert).not.toHaveBeenCalled();});
+it("окуучу КТП сактай албайт",async()=>{db.role="student";await expect(saveKtp(7,{year:"",sections:[]})).rejects.toThrow("forbidden");expect(db.upsert).not.toHaveBeenCalled();});

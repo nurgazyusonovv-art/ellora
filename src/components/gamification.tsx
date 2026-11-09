@@ -103,7 +103,7 @@ export function Leaderboard({ rows, total }: { rows: BoardRow[]; total: number }
           <span
             className={cx(
               "flex items-center gap-3 rounded-xl px-3 py-2.5",
-              r.me ? "bg-accent-soft font-semibold" : "border-b border-surface-2 last:border-0",
+              r.me ? "bg-accent-soft font-semibold" : "border-b border-line last:border-0",
             )}
           >
             <span

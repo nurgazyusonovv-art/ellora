@@ -40,8 +40,8 @@ export function StatTile({ icon, label, value, sub }: { icon: IconName; label: s
         <Icon name={icon} size={18} />
       </span>
       <span className="flex min-w-0 flex-col">
-        <span className="text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">{label}</span>
-        <span className="font-display text-xl leading-tight font-bold tabular-nums print:text-lg">{value}</span>
+        <span className="font-mono text-[11px] font-medium tracking-[0.06em] text-muted uppercase">{label}</span>
+        <span className="font-display text-xl leading-tight font-semibold tracking-tight tabular-nums print:text-lg">{value}</span>
         {sub && <span className="text-xs text-muted">{sub}</span>}
       </span>
     </div>

@@ -12,3 +12,5 @@ describe("мугалимдин класс укугу",()=>{
  it("мыйзамдуу баа учурдагы мугалимдин id'си менен жазылат",async()=>{expect((await reviewAnswer({},fd())).success).toBeTruthy();expect(db.write).toHaveBeenCalledWith("answer_reviews",expect.objectContaining({teacher_id:"teacher",criteria_met:[true,false]}));});
  it("бөлүк диапазону текшерилет жана пауза сакталат",async()=>{const f=fd();f.set("maxStage","5");expect((await controlSession({},f)).error).toBeTruthy();expect(db.write).not.toHaveBeenCalled();f.set("maxStage","2");f.set("paused","true");expect((await controlSession({},f)).success).toBeTruthy();expect(db.write).toHaveBeenCalledWith("lesson_sessions",expect.objectContaining({max_stage:2,paused:true}));});
 });
+
+it("эски ЖИ сунушун жана мугалим ырастабаган сунушту сактабайт",async()=>{const f=fd();f.set("sourceHash","old");expect((await reviewAnswer({},f)).error).toMatch(/өзгөрдү/);f.delete("sourceHash");f.set("aiApplied","true");expect((await reviewAnswer({},f)).error).toMatch(/белгилеңиз/);expect(db.write).not.toHaveBeenCalled();});

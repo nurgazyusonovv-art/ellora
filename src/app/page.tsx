@@ -41,10 +41,10 @@ export default async function Home() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-20 border-b border-line bg-bg/90 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <Logo />
-          <nav aria-label="Барактын бөлүмдөрү" className="hidden items-center gap-6 text-sm font-semibold text-muted md:flex">
+          <nav aria-label="Барактын бөлүмдөрү" className="hidden items-center gap-6 text-sm font-medium text-muted md:flex">
             <a href="#how" className="hover:text-ink">
               Сабак кантип өтөт
             </a>
@@ -56,28 +56,29 @@ export default async function Home() {
             </a>
           </nav>
           <div className="flex items-center gap-2">
-            <Link href="/login" className="hidden min-h-11 items-center px-2 text-sm font-semibold text-accent sm:inline-flex">
+            <Link href="/login" className="hidden min-h-11 items-center px-2 text-sm font-medium text-muted hover:text-ink sm:inline-flex lg:min-h-9">
               Мугалим катары кирүү
             </Link>
-            <ButtonLink href="/student-login" variant="secondary" className="min-h-11 px-3.5 text-sm">
+            <ButtonLink href="/student-login" className="px-3.5">
               Окуучу катары кирүү
             </ButtonLink>
           </div>
         </div>
       </header>
 
-      <main className="flex flex-col">
+      <main className="relative flex flex-col">
+        <div aria-hidden="true" className="grid-bg pointer-events-none absolute inset-x-0 top-0 h-[560px]" />
         {/* ───────── Башы ───────── */}
-        <section className="mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)] gap-10 px-4 pt-10 pb-14 sm:px-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-center lg:pt-16">
+        <section className="relative mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)] gap-10 px-4 pt-10 pb-14 sm:px-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-center lg:pt-16">
           <div className="flex flex-col gap-6">
-            <span className="inline-flex items-center gap-2 self-start rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent-dark">
+            <span className="inline-flex items-center gap-2 self-start rounded-full border border-accent/25 bg-surface px-3 py-1 text-xs font-medium text-accent-dark shadow-xs">
               <Icon name="book" size={14} />
               Информатика · 5–9-класстар · кыргыз тилинде
             </span>
-            <h1 className="font-display text-[27px] leading-[1.18] font-bold min-[400px]:text-[30px] sm:text-[44px]">
+            <h1 className="font-display text-[28px] leading-[1.12] font-medium tracking-[-0.03em] min-[400px]:text-[32px] sm:text-[52px]">
               Информатиканы <span className="text-accent">өзү жазып</span>, өзү текшерип үйрөнгөн платформа
             </h1>
-            <p className="max-w-[58ch] text-lg text-muted">
+            <p className="max-w-[58ch] text-base text-muted sm:text-lg">
               ellora — мугалим менен окуучуну бириктирген онлайн класс. Мугалим сабакты даярдап, класска жөнөтөт. Окуучу аны телефондон
               же компьютерден өтөт: суроолорго жооп берет, {"Python'до"} код жазат жана жыйынтыгын ошол замат көрөт.
             </p>
@@ -107,16 +108,16 @@ export default async function Home() {
         <section id="how" className="scroll-mt-20 border-y border-line bg-surface">
           <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-14 sm:px-6">
             <SectionTitle eyebrow="Сабак кантип өтөт" title="Ар бир сабак — 5 кадам" text="Бардык сабактар бирдей түзүлүштө: окуучу эмне күтөрүн билет, мугалим ар бир кадамдын натыйжасын көрөт." />
-            <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <ol className="grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:grid-cols-5">
               {STAGES.map((s, i) => (
-                <li key={s.name} className="flex flex-col gap-3 rounded-2xl border border-line bg-bg p-4">
+                <li key={s.name} className="flex flex-col gap-3 bg-surface p-5 transition-colors hover:bg-surface-2">
                   <div className="flex items-center justify-between">
-                    <span className="grid size-10 place-items-center rounded-xl bg-accent text-white">
-                      <Icon name={s.icon} size={20} />
+                    <span className="grid size-9 place-items-center rounded-md border border-accent/20 bg-accent-soft text-accent">
+                      <Icon name={s.icon} size={18} />
                     </span>
-                    <span className="font-mono text-sm text-muted">{i + 1}/5</span>
+                    <span className="font-mono text-xs text-muted">0{i + 1}</span>
                   </div>
-                  <span className="font-display text-base font-bold">{s.name}</span>
+                  <span className="text-base font-medium">{s.name}</span>
                   <span className="text-sm leading-relaxed text-muted">{s.text}</span>
                 </li>
               ))}
@@ -147,7 +148,7 @@ export default async function Home() {
             <div className="flex items-center gap-4">
               <LogoMark size={48} dark />
               <div className="flex flex-col gap-1">
-                <h2 className="font-display text-xl font-bold sm:text-2xl">Биринчи сабакты бүгүн эле баштаңыз</h2>
+                <h2 className="font-display text-xl font-medium tracking-tight sm:text-2xl">Биринчи сабакты бүгүн эле баштаңыз</h2>
                 <p className="text-[#b7c7c9]">Мугалим класс ачат — окуучулар код менен кошулат.</p>
               </div>
             </div>
@@ -184,8 +185,8 @@ export default async function Home() {
 function SectionTitle({ eyebrow, title, text }: { eyebrow: string; title: string; text?: string }) {
   return (
     <div className="flex max-w-2xl flex-col gap-2">
-      <span className="text-xs font-semibold tracking-[0.08em] text-accent uppercase">{eyebrow}</span>
-      <h2 className="font-display text-2xl font-bold sm:text-[30px]">{title}</h2>
+      <span className="font-mono text-xs tracking-[0.08em] text-accent uppercase">{eyebrow}</span>
+      <h2 className="font-display text-2xl font-medium tracking-tight sm:text-[32px]">{title}</h2>
       {text && <p className="text-muted">{text}</p>}
     </div>
   );
@@ -205,9 +206,9 @@ function RoleCard({
   secondary: { href: string; label: string };
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4">
-      <span className="flex items-center gap-2.5 font-semibold">
-        <span className="grid size-9 place-items-center rounded-lg bg-accent-soft text-accent-dark">
+    <div className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4 shadow-xs">
+      <span className="flex items-center gap-2.5 font-medium">
+        <span className="grid size-8 place-items-center rounded-md border border-accent/20 bg-accent-soft text-accent-dark">
           <Icon name={icon} size={18} />
         </span>
         {title}
@@ -217,7 +218,7 @@ function RoleCard({
         {primary.label}
         <Icon name="arrow" size={16} />
       </ButtonLink>
-      <Link href={secondary.href} className="text-center text-sm font-semibold text-accent hover:underline">
+      <Link href={secondary.href} className="text-center text-sm font-medium text-muted hover:text-ink">
         {secondary.label}
       </Link>
     </div>
@@ -226,19 +227,19 @@ function RoleCard({
 
 function Audience({ id, eyebrow, title, items, dark }: { id: string; eyebrow: string; title: string; items: { icon: IconName; title: string; text: string }[]; dark?: boolean }) {
   return (
-    <div id={id} className={cx("flex scroll-mt-20 flex-col gap-6 rounded-3xl p-6 sm:p-8", dark ? "bg-nav text-white" : "border border-line bg-surface")}>
+    <div id={id} className={cx("flex scroll-mt-20 flex-col gap-6 rounded-lg border p-6 sm:p-8", dark ? "border-accent-dark bg-nav text-white" : "border-line bg-surface")}>
       <div className="flex flex-col gap-2">
-        <span className={cx("text-xs font-semibold tracking-[0.08em] uppercase", dark ? "text-[#7fd8c3]" : "text-accent")}>{eyebrow}</span>
-        <h2 className="font-display text-2xl font-bold">{title}</h2>
+        <span className={cx("font-mono text-xs tracking-[0.08em] uppercase", dark ? "text-[#7fd8c3]" : "text-accent")}>{eyebrow}</span>
+        <h2 className="font-display text-2xl font-medium tracking-tight">{title}</h2>
       </div>
       <ul className="grid gap-4 sm:grid-cols-2">
         {items.map((it) => (
           <li key={it.title} className="flex gap-3">
-            <span className={cx("grid size-10 shrink-0 place-items-center rounded-xl", dark ? "bg-white/10 text-[#7fd8c3]" : "bg-accent-soft text-accent-dark")}>
-              <Icon name={it.icon} size={20} />
+            <span className={cx("grid size-8 shrink-0 place-items-center rounded-md border", dark ? "border-white/15 bg-white/10 text-[#7fd8c3]" : "border-accent/20 bg-accent-soft text-accent-dark")}>
+              <Icon name={it.icon} size={16} />
             </span>
             <span className="flex flex-col gap-0.5">
-              <span className="font-semibold">{it.title}</span>
+              <span className="font-medium">{it.title}</span>
               <span className={cx("text-sm leading-relaxed", dark ? "text-[#b7c7c9]" : "text-muted")}>{it.text}</span>
             </span>
           </li>
@@ -250,16 +251,16 @@ function Audience({ id, eyebrow, title, items, dark }: { id: string; eyebrow: st
 
 function Steps({ title, icon, steps, cta }: { title: string; icon: IconName; steps: string[]; cta: { href: string; label: string } }) {
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-line bg-bg p-5 sm:p-6">
-      <span className="flex items-center gap-2.5 font-display text-lg font-bold">
+    <div className="flex flex-col gap-4 rounded-lg border border-line bg-surface-2 p-5 sm:p-6">
+      <span className="flex items-center gap-2.5 text-lg font-medium">
         <Icon name={icon} size={20} className="text-accent" />
         {title}
       </span>
       <ol className="flex flex-col gap-3">
         {steps.map((s, i) => (
           <li key={s} className="flex items-center gap-3">
-            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent-soft font-mono text-sm font-semibold text-accent-dark">{i + 1}</span>
-            <span>{s}</span>
+            <span className="grid size-7 shrink-0 place-items-center rounded-md border border-line-strong bg-surface font-mono text-xs text-muted">{i + 1}</span>
+            <span className="text-sm">{s}</span>
           </li>
         ))}
       </ol>
@@ -275,7 +276,7 @@ function PhonePreview() {
   const stages = ["Кызыктыруу", "Изилдөө", "Түшүндүрүү", "Колдонуу", "Баалоо"];
   return (
     <div aria-hidden className="mx-auto w-full max-w-[340px]">
-      <div className="rounded-[36px] border-[10px] border-nav bg-bg p-3">
+      <div className="rounded-2xl border border-line-strong bg-surface p-1.5 shadow-xs"><div className="rounded-xl border border-line bg-bg p-3">
         <div className="mb-3 flex items-center justify-between px-1">
           <LogoMark size={24} />
           <span className="rounded-full bg-amber-soft px-2.5 py-0.5 font-mono text-xs font-semibold text-amber">70 XP</span>
@@ -316,7 +317,7 @@ function PhonePreview() {
               ["18", "Кире аласыз"],
               ["25", "Кире аласыз"],
             ].map(([i, o]) => (
-              <span key={String(i)} className="flex items-center justify-between rounded-md bg-good-soft px-2 py-1 text-good">
+              <span key={String(i)} className="flex items-center justify-between rounded-md bg-good-soft px-2 py-1 text-good border border-good/25">
                 <span className="font-mono">jash = {i}</span>
                 <span className="flex items-center gap-1">
                   {o} <Icon name="check" size={12} />
@@ -324,8 +325,9 @@ function PhonePreview() {
               </span>
             ))}
           </div>
-          <span className="rounded-lg bg-good-soft px-2.5 py-1.5 text-[11px] font-semibold text-good">Бардык тесттер өттү · +10 XP</span>
+          <span className="rounded-lg bg-good-soft px-2.5 py-1.5 text-[11px] font-semibold text-good border border-good/25">Бардык тесттер өттү · +10 XP</span>
         </div>
+      </div>
       </div>
     </div>
   );

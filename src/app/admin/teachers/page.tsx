@@ -17,20 +17,20 @@ export default async function AdminTeachers() {
       <Card className="overflow-x-auto p-0 sm:p-0">
         <table className="w-full min-w-[860px] border-collapse text-sm">
           <thead>
-            <tr className="text-left text-xs tracking-[0.06em] text-muted uppercase">
-              <th className="px-5 py-3 font-semibold">Мугалим</th>
-              <th className="px-3 py-3 font-semibold">Мектеп</th>
-              <th className="px-3 py-3 text-right font-semibold">Класс</th>
-              <th className="px-3 py-3 text-right font-semibold">Окуучу</th>
-              <th className="px-3 py-3 text-right font-semibold">Сабак</th>
-              <th className="px-3 py-3 font-semibold">Катталган</th>
-              <th className="px-3 py-3 font-semibold">Акыркы кирүү</th>
-              <th className="px-5 py-3 font-semibold">Админ</th>
+            <tr className="border-b border-line bg-surface-2 text-left font-mono text-[11px] tracking-[0.06em] text-muted uppercase">
+              <th className="px-5 py-2.5 font-medium">Мугалим</th>
+              <th className="px-3 py-2.5 font-medium">Мектеп</th>
+              <th className="px-3 py-2.5 text-right font-medium">Класс</th>
+              <th className="px-3 py-2.5 text-right font-medium">Окуучу</th>
+              <th className="px-3 py-2.5 text-right font-medium">Сабак</th>
+              <th className="px-3 py-2.5 font-medium">Катталган</th>
+              <th className="px-3 py-2.5 font-medium">Акыркы кирүү</th>
+              <th className="px-5 py-2.5 font-medium">Админ</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((t) => (
-              <tr key={t.id} className="border-t border-surface-2 align-middle">
+              <tr key={t.id} className="border-t border-line transition-colors hover:bg-surface-2/50 align-middle">
                 <td className="px-5 py-3">
                   <div className="font-semibold">{t.name}</div>
                   <div className="text-muted">{t.email ?? "—"}</div>

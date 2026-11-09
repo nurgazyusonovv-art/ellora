@@ -16,7 +16,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <Link href={`/teacher/students/${id}`} className="text-sm font-semibold text-accent">
+        <Link href={`/teacher/students/${id}`} className="text-sm font-medium text-muted hover:text-ink">
           ← Окуучунун барагы
         </Link>
         <div className="flex items-center gap-3">

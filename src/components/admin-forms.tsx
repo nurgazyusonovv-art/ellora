@@ -23,7 +23,7 @@ export function AdminResetPasswordForm({ studentId }: { studentId: string }) {
         placeholder="Жаңы сырсөз"
         minLength={6}
         required
-        className="min-h-11 w-36 rounded-[10px] border border-line px-3 text-sm"
+        className="shadow-xs min-h-11 w-36 rounded-md border border-line-strong px-3 text-sm"
       />
       <Button className="min-h-11 px-3 text-sm" disabled={pending}>
         Сактоо

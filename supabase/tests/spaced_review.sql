@@ -1,0 +1,82 @@
+-- Өзүнчө локалдык тест базасында 0001–0012ден кийин гана.
+begin;
+create function pg_temp.expect(actual text,expected text) returns void language plpgsql as $$begin if actual is distinct from expected then raise exception 'Expected %, got %',expected,actual;end if;end$$;
+insert into auth.users(id,raw_user_meta_data) values
+ ('00000000-0000-0000-0000-000000005001','{"role":"teacher","full_name":"Repeat teacher"}'),
+ ('00000000-0000-0000-0000-000000005002','{"role":"student","full_name":"Repeat student"}'),
+ ('00000000-0000-0000-0000-000000005003','{"role":"student","full_name":"Other student"}'),
+ ('00000000-0000-0000-0000-000000005004','{"role":"teacher","full_name":"Other teacher"}');
+insert into classes(id,teacher_id,name,join_code) values('10000000-0000-0000-0000-000000005001','00000000-0000-0000-0000-000000005001','Repeat test','REPEATTEST');
+insert into class_members(class_id,student_id) values('10000000-0000-0000-0000-000000005001','00000000-0000-0000-0000-000000005002');
+insert into lessons(id,author_id,title,content) values('20000000-0000-0000-0000-000000005001','00000000-0000-0000-0000-000000005001','Repeat test','{}');
+insert into assignments(id,lesson_id,class_id) values('30000000-0000-0000-0000-000000005001','20000000-0000-0000-0000-000000005001','10000000-0000-0000-0000-000000005001');
+insert into attempts(id,assignment_id,student_id,current_stage,xp,finished_at,exit_score,exit_total) values('40000000-0000-0000-0000-000000005001','30000000-0000-0000-0000-000000005001','00000000-0000-0000-0000-000000005002',5,42,now(),1,3);
+create temporary table repeat_fixture as select jsonb_agg(jsonb_build_object('days',d,'questions',(select jsonb_agg(jsonb_build_object('prompt',format('Round %s question %s',d,n),'options',jsonb_build_array('A','B','C'),'correct',0,'explain','SECRET explanation') order by n) from generate_series(1,3)n)) order by d) as rounds from unnest(array[1,3,7])d;
+grant select on repeat_fixture to authenticated;
+set local role authenticated;
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000005001';
+select pg_temp.expect(create_spaced_review('30000000-0000-0000-0000-000000005001','[]'),'invalid');
+select pg_temp.expect(create_spaced_review('30000000-0000-0000-0000-000000005001',(select jsonb_set(rounds,'{1,days}','1') from repeat_fixture)),'invalid');
+select pg_temp.expect(create_spaced_review('30000000-0000-0000-0000-000000005001',(select jsonb_set(rounds,'{0,questions,0,correct}','99') from repeat_fixture)),'invalid');
+select pg_temp.expect(create_spaced_review('30000000-0000-0000-0000-000000005001',(select rounds from repeat_fixture)),'ok');
+select pg_temp.expect(create_spaced_review('30000000-0000-0000-0000-000000005001',(select rounds from repeat_fixture)),'exists');
+select id as plan_id from spaced_review_plans where assignment_id='30000000-0000-0000-0000-000000005001' \gset
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000005004';
+select pg_temp.expect(set_spaced_review_active(:'plan_id',false),'forbidden');
+select pg_temp.expect((select count(*)::text from spaced_review_plans),'0');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000005003';
+select pg_temp.expect(spaced_review_tasks()::text,'[]');
+select pg_temp.expect(submit_spaced_review(:'plan_id','40000000-0000-0000-0000-000000005001',0,'[0,0,0]'),'forbidden');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000005002';
+select pg_temp.expect((select count(*)::text from spaced_review_plans),'0');
+select pg_temp.expect(spaced_review_tasks()->0->>'status','scheduled');
+select pg_temp.expect((spaced_review_tasks()->0->'questions')::text,'[]');
+select pg_temp.expect(submit_spaced_review(:'plan_id','40000000-0000-0000-0000-000000005001',0,'[0,0,0]'),'not_due');
+reset role;
+-- Сабак он күн мурун бүткөн, бирок кийин тапшырылган раунддар бири-бирине жыйналбашы керек.
+update attempts set finished_at=now()-interval '10 days' where id='40000000-0000-0000-0000-000000005001';
+set local role authenticated;
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000005002';
+select pg_temp.expect(spaced_review_tasks()->0->>'status','due');
+select pg_temp.expect((spaced_review_tasks()::text like '%SECRET%' or spaced_review_tasks()::text like '%"correct"%')::text,'false');
+select pg_temp.expect(submit_spaced_review(:'plan_id','40000000-0000-0000-0000-000000005001',2,'[0,0,0]'),'not_due');
+select pg_temp.expect(submit_spaced_review(:'plan_id','40000000-0000-0000-0000-000000005001',0,'[0,8,0]'),'invalid');
+select pg_temp.expect(submit_spaced_review(:'plan_id','40000000-0000-0000-0000-000000005001',0,'[0,1,0]'),'ok');
+select pg_temp.expect(submit_spaced_review(:'plan_id','40000000-0000-0000-0000-000000005001',0,'[0,0,0]'),'already_submitted');
+select pg_temp.expect(spaced_review_tasks()->0->>'status','done');
+select pg_temp.expect((spaced_review_tasks()->0->'results')::text,'[true, false, true]');
+select pg_temp.expect(spaced_review_tasks()->0->'questions'->0->>'explain','SECRET explanation');
+select pg_temp.expect(spaced_review_tasks()->1->>'status','scheduled');
+select pg_temp.expect(submit_spaced_review(:'plan_id','40000000-0000-0000-0000-000000005001',1,'[0,0,0]'),'not_due');
+do $$begin begin update spaced_review_runs set results='[true,true,true]';raise exception 'Writable results';exception when insufficient_privilege then null;end;begin perform private.spaced_review_due(gen_random_uuid(),gen_random_uuid(),0);raise exception 'Private RPC accessible';exception when insufficient_privilege then null;end;end$$;
+reset role;
+update spaced_review_runs set submitted_at=now()-interval '3 days' where plan_id=:'plan_id' and round_index=0;
+set local role authenticated;
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000005002';
+select pg_temp.expect(spaced_review_tasks()->1->>'status','due');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000005001';
+select pg_temp.expect(set_spaced_review_active(:'plan_id',false),'ok');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000005002';
+select pg_temp.expect(spaced_review_tasks()::text,'[]');
+select pg_temp.expect(submit_spaced_review(:'plan_id','40000000-0000-0000-0000-000000005001',1,'[0,0,0]'),'inactive');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000005001';
+select pg_temp.expect(set_spaced_review_active(:'plan_id',true),'ok');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000005002';
+select pg_temp.expect(submit_spaced_review(:'plan_id','40000000-0000-0000-0000-000000005001',1,'[0,0,0]'),'ok');
+select pg_temp.expect(submit_spaced_review(:'plan_id','40000000-0000-0000-0000-000000005001',2,'[0,0,0]'),'not_due');
+reset role;
+update spaced_review_runs set submitted_at=now()-interval '5 days' where plan_id=:'plan_id' and round_index=1;
+set local role authenticated;
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000005002';
+select pg_temp.expect(submit_spaced_review(:'plan_id','40000000-0000-0000-0000-000000005001',2,'[0,0,0]'),'ok');
+select pg_temp.expect((select count(*)::text from spaced_review_runs),'3');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000005003';
+select pg_temp.expect((select count(*)::text from spaced_review_runs),'0');
+reset role;
+select pg_temp.expect((select xp::text||':'||exit_score::text from attempts where id='40000000-0000-0000-0000-000000005001'),'42:1');
+select pg_temp.expect((select count(*)::text from coin_ledger where student_id='00000000-0000-0000-0000-000000005002'),'0');
+set local role anon;
+do $$begin begin perform public.spaced_review_tasks();raise exception 'Anon RPC';exception when insufficient_privilege then null;end;end$$;
+reset role;
+select 'Spaced review timing, hidden answers, scoring, RLS and unchanged rewards passed' as result;
+rollback;

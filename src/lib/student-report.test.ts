@@ -42,3 +42,17 @@ describe("buildReport", () => {
     expect(r.lessons[0].status).toBe("attention");
   });
 });
+
+it("көндүмдөрдүн картасы окуучуга жооптун мазмунун же туура вариантты чыгарбайт", () => {
+  const data=input(false);
+  const tagged=structuredClone(data.assignments[0].lessons.content);
+  for(const stage of tagged.stages) for(const block of stage.blocks) if(block.id===mcq.id) block.skills=["conditions"];
+  data.assignments[0].lessons.content=tagged;
+  const r=buildReport(data);
+  const skill=r.skills!.find(s=>s.id==="conditions")!;
+  expect(skill.status).toBe("practice");expect(skill.evidence).toHaveLength(1);
+  expect(skill.evidence[0]).toEqual({skill:"conditions",lessonId:"a",assignmentId:"a",blockId:mcq.id,title:pythonIf.title,date:data.assignments[0].created_at,result:"incorrect"});
+  expect(r.lessons[0].blocks).toEqual([]);
+});
+
+it("практикалык деталдар мугалимге гана берилет",async()=>{const {defaultClassification}=await import("./classification"),{practicalSnapshot}=await import("./practical-evidence"),{emptyLesson}=await import("./lesson-edit");const b=defaultClassification("c"),x:Parameters<typeof buildReport>[0]=input(true),c=emptyLesson();c.stages[3].blocks=[b];x.assignments[0].lessons!.content=c;x.answers=[{attempt_id:"t",block_id:b.id,stage:3,response:{groups:Array(6).fill(0),task:practicalSnapshot(b,"t")},is_correct:false,tries:1}];expect(buildReport(x).lessons[0].blocks[0].practical?.rows).toHaveLength(6);x.details=false;const result=buildReport(x);expect(result.lessons[0].blocks).toEqual([]);expect(JSON.stringify(result)).not.toContain("Учурдагы эталон");expect(JSON.stringify(result)).not.toContain("Клавиатура");});

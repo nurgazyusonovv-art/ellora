@@ -1,5 +1,6 @@
 "use client";
 
+import {useLessonDraft} from "./lesson-draft";
 import { useEffect, useMemo, useState } from "react";
 import { CodeEditor, CodeView, Console, highlight } from "@/components/code";
 import { Button, cx, RichText } from "@/components/ui";
@@ -12,10 +13,13 @@ import type {
   OpenBlock,
   InvestigationBlock,
   ParsonsBlock,
+  MatchingBlock,
+  OrderingBlock,
 } from "@/lib/lesson-types";
 import { CONFIDENCE_LABELS } from "@/lib/lesson-types";
 import { explainError, outputMatches, runPython, type RunResult } from "@/lib/python";
 import { shufflePerm } from "@/lib/student-view";
+import { CodeTraceLab } from "@/components/code-trace-lab";
 
 import type { SavedAnswer } from "@/lib/grading";
 export type { SavedAnswer };
@@ -26,7 +30,7 @@ type Props<B> = { block: B; saved?: SavedAnswer; onAnswer: AnswerFn; exitMode?: 
 function Feedback({ tone, title, text }: { tone: "good" | "bad" | "info"; title?: string; text?: string }) {
   const cls = tone === "good" ? "bg-good-soft text-good" : tone === "bad" ? "bg-bad-soft text-bad" : "bg-accent-soft text-ink";
   return (
-    <div role="status" className={cx("rounded-[10px] px-4 py-3 text-[15px]", cls)}>
+    <div role="status" className={cx("rounded-md px-4 py-3 text-[15px]", cls)}>
       {title && <strong className="mr-1">{title}</strong>}
       {text && <RichText text={text} className="inline" />}
     </div>
@@ -77,7 +81,7 @@ export function Mcq({ block, saved, onAnswer, exitMode, failed }: Props<McqBlock
               disabled={solved || isWrong || (pending !== null && pending !== i)}
               onClick={() => pick(i)}
               className={cx(
-                "min-h-11 rounded-[10px] border px-4 py-2.5 text-left transition",
+                "min-h-11 rounded-md border px-4 py-2.5 text-left transition",
                 block.mono && "text-center font-mono text-lg",
                 isRight && "border-good bg-good-soft font-semibold text-good",
                 isWrong && "border-bad bg-bad-soft text-bad",
@@ -140,7 +144,7 @@ export function CodeExample({ block }: { block: CodeExampleBlock }) {
 type TestRow = { input: string; expected: string; got: string; ok: boolean; error?: string };
 
 export function CodeTask({ block, saved, onAnswer }: Props<CodeTaskBlock>) {
-  const [code, setCode] = useState((saved?.response.code as string) ?? block.starter);
+  const [code, setCode] = useLessonDraft(block.id,"code",(saved?.response.code as string) ?? block.starter);
   const [rows, setRows] = useState<TestRow[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState(false);
@@ -190,7 +194,7 @@ export function CodeTask({ block, saved, onAnswer }: Props<CodeTaskBlock>) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[420px] text-sm">
               <thead>
-                <tr className="text-left text-xs tracking-[0.06em] text-muted uppercase">
+                <tr className="border-b border-line bg-surface-2 text-left font-mono text-[11px] tracking-[0.06em] text-muted uppercase">
                   <th className="py-1.5 pr-3">Кирүү</th>
                   <th className="py-1.5 pr-3">Күтүлгөн</th>
                   <th className="py-1.5 pr-3">Сенин программаң</th>
@@ -276,12 +280,12 @@ export function Parsons({ block, saved, onAnswer, failed }: Props<ParsonsBlock>)
       <div className="grid gap-3 md:grid-cols-2">
         {!solved && (
           <div className="flex min-h-28 flex-col gap-1.5 rounded-xl border border-dashed border-line p-2.5">
-            <span className="text-xs font-semibold tracking-[0.06em] text-muted uppercase">Аралашкан саптар</span>
+            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Аралашкан саптар</span>
             {pool.map((i) => lineBtn(i))}
           </div>
         )}
         <div className="flex min-h-28 flex-col gap-1.5 rounded-xl border border-dashed border-line p-2.5">
-          <span className="text-xs font-semibold tracking-[0.06em] text-muted uppercase">Сенин программаң</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Сенин программаң</span>
           {shown.map((i, pos) => lineBtn(i, pos))}
         </div>
       </div>
@@ -368,11 +372,11 @@ export function BugHunt({ block, saved, onAnswer, failed }: Props<BugHuntBlock>)
 
 /* ─────────────── Ачык жооп ─────────────── */
 export function Open({ block, saved, onAnswer, comparison }: Props<OpenBlock> & { comparison?: string }) {
-  const [text, setText] = useState((saved?.response.text as string) ?? "");
+  const [text, setText] = useLessonDraft(block.id,"text",(saved?.response.text as string) ?? "");
   const submitted = !!saved;
   return (
     <div className="flex flex-col gap-3">
-      {comparison && <div className="rounded-xl bg-accent-soft p-4"><p className="mb-2 text-sm font-semibold">Баштапкы оюң</p><p className="whitespace-pre-wrap">{comparison}</p></div>}
+      {comparison && <div className="rounded-xl bg-accent-soft p-4 border border-accent/20"><p className="mb-2 text-sm font-semibold">Баштапкы оюң</p><p className="whitespace-pre-wrap">{comparison}</p></div>}
       {block.rubric?.length ? <div className="text-sm text-muted"><p className="font-semibold">Баалоо критерийлери</p><ul className="list-disc pl-5">{block.rubric.map(x => <li key={x}>{x}</li>)}</ul></div> : null}
       <label className="flex flex-col gap-2">
         <RichText text={block.prompt} className="font-semibold" />
@@ -387,7 +391,7 @@ export function Open({ block, saved, onAnswer, comparison }: Props<OpenBlock> & 
           rows={3}
           placeholder={block.placeholder}
           readOnly={submitted && (!!block.feedback || !!block.lockOnSubmit)}
-          className="rounded-[10px] border border-line bg-bg px-3 py-2.5"
+          className="rounded-md border border-line bg-bg px-3 py-2.5"
         />
       </label>
       {!(submitted && (block.feedback || block.lockOnSubmit)) && (
@@ -397,7 +401,7 @@ export function Open({ block, saved, onAnswer, comparison }: Props<OpenBlock> & 
           </Button>
         </div>
       )}
-      {submitted && block.lockOnSubmit && <p role="status" className="text-sm text-accent">Баштапкы оюң сакталды. Сабактын аягында ага кайра кайтабыз.</p>}
+      {submitted && block.lockOnSubmit && <p role="status" className="text-sm text-accent">Жообуң сакталды жана бекитилди. Кайра иштөө керек болсо, мугалим өзүнчө мүмкүнчүлүк ачат.</p>}
       {submitted && block.feedback && (
         <>
           <Feedback tone="info" text={block.feedback} />
@@ -422,7 +426,7 @@ export function Confidence({ block, saved, onAnswer }: Props<ConfidenceBlock>) {
             aria-pressed={value === i + 1}
             onClick={() => onAnswer({ value: i + 1 }, null)}
             className={cx(
-              "flex min-h-16 flex-col gap-0.5 rounded-[10px] border px-3 py-2.5 text-left text-sm",
+              "flex min-h-16 flex-col gap-0.5 rounded-md border px-3 py-2.5 text-left text-sm",
               value === i + 1 ? "border-accent bg-accent-soft" : "border-line bg-bg hover:border-accent",
             )}
           >
@@ -437,17 +441,18 @@ export function Confidence({ block, saved, onAnswer }: Props<ConfidenceBlock>) {
 
 
 export function Investigation({ block, saved, onAnswer }: Props<InvestigationBlock>) {
-  const [prediction, setPrediction] = useState((saved?.response.prediction as string) ?? "");
+  const [prediction, setPrediction] = useLessonDraft(block.id,"prediction",(saved?.response.prediction as string) ?? "");
   const [locked, setLocked] = useState(!!saved);
-  const [observations, setObservations] = useState((saved?.response.observations as string) ?? "");
-  const [conclusion, setConclusion] = useState((saved?.response.conclusion as string) ?? "");
+  const [observations, setObservations] = useLessonDraft(block.id,"observations",(saved?.response.observations as string) ?? "");
+  const [conclusion, setConclusion] = useLessonDraft(block.id,"conclusion",(saved?.response.conclusion as string) ?? "");
   const area = "w-full rounded-xl border border-line bg-bg px-3 py-3";
   return <div className="flex flex-col gap-4">
     <RichText text={block.prompt} className="font-semibold" />
     <label className="flex flex-col gap-2 font-semibold">1. Божомолуң<textarea className={area} rows={3} value={prediction} readOnly={locked} onChange={e => setPrediction(e.target.value)} /></label>
     {!locked && <Button type="button" disabled={!prediction.trim()} onClick={() => { setLocked(true); onAnswer({ phase: "prediction", prediction }, null); }}>Божомолду бекитүү жана сынап көрүү</Button>}
     {locked && <>
-      <div className="rounded-xl bg-accent-soft p-4"><p className="mb-2 font-semibold">2. Сынап көр</p><RichText text={block.procedure} /></div>
+      <div className="rounded-xl bg-accent-soft p-4 border border-accent/20"><p className="mb-2 font-semibold">2. Сынап көр</p><RichText text={block.procedure} /></div>
+      {block.simulation && <CodeTraceLab key={`${block.id}:${block.simulation}`} initialKind={block.simulation} embedded />}
       {block.code && <CodeExample block={{ id: block.id + "-code", type: "code_example", code: block.code, runnable: true }} />}
       <label className="flex flex-col gap-2 font-semibold">3. Эмнени байкадың?<textarea className={area} rows={4} value={observations} onChange={e => setObservations(e.target.value)} /></label>
       <label className="flex flex-col gap-2 font-semibold">4. Далилге таянган жыйынтык<textarea className={area} rows={3} value={conclusion} onChange={e => setConclusion(e.target.value)} /></label>
@@ -456,4 +461,38 @@ export function Investigation({ block, saved, onAnswer }: Props<InvestigationBlo
       {saved?.response.conclusion ? <p role="status" className="text-sm text-accent">Изилдөө сакталды. Жыйынтыгыңды мугалим карай алат.</p> : null}
     </>}
   </div>;
+}
+
+export { Presentation } from "./presentation";
+
+
+/* Колдонуудагы машыгуу жана Баалоодогу бир жолку өз алдынча тапшырма. */
+export function InteractiveTask({block,saved,onAnswer,exitMode,failed}:Props<MatchingBlock|OrderingBlock>) {
+ const matching=block.type==="matching";
+ const n=matching?block.pairs.length:block.steps.length;
+ const perm=useMemo(()=>block.shuffled?Array.from({length:n},(_,i)=>i):shufflePerm(n,block.id),[block,n]);
+ const texts=matching?perm.map(i=>block.pairs[i].right):perm.map(i=>block.steps[i]);
+ const field=matching?"picks":"order";
+ const [values,setValues]=useState<number[]>(()=>Array.isArray(saved?.response[field])?saved!.response[field] as number[]:matching?Array(n).fill(-1):[]);
+ const [pending,setPending]=usePending<boolean>(saved,failed);
+ const locked=!!pending || saved?.is_correct===true || !!exitMode&&!!saved;
+ const [edited,setEdited]=useState(false);
+ const positions=!edited?saved?.response.positions as boolean[]|undefined:undefined;
+ const change=(next:number[])=>{setEdited(true);setValues(next);};
+ const submit=()=>{
+  if(locked||values.length!==n||values.some(v=>v<0))return;
+  const correct=values.map((v,i)=>perm[v]===i);
+  setEdited(false);setPending(true);
+  onAnswer({[field]:values,...(!exitMode&&!block.shuffled?{positions:correct}:{})},block.shuffled?null:correct.every(Boolean));
+ };
+ return <div className="flex min-w-0 flex-col gap-4">
+  <h3 className="font-semibold"><RichText text={block.prompt}/></h3>
+  <p className="text-sm text-muted">{matching?"Ар бир сапка бирден дал келген вариант танда.":"Кадамдарды басып, туура иретке чогулт. Тандалган кадамды кайра бассаң, ал тизмеден алынат."} {exitMode?"Бир жолу тапшырылат. Жооптор тапшырганга чейин текшерилбейт.":"Тапшыр, пикирди карап оңдоп көр."}</p>
+  {matching?<div className="flex flex-col gap-3">{block.pairs.map((p,i)=><label key={i} className="flex min-w-0 flex-col gap-2 rounded-xl border border-line bg-surface p-3"><span className="break-words text-sm font-semibold">{i+1}. {p.left}</span><select aria-label={`${i+1}-сапка дал келген вариант`} className="shadow-xs min-h-11 w-full min-w-0 rounded-xl border border-line-strong bg-surface px-3 text-sm" disabled={locked} value={values[i]??-1} onChange={e=>change(values.map((v,j)=>i===j?Number(e.target.value):v))}><option value={-1}>Вариант танда</option>{texts.map((text,j)=><option key={j} value={j} disabled={values.includes(j)&&values[i]!==j}>{text}</option>)}</select>{positions&&<span className={`text-sm ${positions[i]?"text-good":"text-bad"}`}>{positions[i]?"✓ Дал келди":"↻ Бул байланыштын маанисин кайра салыштыр."}</span>}</label>)}</div>:<>
+   <ol aria-label="Сен түзгөн ирет" className="flex flex-col gap-2 rounded-xl border border-line p-3">{values.length===0&&<li className="text-sm text-muted">Төмөндөн биринчи кадамды танда.</li>}{values.map((v,i)=><li key={v}><button type="button" disabled={locked} className="min-h-11 w-full break-words rounded-xl bg-accent-soft p-3 text-left text-sm border border-accent/20" onClick={()=>change(values.filter(x=>x!==v))}>{i+1}. {texts[v]}{positions&&<span className="mt-1 block font-semibold">{positions[i]?"✓ Орду туура":"↻ Алдынкы жана кийинки кадамды текшер."}</span>}</button></li>)}</ol>
+   <div aria-label="Тандала элек кадамдар" className="flex flex-col gap-2">{texts.map((text,i)=>!values.includes(i)&&<button key={i} type="button" disabled={locked} onClick={()=>change([...values,i])} className="min-h-11 break-words rounded-xl border border-line bg-surface p-3 text-left text-sm">+ {text}</button>)}</div>
+  </>}
+  <Button type="button" disabled={locked||values.length!==n||values.some(v=>v<0)} onClick={submit}>{pending?"Сакталууда…":saved&&exitMode?"Жооп тапшырылды":saved?.is_correct?"Аткарылды":"Жоопту тапшыруу"}</Button>
+  {exitMode&&saved?<Feedback tone="info" text="Жообуң сакталды. Калган тапшырмаларды өз алдынча улант."/>:!exitMode&&saved&&!edited&&<Feedback tone={saved.is_correct?"good":"info"} title={saved.is_correct?"Аткарылды!":"Кайра салыштырып көр."} text={saved.is_correct?block.explain:"Ар бир тандоонун себебин ойлон. Кадамдар бири-бирине кандай байланышат?"}/>}
+ </div>;
 }

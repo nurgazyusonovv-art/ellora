@@ -27,3 +27,15 @@ describe("findKtpTopic / checkKtpSections", () => {
     expect(checkKtpSections([{ title: "a", hours: 1, topics: [{ title: 1 }] }])).not.toBeNull();
   });
 });
+
+describe("КТП сабактардын сериясы", () => {
+  const plan = () => [{title:"Таблица",hours:6,topics:[{id:"topic",title:"Формула",hours:6,sessions:Array.from({length:6},(_,i)=>({id:`lesson-${i}`,title:`${i+1}-сабак`,objective:"Эсептөө",product:"Таблица"}))}]}];
+  it("алты сабактуу план сактоого жарактуу", () => expect(checkKtpSections(plan())).toBeNull());
+  it("кайталанган белгилерди четке кагат", () => {
+    const p=plan();p[0].topics[0].sessions[1].id="lesson-0";expect(checkKtpSections(p)).not.toBeNull();
+  });
+  it("бузук жана өтө узун мазмунду четке кагат", () => {
+    const p=plan();p[0].topics[0].sessions[0].objective="x".repeat(2001);expect(checkKtpSections(p)).not.toBeNull();
+    expect(checkKtpSections([{title:"Тема",hours:1,topics:[{title:"Тема",sessions:[]}]}])).not.toBeNull();
+  });
+});

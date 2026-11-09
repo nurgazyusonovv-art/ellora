@@ -35,7 +35,7 @@ export function ReportSheet({
       <header className="flex items-start justify-between gap-4 border-b-2 border-accent pb-3">
         <div className="flex flex-col gap-1">
           <Logo />
-          <span className="text-xs font-semibold tracking-[0.08em] text-muted uppercase">Окуучунун жыйынтыгы · Информатика</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Окуучунун жыйынтыгы · Информатика</span>
         </div>
         <div className="text-right text-xs text-muted">
           <div>{`${formatDate(now.toISOString())}, ${now.getFullYear()}-ж.`}</div>
@@ -49,7 +49,7 @@ export function ReportSheet({
             <Icon name="user" size={22} />
           </span>
           <div className="flex flex-col">
-            <h1 className="font-display text-2xl leading-tight font-bold print:text-xl">{r.student.name}</h1>
+            <h1 className="font-display text-2xl leading-tight font-semibold tracking-tight print:text-xl">{r.student.name}</h1>
             <span className="text-sm text-muted">
               {r.classes.join(", ")}
               {r.student.username && <> · логин <span className="font-mono">{r.student.username}</span></>}
@@ -85,12 +85,12 @@ export function ReportSheet({
               <Icon name="spark" size={15} className="text-accent" />
               Биринчи аракетте туура
             </h2>
-            <span className="font-display text-3xl font-bold print:text-2xl">{s.firstTryPct === null ? "—" : `${s.firstTryPct}%`}</span>
+            <span className="font-display text-3xl font-semibold tracking-tight print:text-2xl">{s.firstTryPct === null ? "—" : `${s.firstTryPct}%`}</span>
             <AccuracyBars rows={s.byType} />
           </div>
         </section>
       ) : (
-        <p className="rounded-xl bg-bg p-4 text-sm text-muted">Окуучу азырынча бир да сабакты бүтүргөн жок — графиктер сабак бүткөндөн кийин пайда болот.</p>
+        <p className="rounded-lg border border-line bg-surface-2 p-4 text-sm text-muted">Окуучу азырынча бир да сабакты бүтүргөн жок — графиктер сабак бүткөндөн кийин пайда болот.</p>
       )}
 
       <section className="flex flex-col gap-1.5">
@@ -101,7 +101,7 @@ export function ReportSheet({
         </h2>
         <table className="w-full border-collapse text-[13px] print:text-[11px]">
           <thead>
-            <tr className="border-b border-line text-left text-[11px] tracking-[0.05em] text-muted uppercase">
+            <tr className="border-b border-line bg-surface-2 text-left font-mono text-[11px] tracking-[0.05em] text-muted uppercase">
               <th className="py-1.5 print:py-1 pr-2 font-semibold">№</th>
               <th className="py-1.5 print:py-1 pr-2 font-semibold">Сабак</th>
               <th className="py-1.5 print:py-1 pr-2 font-semibold">Берилген</th>
@@ -113,7 +113,7 @@ export function ReportSheet({
           </thead>
           <tbody>
             {rows.map((l) => (
-              <tr key={l.assignmentId} className="border-b border-surface-2 align-top">
+              <tr key={l.assignmentId} className="border-b border-line align-top">
                 <td className="py-1.5 print:py-1 pr-2 font-mono text-muted">{l.n}</td>
                 <td className="py-1.5 print:py-1 pr-2">
                   <div className="font-semibold">{l.title}</div>
@@ -161,7 +161,7 @@ export function ReportSheet({
 
 function Notes({ icon, tone, title, items, empty }: { icon: "check" | "alert"; tone: string; title: string; items: string[]; empty: string }) {
   return (
-    <div className="flex flex-col gap-1.5 rounded-xl bg-bg p-3.5 print:p-2.5">
+    <div className="flex flex-col gap-1.5 rounded-lg border border-line bg-surface-2 p-3.5 print:p-2.5">
       <h2 className="flex items-center gap-2 text-sm font-semibold">
         <Icon name={icon} size={15} className={tone} />
         {title}

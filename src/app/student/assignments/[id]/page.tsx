@@ -1,3 +1,4 @@
+import {readLiveSession} from "@/lib/live-session";
 import { notFound } from "next/navigation";
 import type { SavedAnswer } from "@/components/player/blocks";
 import { LessonPlayer } from "@/components/player/lesson-player";
@@ -46,9 +47,11 @@ export default async function AssignmentPage({ params }: { params: Promise<{ id:
 
   // Туура жооптор браузерге чечилгенден кийин гана жөнөтүлөт.
   const content = studentContent(lesson.content, answers, attempt.id);
-  const [{ data: session }, { data: reviews }] = await Promise.all([
-    supabase.from("lesson_sessions").select("max_stage, paused").eq("assignment_id", id).maybeSingle(),
+  const [{ data: session,error:clockError }, { data: reviews }, {data: wallet, error:walletError}] = await Promise.all([
+    readLiveSession(supabase,id).then(data=>({data,error:null})).catch(()=>({data:null,error:{message:"Сабак режими жүктөлгөн жок"}})),
     supabase.from("answer_reviews").select("block_id, criteria_met, feedback").eq("attempt_id", attempt.id),
+    supabase.from("coin_wallets").select("balance").eq("student_id",profile.id).maybeSingle(),
   ]);
-  return <LessonPlayer title={lesson.title} content={content} backHref="/student" attempt={attempt} initialAnswers={answers} liveSession={session} reviews={reviews ?? []} />;
+  if(clockError)return <p role="alert">Сабактын режими жүктөлгөн жок. Баракты жаңыртыңыз.</p>;
+  return <LessonPlayer title={lesson.title} content={content} backHref="/student" attempt={attempt} initialAnswers={answers} initialCoinBalance={walletError ? null : wallet?.balance ?? 0} liveSession={session} reviews={reviews ?? []} />;
 }

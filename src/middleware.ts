@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
+  // Жалпыга ачык статикалык машыгуу: жеке маалымат жок, Auth байланышын талап кылбайт.
+  if (request.nextUrl.pathname === "/lab") return response;
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -1,3 +1,4 @@
+vi.mock("server-only",()=>({}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pythonIf } from "@/content/lessons/python-if";
 const state=vi.hoisted(()=>({attempt:{assignment_id:"asg",current_stage:4,finished_at:null} as object|null,live:null as object|null,allowed:true,rpc:vi.fn()}));
@@ -13,3 +14,5 @@ describe("AI сервер коргоосу",()=>{
  it("сурам store:false менен жөнөтүлөт, багыттоочу суроо кайтып келет",async()=>{vi.mocked(fetch).mockResolvedValue({ok:true,json:async()=>({output:[{type:"message",content:[{type:"output_text",text:JSON.stringify({question:"Кайсы чек маанисин кайра сынайсың?"})}]}]})} as Response);expect(await askTutor({},fd())).toEqual({question:"Кайсы чек маанисин кайра сынайсың?"});const body=JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);expect(body.store).toBe(false);expect(body.text.format.type).toBe("json_schema");expect(body.input).not.toMatch(/teacherNotes|correct|expected/);});
  it("жараксыз жооп же тармак катасы окуучуга ачкычты көрсөтпөйт",async()=>{vi.mocked(fetch).mockRejectedValue(Error("test-key"));const result=await askTutor({},fd());expect(result.error).toBeTruthy();expect(JSON.stringify(result)).not.toContain("test-key");});
 });
+
+it("миссиянын жеке ишинде ЖИ чакырылбайт",async()=>{const {MISSION_EXAMPLE}=await import("@/lib/mission-example");const old=pythonIf.content.stages[3];try{pythonIf.content.stages[3]=structuredClone(MISSION_EXAMPLE);expect((await askTutor({},fd("mission-independent"))).error).toMatch(/жеке иш/);expect(fetch).not.toHaveBeenCalled();expect(state.rpc).not.toHaveBeenCalled();}finally{pythonIf.content.stages[3]=old;}});

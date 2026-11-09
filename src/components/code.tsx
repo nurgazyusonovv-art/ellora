@@ -35,7 +35,7 @@ export function CodeView({
 }) {
   const lines = code.split("\n");
   return (
-    <pre className={cx("overflow-x-auto rounded-xl bg-code py-3 font-mono text-[14.5px] leading-[1.75] text-code-ink", className)}>
+    <pre className={cx("min-w-0 max-w-full overflow-x-auto rounded-lg border border-code-hl bg-code py-3 font-mono text-[14.5px] leading-[1.75] text-code-ink", className)}>
       {lines.map((l, i) => {
         const n = i + 1;
         const content = (
@@ -85,14 +85,14 @@ export function CodeEditor({ value, onChange, label, rows }: { value: string; on
           requestAnimationFrame(() => t.setSelectionRange(s + 4, s + 4));
         }
       }}
-      className="w-full resize-y rounded-xl bg-code px-4 py-3 font-mono text-[14.5px] leading-[1.75] text-code-ink caret-code-kw"
+      className="w-full resize-y rounded-lg border border-code-hl bg-code px-4 py-3 font-mono text-[14.5px] leading-[1.75] text-code-ink caret-code-kw"
     />
   );
 }
 
 export function Console({ output, error }: { output?: string; error?: string }) {
   return (
-    <div className="rounded-xl bg-code px-4 py-3 font-mono text-sm whitespace-pre-wrap">
+    <div className="rounded-lg border border-code-hl bg-code px-4 py-3 font-mono text-sm whitespace-pre-wrap">
       <span className="text-code-dim">Натыйжа › </span>
       {output && <span className="text-code-str">{output}</span>}
       {error && <span className="block text-[#f5a08c]">{error}</span>}

@@ -33,6 +33,17 @@
   --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-display: var(--font-inter), system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+
+  /* Supabase стили: кичине, так радиустар. Tailwind'дин rounded-* класстары ушуларга таянат. */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.5rem;
+  --radius-3xl: 0.625rem;
+
+  --color-line-strong: #d6d1e8;
+  --shadow-xs: 0 1px 2px 0 rgb(41 39 57 / 0.05);
 }
 
 html,
@@ -47,10 +58,16 @@ h1,
 h2,
 h3 {
   text-wrap: balance;
+  letter-spacing: -0.015em;
 }
 
+/* Supabase стили: аталыштар оор эмес — 600'дөн ашпайт. */
+:where(h1, h2, h3).font-bold { font-weight: 600; }
+
+::selection { background: var(--color-accent-soft); color: var(--color-accent-dark); }
+
 :focus-visible {
-  outline: 3px solid var(--color-accent);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
@@ -77,21 +94,74 @@ h3 {
   }
 }
 
-/* Скриншотко ылайык мугалим панелинин жумшак, тегеректелген каркасы. */
-.app-shell { min-width: 0; }
-.app-content { background: var(--color-surface); }
+/* Supabase стилиндеги панель: капталда ак меню (жука чек ара), негизги аймак жумшак фондо. */
+.app-shell { min-width: 0; background: var(--color-surface-2); }
+.app-content { background: var(--color-surface-2); }
 .lesson-tile:nth-child(3n + 1) { background: var(--color-accent-soft); color: var(--color-accent); }
 .lesson-tile:nth-child(3n + 2) { background: var(--color-lilac-soft); color: var(--color-lilac); }
 .lesson-tile:nth-child(3n) { background: var(--color-rose-soft); color: var(--color-rose); }
 @media (min-width: 1024px) {
-  .app-shell { margin: 24px; min-height: calc(100dvh - 48px); border: 8px solid var(--color-nav); border-radius: 38px; background: var(--color-nav); }
-  .app-content { border-radius: 28px; background: var(--color-surface); overflow: clip; }
-  .teacher-sidebar { width: 100%; }
+  .app-content { min-height: 100dvh; }
+  .teacher-sidebar { width: 100%; border-top: 1px solid var(--color-line); }
 }
 @media (min-width: 1440px) {
-  .teacher-sidebar { width: 320px; flex-shrink: 0; border-left: 1px solid var(--color-surface-2); }
+  .teacher-sidebar { width: 300px; flex-shrink: 0; border-top: 0; border-left: 1px solid var(--color-line); background: var(--color-surface); }
 }
 @media print {
-  .app-shell { margin: 0; border: 0; border-radius: 0; background: white; }
-  .app-content { border-radius: 0; overflow: visible; }
+  .app-shell, .app-content { background: white; }
+}
+
+/* Жука торчо фон (башкы бет, кирүү беттери). */
+.grid-bg {
+  background-image:
+    linear-gradient(to right, var(--color-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-line) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at top, #000 30%, transparent 75%);
+}
+
+@keyframes coin-reward { from { transform: translateY(6px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@media (prefers-reduced-motion: no-preference) { .coin-reward { animation: coin-reward 250ms ease-out; } }
+
+/* Телефон: узун мазмун контейнерин кеңейтпейт; таблица/код өз ичинде жылат. */
+html { scroll-padding-top: calc(5rem + env(safe-area-inset-top)); }
+body { overflow-wrap: anywhere; }
+pre, code { overflow-wrap: normal; }
+img, video, canvas { max-width: 100%; }
+button, a, input, select, textarea, summary { touch-action: manipulation; }
+.mobile-app-header { padding-top: calc(.75rem + env(safe-area-inset-top)); }
+@media (max-width: 1023px) {
+  body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  .app-shell { --mobile-header-height: calc(68px + env(safe-area-inset-top)); }
+  .app-shell .lesson-stage-nav { top: var(--mobile-header-height); }
+  .teacher-main { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+  .mobile-app-nav { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+}
+@media (max-width: 1023px) {
+  /* 16px текст iOS'то талаага киргенде мажбурлап чоңойтууну алдын алат; масштабдоо ачык. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]), select, textarea {
+    font-size: 16px;
+    min-height: 44px;
+    min-width: 0;
+    max-width: 100%;
+  }
+  button, summary { min-height: 44px; }
+  .lesson-player { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+}
+
+/* Supabase стилиндеги талаалар: фокуста accent чек ара жана жумшак шакек. Utility класстар үстөмдүк кылат. */
+@layer base {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+  }
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="range"] {
+    accent-color: var(--color-accent);
+  }
+  hr { border-color: var(--color-line); }
 }

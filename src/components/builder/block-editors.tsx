@@ -1,5 +1,9 @@
 "use client";
+import {ClassificationEditor} from "./classification-editor";
+import {SpreadsheetEditor} from "./spreadsheet-editor";
 
+import { SlideImageEditor } from "./slide-image-editor";
+import { SLIDE_ICONS } from "@/lib/presentation";
 import type { ComponentProps, ReactNode } from "react";
 import { CodeEditor } from "@/components/code";
 import { cx } from "@/components/ui";
@@ -8,7 +12,7 @@ import type { Block, BugHuntBlock, CodeTaskBlock, McqBlock } from "@/lib/lesson-
 type EditorProps<B extends Block> = { block: B; onChange: (b: B) => void };
 
 const inputCls =
-  "w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 text-[15px] font-normal text-ink placeholder:text-muted/70";
+  "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-[15px] font-normal text-ink placeholder:text-muted/70";
 
 function Label({ text, hint, children }: { text: string; hint?: string; children: ReactNode }) {
   return (
@@ -83,7 +87,7 @@ function SmallButton({ className, ...p }: ComponentProps<"button">) {
     <button
       type="button"
       className={cx(
-        "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] border border-line bg-surface px-3.5 text-sm font-semibold text-ink hover:bg-surface-2",
+        "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-3.5 text-sm font-semibold text-ink hover:bg-surface-2",
         className,
       )}
       {...p}
@@ -98,7 +102,7 @@ function RemoveButton({ label, onClick }: { label: string; onClick: () => void }
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="grid size-11 shrink-0 place-items-center rounded-[10px] text-muted hover:bg-bad-soft hover:text-bad"
+      className="grid size-11 shrink-0 place-items-center rounded-md text-muted hover:bg-bad-soft hover:text-bad"
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M6 6l12 12M18 6L6 18" />
@@ -130,10 +134,31 @@ const opt = (s: string) => (s.trim() ? s : undefined);
 
 export function BlockEditor({ block, onChange }: EditorProps<Block>) {
   switch (block.type) {
+    case "classification":return <ClassificationEditor block={block} onChange={onChange}/>;
+    case "spreadsheet":return <SpreadsheetEditor block={block} onChange={onChange}/>;
+    case "matching":
+      return <div className="flex flex-col gap-4"><Area label="Тапшырманын шарты" value={block.prompt} onValue={prompt=>onChange({...block,prompt})}/><p className="text-sm text-muted">3–8 кайталанбаган жуп. Бир саптагы эки маани бири-бирине туура келет; окуучуга оң тарап аралаштырылат.</p>{block.pairs.map((pair,i)=><div key={i} className="grid min-w-0 gap-2 rounded-xl border border-line p-3 sm:grid-cols-2"><Input label={`${i+1}. Сол маани`} value={pair.left} maxLength={500} onChange={e=>onChange({...block,pairs:block.pairs.map((p,j)=>i===j?{...p,left:e.target.value}:p)})}/><Input label="Дал келген маани" value={pair.right} maxLength={500} onChange={e=>onChange({...block,pairs:block.pairs.map((p,j)=>i===j?{...p,right:e.target.value}:p)})}/><button type="button" disabled={block.pairs.length<=3} className="min-h-11 text-left text-sm text-bad" onClick={()=>onChange({...block,pairs:block.pairs.filter((_,j)=>j!==i)})}>Жупту алып салуу</button></div>)}<button type="button" disabled={block.pairs.length>=8} className="min-h-11 text-left text-sm font-semibold text-accent" onClick={()=>onChange({...block,pairs:[...block.pairs,{left:"",right:""}]})}>+ Жуп кошуу</button><Area label="Туура аткаргандан кийинки түшүндүрмө" value={block.explain??""} onValue={explain=>onChange({...block,explain})}/><XpField value={block.xp} onValue={xp=>onChange({...block,xp})}/></div>;
+    case "ordering":
+      return <div className="flex flex-col gap-4"><Area label="Тапшырманын шарты" value={block.prompt} onValue={prompt=>onChange({...block,prompt})}/><Area label="Кадамдар — туура иретте" hint="Ар бир сапка бир кадам. 3–8 өзүнчө кадам; окуучуга аралаштырылат." rows={5} value={block.steps.join("\n")} onValue={v=>onChange({...block,steps:v.split("\n")})}/><Area label="Туура аткаргандан кийинки түшүндүрмө" value={block.explain??""} onValue={explain=>onChange({...block,explain})}/><XpField value={block.xp} onValue={xp=>onChange({...block,xp})}/></div>;
+
+    case "presentation":
+      return <div className="flex flex-col gap-4"><Input label="Презентациянын аталышы" maxLength={150} value={block.title} onChange={e=>onChange({...block,title:e.target.value})}/>{block.slides.map((slide,i)=><fieldset key={i} className="flex min-w-0 flex-col gap-3 rounded-xl border border-line p-3"><legend>{i+1}-слайд</legend>
+      <Input label="Аталышы" maxLength={150} value={slide.title} onChange={e=>onChange({...block,slides:block.slides.map((s,j)=>j===i?{...s,title:e.target.value}:s)})}/>
+      <Area label="Кыска түшүндүрмө (600 белгиге чейин)" value={slide.body} onValue={body=>onChange({...block,slides:block.slides.map((s,j)=>j===i?{...s,body}:s)})}/>
+      <label className="text-sm font-semibold">Иконка<select className={inputCls} value={slide.icon} onChange={e=>onChange({...block,slides:block.slides.map((s,j)=>j===i?{...s,icon:e.target.value as typeof slide.icon}:s)})}>{Object.entries(SLIDE_ICONS).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
+      <Area label="Схема: ар сапка бир кадам (2–4)" value={slide.diagram.join("\n")} onValue={value=>onChange({...block,slides:block.slides.map((s,j)=>j===i?{...s,diagram:value.split("\n")}:s)})}/>
+      <SlideImageEditor image={slide.image} onChange={image=>onChange({...block,slides:block.slides.map((s,j)=>j===i?{...s,image}:s)})}/>
+      <Input label="Ойлонуу суроосу (милдеттүү эмес)" maxLength={300} value={slide.question} onChange={e=>onChange({...block,slides:block.slides.map((s,j)=>j===i?{...s,question:e.target.value}:s)})}/>
+      </fieldset>)}<button type="button" className="min-h-11 rounded-xl px-3 font-semibold text-accent" onClick={()=>onChange({...block,slides:block.slides.length===5?[...block.slides,{title:"",body:"",icon:"idea",diagram:["",""],question:""}]:block.slides.slice(0,5)})}>{block.slides.length===5?"Алтынчы слайдды кошуу":"Алтынчы слайдды алып салуу"}</button></div>;
     case "investigation":
       return <div className="flex flex-col gap-4">
         <Area label="Изилдөөнүн суроосу" value={block.prompt} onValue={prompt => onChange({ ...block, prompt })} />
         <Area label="Сынап көрүүнүн кадамдары" hint="Кайсы маанилерди салыштырат? Кандай байкоону жазат? Даяр жыйынтыкты бербеңиз." value={block.procedure} onValue={procedure => onChange({ ...block, procedure })} />
+        <Label text="Кадамдык машыктыргыч" hint="Даяр моделди тандаңыз. Окуучу божомолун бекиткенден кийин сынайт. Өзүнчө Python коду моделдин ордуна аткарылбайт.">
+          <select className={cx(inputCls, "min-h-11")} value={block.simulation ?? ""} onChange={e => onChange({ ...block, simulation: e.target.value === "condition" || e.target.value === "loop" ? e.target.value : undefined })}>
+            <option value="">Кошулбасын</option><option value="condition">Шарт: жашты 18 менен салыштыруу</option><option value="loop">Цикл: 1ден nге чейинки жыйынды</option>
+          </select>
+        </Label>
         <Code label="Сынап көрүү үчүн Python коду (милдеттүү эмес)" value={block.code ?? ""} onValue={code => onChange({ ...block, code: opt(code) })} />
       </div>;
     case "text":
@@ -246,7 +271,7 @@ function McqEditor({ block, onChange }: EditorProps<McqBlock>) {
         <legend className="mb-1.5 text-sm font-semibold">Варианттар — туурасын белгилеңиз</legend>
         {block.options.map((o, i) => (
           <div key={i} className="flex items-center gap-2">
-            <label className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-[10px] hover:bg-surface-2" title="Туура жооп">
+            <label className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-md hover:bg-surface-2" title="Туура жооп">
               <input
                 type="radio"
                 name={`correct-${block.id}`}
@@ -302,7 +327,7 @@ function CodeTaskEditor({ block, onChange }: EditorProps<CodeTaskBlock>) {
           дал келсе — тест өттү.
         </p>
         {block.tests.map((t, i) => (
-          <div key={i} className="grid gap-2 rounded-xl bg-bg p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
+          <div key={i} className="grid gap-2 rounded-lg border border-line bg-surface-2 p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
             <Area label={`${i + 1}-тест: кирүү`} mono rows={2} value={t.input} onValue={(input) => setTest(i, { input })} placeholder="18" />
             <Area label="Күтүлгөн натыйжа" mono rows={2} value={t.expected} onValue={(expected) => setTest(i, { expected })} placeholder="Кире аласыз" />
             <div className="sm:pt-6">
@@ -331,7 +356,7 @@ function BugHuntEditor({ block, onChange }: EditorProps<BugHuntBlock>) {
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1.5 text-sm font-semibold">Каталар</legend>
         {block.bugs.map((b, i) => (
-          <div key={i} className="grid gap-2 rounded-xl bg-bg p-3 sm:grid-cols-[120px_1fr_auto] sm:items-start">
+          <div key={i} className="grid gap-2 rounded-lg border border-line bg-surface-2 p-3 sm:grid-cols-[120px_1fr_auto] sm:items-start">
             <Label text="Сап">
               <select className={inputCls} value={b.line} onChange={(e) => setBug(i, { line: Number(e.target.value) })}>
                 {Array.from({ length: Math.max(n, b.line) }, (_, k) => k + 1).map((k) => (

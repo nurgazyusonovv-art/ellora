@@ -36,12 +36,14 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
   return (
     <>
       <PageTitle eyebrow="Класс" title={cls.name}>
+        <ButtonLink href={`/teacher/classes/${cls.id}/quarter`}>Чейректик жыйынтык</ButtonLink>
+        <ButtonLink href={`/teacher/quality?classId=${cls.id}`}>Билим сапаты</ButtonLink>
         <ButtonLink href="/teacher/lessons">Сабак жөнөтүү</ButtonLink>
       </PageTitle>
 
       <Card className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold tracking-[0.07em] text-muted uppercase">Окуучулар үчүн кошулуу коду</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Окуучулар үчүн кошулуу коду</span>
           <span className="font-mono text-3xl tracking-[0.2em]">{cls.join_code}</span>
           <span className="text-sm break-all text-muted">{joinUrl}</span>
         </div>
@@ -56,11 +58,11 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
 
       <div className="grid gap-6 lg:grid-cols-[3fr_2fr] lg:items-start">
         <Card className="flex flex-col gap-3">
-          <h2 className="font-display text-lg font-medium">Окуучулар · {sorted.length}</h2>
+          <h2 className="text-base font-medium">Окуучулар · {sorted.length}</h2>
           {sorted.length === 0 && <p className="text-sm text-muted">Азырынча эч ким кошула элек. Кодду окуучуларга бериңиз.</p>}
           <ul className="flex flex-col">
             {sorted.map((m) => (
-              <li key={m.student_id} className="flex flex-wrap items-center justify-between gap-2 border-b border-surface-2 py-3 last:border-0">
+              <li key={m.student_id} className="flex flex-wrap items-center justify-between gap-2 border-b border-line py-3 last:border-0">
                 <div className="flex flex-col">
                   <Link href={`/teacher/students/${m.student_id}`} className="font-semibold hover:text-accent hover:underline">
                     {m.profiles?.full_name}
@@ -79,7 +81,7 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
         </Card>
 
         <Card className="flex flex-col gap-3">
-          <h2 className="font-display text-lg font-medium">Жөнөтүлгөн сабактар</h2>
+          <h2 className="text-base font-medium">Жөнөтүлгөн сабактар</h2>
           {(assignments?.length ?? 0) === 0 && <p className="text-sm text-muted">Бул класска али сабак жөнөтүлө элек.</p>}
           {assignments?.map((a) => (
             <Link key={a.id} href={`/teacher/assignments/${a.id}`} className="flex justify-between gap-2 rounded-xl border border-line p-3.5 hover:border-accent">
@@ -92,7 +94,7 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
 
       <Card className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-lg font-medium">Класстын рейтинги</h2>
+          <h2 className="text-base font-medium">Класстын рейтинги</h2>
           <form action={setLeaderboardVisible.bind(null, cls.id, !visible)} className="flex items-center gap-3">
             <span className="text-sm text-muted">{visible ? "Окуучуларга көрүнөт" : "Окуучулардан жашырылган"}</span>
             <Button variant="secondary" className="min-h-11 text-sm">

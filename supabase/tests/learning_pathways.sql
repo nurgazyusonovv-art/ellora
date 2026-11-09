@@ -1,0 +1,90 @@
+-- Өзүнчө локалдык тест базасында гана. 0001–0013 керек.
+begin;
+create function pg_temp.expect(actual text,expected text) returns void language plpgsql as $$begin if actual is distinct from expected then raise exception 'Expected %, got %',expected,actual;end if;end$$;
+insert into auth.users(id,raw_user_meta_data) values
+ ('00000000-0000-0000-0000-000000006001','{"role":"teacher","full_name":"Path teacher"}'),
+ ('00000000-0000-0000-0000-000000006002','{"role":"student","full_name":"Path student"}'),
+ ('00000000-0000-0000-0000-000000006003','{"role":"student","full_name":"Other student"}'),
+ ('00000000-0000-0000-0000-000000006004','{"role":"teacher","full_name":"Other teacher"}');
+insert into classes(id,teacher_id,name,join_code) values('10000000-0000-0000-0000-000000006001','00000000-0000-0000-0000-000000006001','Path test','PATHTEST');
+insert into class_members(class_id,student_id) values('10000000-0000-0000-0000-000000006001','00000000-0000-0000-0000-000000006002');
+insert into lessons(id,author_id,title,content) values('20000000-0000-0000-0000-000000006001','00000000-0000-0000-0000-000000006001','Path test','{}');
+insert into assignments(id,lesson_id,class_id) values('30000000-0000-0000-0000-000000006001','20000000-0000-0000-0000-000000006001','10000000-0000-0000-0000-000000006001');
+insert into attempts(id,assignment_id,student_id,current_stage,xp,exit_score,exit_total) values('40000000-0000-0000-0000-000000006001','30000000-0000-0000-0000-000000006001','00000000-0000-0000-0000-000000006002',0,0,null,null);
+create temporary table path_fixture as select '{"goal":"Шартты түшүндүрүү","variants":{"support":"SUPPORT SECRET","core":"CORE TASK","challenge":"CHALLENGE SECRET"},"check_prompt":"Жаңы мисалды өзүң чеч","rubric":["Чечимди түшүндүрдү","Жаңы мисалды чечти"]}'::jsonb as plan;
+grant select on path_fixture to authenticated;
+set local role authenticated;
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000006001';
+select pg_temp.expect(create_pathway_plan('30000000-0000-0000-0000-000000006001','{}'),'invalid');
+select pg_temp.expect(create_pathway_plan('30000000-0000-0000-0000-000000006001',(select jsonb_set(plan,'{variants,support}','"CORE TASK"') from path_fixture)),'invalid');
+select pg_temp.expect(create_pathway_plan('30000000-0000-0000-0000-000000006001',(select plan from path_fixture)),'ok');
+select pg_temp.expect(create_pathway_plan('30000000-0000-0000-0000-000000006001',(select plan from path_fixture)),'exists');
+select id as plan_id from pathway_plans where assignment_id='30000000-0000-0000-0000-000000006001' \gset
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000006004';
+select pg_temp.expect(assign_learning_pathway(:'plan_id','40000000-0000-0000-0000-000000006001','support'),'forbidden');
+select pg_temp.expect(set_pathway_plan_active(:'plan_id',false),'forbidden');
+select pg_temp.expect((select count(*)::text from pathway_plans),'0');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000006002';
+select pg_temp.expect(learning_pathway_tasks()::text,'[]');
+select pg_temp.expect(request_pathway_support(:'plan_id','40000000-0000-0000-0000-000000006001'),'not_ready');
+select pg_temp.expect(submit_pathway_work(:'plan_id','40000000-0000-0000-0000-000000006001','core','Жооп','Өз алдынча'),'not_ready');
+select pg_temp.expect((select count(*)::text from pathway_plans),'0');
+reset role;
+update attempts set current_stage=3 where id='40000000-0000-0000-0000-000000006001';
+-- Негизги прогресстин сыйлыктары: кийинки агымда өзгөрбөсүн.
+create temporary table path_before as select balance,earned_total from coin_wallets where student_id='00000000-0000-0000-0000-000000006002';
+set local role authenticated;
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000006002';
+select pg_temp.expect(learning_pathway_tasks()->0->>'pathway','core');
+select pg_temp.expect((learning_pathway_tasks()::text like '%SECRET%')::text,'false');
+select pg_temp.expect(request_pathway_support(:'plan_id','40000000-0000-0000-0000-000000006001'),'ok');
+select pg_temp.expect(learning_pathway_tasks()->0->'work'->>'support_requested','true');
+select pg_temp.expect(assign_learning_pathway(:'plan_id','40000000-0000-0000-0000-000000006001','challenge'),'forbidden');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000006001';
+select pg_temp.expect(assign_learning_pathway(:'plan_id','40000000-0000-0000-0000-000000006001','support'),'ok');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000006002';
+select pg_temp.expect(learning_pathway_tasks()->0->>'prompt','SUPPORT SECRET');
+select pg_temp.expect((learning_pathway_tasks()::text like '%CHALLENGE SECRET%')::text,'false');
+select pg_temp.expect(submit_pathway_work(:'plan_id','40000000-0000-0000-0000-000000006001','core','Жооп','Өз алдынча'),'changed');
+select pg_temp.expect(submit_pathway_work(:'plan_id','40000000-0000-0000-0000-000000006001','support','Жооп',' '),'invalid');
+reset role;
+insert into lesson_sessions(assignment_id,max_stage,paused) values('30000000-0000-0000-0000-000000006001',4,true);
+set local role authenticated;
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000006002';
+select pg_temp.expect(learning_pathway_tasks()::text,'[]');
+select pg_temp.expect(submit_pathway_work(:'plan_id','40000000-0000-0000-0000-000000006001','support','Жооп','Өз алдынча'),'not_ready');
+reset role;
+update lesson_sessions set paused=false where assignment_id='30000000-0000-0000-0000-000000006001';
+set local role authenticated;
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000006003';
+select pg_temp.expect(learning_pathway_tasks()::text,'[]');
+select pg_temp.expect(request_pathway_support(:'plan_id','40000000-0000-0000-0000-000000006001'),'forbidden');
+select pg_temp.expect(submit_pathway_work(:'plan_id','40000000-0000-0000-0000-000000006001','support','Fake','Fake'),'forbidden');
+select pg_temp.expect((select count(*)::text from pathway_work),'0');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000006001';
+select pg_temp.expect(set_pathway_plan_active(:'plan_id',false),'ok');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000006002';
+select pg_temp.expect(submit_pathway_work(:'plan_id','40000000-0000-0000-0000-000000006001','support','Жооп','Өз алдынча'),'inactive');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000006001';
+select pg_temp.expect(set_pathway_plan_active(:'plan_id',true),'ok');
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000006002';
+select pg_temp.expect(submit_pathway_work(:'plan_id','40000000-0000-0000-0000-000000006001','support','Жооп','Өз алдынча'),'ok');
+select pg_temp.expect(submit_pathway_work(:'plan_id','40000000-0000-0000-0000-000000006001','support','Өзгөртүү','Өзгөртүү'),'locked');
+select id as work_id from pathway_work where plan_id=:'plan_id' \gset
+select pg_temp.expect(review_pathway_work(:'work_id','[true,true]','Self grade'),'forbidden');
+do $$begin begin update pathway_work set pathway='challenge';raise exception 'Writable work';exception when insufficient_privilege then null;end;end$$;
+set local request.jwt.claim.sub='00000000-0000-0000-0000-000000006001';
+select pg_temp.expect(assign_learning_pathway(:'plan_id','40000000-0000-0000-0000-000000006001','challenge'),'locked');
+select pg_temp.expect(review_pathway_work(:'work_id','[true]','Кыска'),'invalid');
+select pg_temp.expect(review_pathway_work(:'work_id','[true,"true"]','Жараксыз'),'invalid');
+select pg_temp.expect(review_pathway_work(:'work_id','[true,false]','Жаңы мисалды дагы текшер'),'ok');
+select pg_temp.expect(review_pathway_work(:'work_id','[true,true]','Overwrite'),'locked');
+reset role;
+select pg_temp.expect((select current_stage::text||':'||xp::text from attempts where id='40000000-0000-0000-0000-000000006001'),'3:0');
+select pg_temp.expect((select (w.balance=b.balance and w.earned_total=b.earned_total)::text from coin_wallets w cross join path_before b where w.student_id='00000000-0000-0000-0000-000000006002'),'true');
+select pg_temp.expect((select count(*)::text from answers where attempt_id='40000000-0000-0000-0000-000000006001'),'0');
+set local role anon;
+do $$begin begin perform public.learning_pathway_tasks();raise exception 'Anon RPC';exception when insufficient_privilege then null;end;end$$;
+reset role;
+select 'Pathways, hidden alternatives, RLS, stale choice, support, review and unchanged progress passed' as result;
+rollback;

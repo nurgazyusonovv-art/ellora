@@ -48,63 +48,76 @@ const ICONS = {
 
 function Icon({ name }: { name: keyof typeof ICONS }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {ICONS[name]}
     </svg>
   );
 }
 
-export function AppNav({ items, name, sub }: { items: Item[]; name: string; sub: string }) {
+export function AppNav({ items, name, sub, demo=false }: { items: Item[]; name: string; sub: string; demo?:boolean }) {
   const path = usePathname();
   const active = (it: Item) => (it.exact ? path === it.href : path.startsWith(it.href));
 
   return (
     <>
-      {/* Компьютер: капталдагы меню */}
-      <nav aria-label="Негизги меню" className="sticky top-6 hidden print:!hidden h-[calc(100dvh-64px)] w-56 shrink-0 flex-col gap-12 bg-nav px-4 py-8 text-white lg:flex">
-        <div className="px-2">
-          <Logo light />
+      {/* Компьютер: Supabase стилиндеги капталдагы меню — ак фон, жука чек ара, тыгыз пункттар */}
+      <nav aria-label="Негизги меню" className="sticky top-0 hidden print:!hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-surface text-sm lg:flex">
+        <div className="flex h-14 items-center border-b border-line px-4">
+          <Logo />
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-0.5 p-2">
+          <span className="px-2.5 pt-2 pb-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-muted">Меню</span>
           {items.map((it) => (
             <Link
               key={it.href}
               aria-current={active(it) ? "page" : undefined}
               href={it.href}
               className={cx(
-                "flex items-center gap-3 min-h-14 rounded-2xl px-4 py-3 text-[15px]",
-                active(it) ? "bg-white/15 font-semibold text-white" : "text-nav-muted hover:bg-white/10",
+                "flex h-9 items-center gap-2.5 rounded-md px-2.5 transition-colors",
+                active(it) ? "bg-accent-soft font-medium text-accent-dark" : "text-muted hover:bg-surface-2 hover:text-ink",
               )}
             >
-              <Icon name={it.icon} />
+              <span className={active(it) ? "text-accent" : undefined}>
+                <Icon name={it.icon} />
+              </span>
               {it.label}
             </Link>
           ))}
         </div>
         <div className="flex-1" />
-        <div className="flex flex-col gap-2 rounded-xl bg-white/10 p-3">
-          <span className="text-sm font-semibold">{name}</span>
-          <span className="text-xs text-nav-muted">{sub}</span>
-          <form action={signOut} onSubmit={clearOfflinePages}>
-            <button className="mt-1 min-h-11 min-h-11 text-sm font-semibold text-white hover:underline">Чыгуу</button>
-          </form>
+        <div className="flex items-center gap-2.5 border-t border-line p-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-accent-soft text-sm font-semibold text-accent">
+            {name.slice(0, 1)}
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-sm font-medium text-ink">{name}</span>
+            <span className="truncate text-xs text-muted">{sub}</span>
+          </div>
+          {!demo && (
+            <form action={signOut} onSubmit={clearOfflinePages}>
+              <button className="h-8 rounded-md border border-line-strong px-2 text-xs font-medium text-ink hover:bg-surface-2">Чыгуу</button>
+            </form>
+          )}
         </div>
       </nav>
 
       {/* Телефон: үстүнкү жана астыңкы тилке */}
-      <header className="sticky top-0 z-10 flex items-center justify-between bg-nav px-4 py-3 lg:hidden print:hidden">
-        <Logo light />
-        <form action={signOut} onSubmit={clearOfflinePages}>
-          <button className="min-h-11 text-sm font-semibold text-white">Чыгуу</button>
-        </form>
+      <header className="mobile-app-header sticky top-0 z-20 flex items-center justify-between border-b border-line bg-surface/90 px-4 py-3 backdrop-blur lg:hidden print:hidden">
+        <Logo />
+        {demo && <span className="flex min-h-11 items-center text-sm text-muted">Үлгү</span>}
+        {!demo && (
+          <form action={signOut} onSubmit={clearOfflinePages}>
+            <button className="min-h-11 rounded-md border border-line-strong px-3 text-sm font-medium text-ink">Чыгуу</button>
+          </form>
+        )}
       </header>
-      <nav aria-label="Негизги меню" className="fixed inset-x-0 bottom-0 print:hidden z-10 flex border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
+      <nav aria-label="Негизги меню" className="mobile-app-nav fixed inset-x-0 bottom-0 print:hidden z-20 flex border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         {items.map((it) => (
           <Link
             key={it.href}
             aria-current={active(it) ? "page" : undefined}
             href={it.href}
-            className={cx("flex flex-1 flex-col items-center gap-1 py-2.5 text-xs", active(it) ? "font-semibold text-accent" : "text-muted")}
+            className={cx("flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-2.5 text-center text-[11px]", active(it) ? "font-medium text-accent" : "text-muted")}
           >
             <Icon name={it.icon} />
             {it.label}

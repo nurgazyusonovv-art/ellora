@@ -1,5 +1,6 @@
 "use client";
 
+import {AssignmentTermFields} from "./assignment-term-fields";
 import { useActionState, useState } from "react";
 import type { FormState } from "@/app/actions/auth";
 import {
@@ -32,7 +33,7 @@ export function CreateClassForm() {
   );
 }
 
-export function AssignForm({ lessonId, classes }: { lessonId: string; classes: { id: string; name: string }[] }) {
+export function AssignForm({ lessonId, classes,activityKind }: { lessonId: string; activityKind?:string; classes: { id: string; name: string }[] }) {
   const [state, act, pending] = useActionState<FormState, FormData>(assignLesson, undefined);
   if (classes.length === 0)
     return <p className="text-sm text-muted">Адегенде «Класстар» бөлүмүнөн класс ачыңыз.</p>;
@@ -41,7 +42,7 @@ export function AssignForm({ lessonId, classes }: { lessonId: string; classes: {
       <input type="hidden" name="lesson_id" value={lessonId} />
       <label className="flex flex-col gap-1.5 text-sm font-semibold">
         Класс
-        <select name="class_id" className="rounded-[10px] border border-line bg-surface px-3 py-2.5 text-base font-normal" required>
+        <select name="class_id" className="shadow-xs rounded-md border border-line-strong bg-surface px-3 py-2.5 text-base font-normal" required>
           {classes.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -49,7 +50,7 @@ export function AssignForm({ lessonId, classes }: { lessonId: string; classes: {
           ))}
         </select>
       </label>
-      <Field label="Мөөнөт (милдеттүү эмес)" name="due_at" type="date" />
+      <Field label="Мөөнөт (милдеттүү эмес)" name="due_at" type="date" /><AssignmentTermFields activityKind={activityKind}/>
       <FormError message={state?.error} />
       <Button disabled={pending}>{pending ? "Жөнөтүлүүдө…" : "Класска жөнөтүү"}</Button>
     </form>
@@ -71,7 +72,7 @@ export function ResetPasswordForm({ studentId }: { studentId: string }) {
   return (
     <form action={act} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="student_id" value={studentId} />
-      <input name="password" aria-label="Жаңы сырсөз" placeholder="Жаңы сырсөз" minLength={6} required className="w-36 rounded-lg border border-line px-2.5 py-1.5 text-sm" />
+      <input name="password" aria-label="Жаңы сырсөз" placeholder="Жаңы сырсөз" minLength={6} required className="shadow-xs w-36 rounded-lg border border-line-strong px-2.5 py-1.5 text-sm" />
       <Button className="px-3 py-1.5 text-sm" disabled={pending}>Сактоо</Button>
       {state?.error && <span className="basis-full text-sm text-bad">{state.error}</span>}
       {state?.ok && <span className="basis-full text-sm text-good">{state.ok}</span>}
@@ -116,7 +117,7 @@ export function NewLessonForm({ plans }: { plans: Record<number, Ktp> }) {
             name="grade"
             value={grade ?? ""}
             onChange={(e) => setGrade(e.target.value ? Number(e.target.value) : null)}
-            className="rounded-[10px] border border-line bg-surface px-3 py-2.5 text-base font-normal"
+            className="rounded-md border border-line bg-surface px-3 py-2.5 text-base font-normal"
           >
             {GRADES.map((g) => (
               <option key={g} value={g}>
@@ -130,7 +131,7 @@ export function NewLessonForm({ plans }: { plans: Record<number, Ktp> }) {
           <select
             name="duration"
             defaultValue={DEFAULT_DURATION}
-            className="rounded-[10px] border border-line bg-surface px-3 py-2.5 text-base font-normal"
+            className="shadow-xs rounded-md border border-line-strong bg-surface px-3 py-2.5 text-base font-normal"
           >
             {DURATION_OPTIONS.map((m) => (
               <option key={m} value={m}>
@@ -202,7 +203,7 @@ export function AssignmentControls({ id, classId, dueDate, started }: { id: stri
             name="due_at"
             value={due}
             onChange={(e) => setDue(e.target.value)}
-            className="min-h-11 rounded-[10px] border border-line bg-surface px-3 text-base font-normal"
+            className="min-h-11 rounded-md border border-line bg-surface px-3 text-base font-normal"
           />
         </label>
         <Button variant="secondary" disabled={pending || due === dueDate}>

@@ -1,14 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {KtpMetadataFields} from "./ktp-metadata-fields";
+import {addQuarterlyWorks,suggestMissingSkills,ensureKtpIds} from "@/content/ktp/enrichment";
+import {KTP_TEMPLATES} from "@/content/ktp";
 import { deleteKtp, saveKtp } from "@/app/actions/ktp";
 import { Button, cx } from "@/components/ui";
 import { planHours, sectionHours, type KtpSection, type KtpTopic } from "@/content/ktp";
 
 type Save = { state: "saved" | "dirty" | "saving"; at?: string } | { state: "error"; message: string };
 
-const inputCls = "w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 text-[15px] text-ink placeholder:text-muted/70";
-const hoursCls = "w-20 shrink-0 rounded-[10px] border border-line bg-surface px-2.5 py-2.5 text-center font-mono text-[15px]";
+const inputCls = "min-h-11 w-full rounded-md border border-line bg-surface px-3 py-2.5 text-[15px] text-ink placeholder:text-muted/70";
+const hoursCls = "min-h-11 w-20 shrink-0 rounded-md border border-line bg-surface px-2.5 py-2.5 text-center font-mono text-[15px]";
 
 function move<T>(arr: T[], i: number, dir: -1 | 1) {
   const j = i + dir;
@@ -20,6 +23,7 @@ function move<T>(arr: T[], i: number, dir: -1 | 1) {
 
 export function KtpEditor({
   grade,
+  preview=false,
   initialYear,
   initialSections,
   source,
@@ -27,6 +31,7 @@ export function KtpEditor({
   hasTemplate,
 }: {
   grade: number;
+  preview?:boolean;
   initialYear: string;
   initialSections: KtpSection[];
   source?: string;
@@ -36,7 +41,7 @@ export function KtpEditor({
 }) {
   const [own, setOwn] = useState(hasOwn);
   const [year, setYear] = useState(initialYear);
-  const [sections, setSections] = useState(initialSections);
+  const [sections, setSections] = useState(()=>ensureKtpIds(initialSections));
   const [save, setSave] = useState<Save>({ state: "saved" });
   const latest = useRef({ year, sections });
   const version = useRef(0);
@@ -48,31 +53,32 @@ export function KtpEditor({
     if (next.sections) setSections(next.sections);
     setSave({ state: "dirty" });
   };
-  const setSec = (fn: (s: KtpSection[]) => KtpSection[]) => change({ sections: fn(latest.current.sections) });
+  const setSec = (fn: (s: KtpSection[]) => KtpSection[]) => change({ sections: ensureKtpIds(fn(latest.current.sections)) });
   const setOne = (si: number, patch: Partial<KtpSection>) => setSec((all) => all.map((s, i) => (i === si ? { ...s, ...patch } : s)));
   const setTopics = (si: number, fn: (t: KtpTopic[]) => KtpTopic[]) => setSec((all) => all.map((s, i) => (i === si ? { ...s, topics: fn(s.topics) } : s)));
 
   const flush = useCallback(async () => {
+    if(preview)return;
     const v = version.current;
     setSave({ state: "saving" });
     const r = await saveKtp(grade, latest.current).catch(() => ({ error: "Интернет байланышын текшериңиз.", savedAt: undefined }));
     if (r.error) return setSave({ state: "error", message: r.error });
     setOwn(true);
     setSave(version.current === v ? { state: "saved", at: r.savedAt } : { state: "dirty" });
-  }, [grade]);
+  }, [grade,preview]);
 
   useEffect(() => {
-    if (save.state !== "dirty") return;
+    if (preview||save.state !== "dirty") return;
     const t = setTimeout(flush, 1000);
     return () => clearTimeout(t);
-  }, [sections, year, save.state, flush]);
+  }, [sections, year, save.state, flush,preview]);
 
   useEffect(() => {
-    if (save.state === "saved") return;
+    if (preview||save.state === "saved") return;
     const h = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", h);
     return () => window.removeEventListener("beforeunload", h);
-  }, [save.state]);
+  }, [save.state,preview]);
 
   const total = planHours({ sections });
   const topicsCount = sections.reduce((a, s) => a + s.topics.length, 0);
@@ -88,19 +94,19 @@ export function KtpEditor({
           <span>
             {sections.length} бөлүм · {topicsCount} тема · <b className="font-mono text-ink">{total}</b> саат
           </span>
-          {own || save.state !== "saved" ? (
+          {preview?<span>Үлгү: өзгөртүүлөр базага сакталбайт.</span>:own || save.state !== "saved" ? (
             <SaveBadge save={save} />
           ) : (
-            <span>{hasTemplate ? "Расмий үлгү. Өзгөртсөңүз — сиздин көчүрмөңүз болуп сакталат." : "Бөлүм жана темаларды кошуңуз — өзү сакталат."}</span>
+            <span>{hasTemplate ? "Ылайыктоочу үлгү. Өзгөртсөңүз — сиздин көчүрмөңүз болуп сакталат." : "Бөлүм жана темаларды кошуңуз — өзү сакталат."}</span>
           )}
         </div>
         <div className="flex-1" />
-        {own && (
+        {own && !preview && (
           <form
             action={deleteKtp.bind(null, grade)}
             onSubmit={(e) => {
               const msg = hasTemplate
-                ? `${grade}-класстын КТП'синдеги өзгөртүүлөрүңүздү өчүрүп, расмий үлгүгө кайтасызбы? Сабактардагы темалар өзгөрбөйт.`
+                ? `${grade}-класстын КТП'синдеги өзгөртүүлөрүңүздү өчүрүп, үлгүгө кайтасызбы? Сабактардагы темалар өзгөрбөйт.`
                 : `${grade}-класстын КТП'син толугу менен өчүрөсүзбү? Сабактардагы темалар өзгөрбөйт.`;
               if (!window.confirm(msg)) e.preventDefault();
             }}
@@ -117,16 +123,17 @@ export function KtpEditor({
           <a href={source} target="_blank" rel="noreferrer" className="font-semibold text-accent hover:underline">
             {"КТП'нин түпнускасы (PDF)"}
           </a>
-          {". Өзгөртүүлөрүңүз сиздин гана КТП'ңизге сакталат, башка мугалимдерге таасир этпейт."}
+          {preview?". Бул үлгүдөгү өзгөртүүлөр сакталбайт.":". Өзгөртүүлөрүңүз сиздин гана КТП'ңизге сакталат, башка мугалимдерге таасир этпейт."}
         </p>
       )}
 
+      <div className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4"><p className="text-sm text-muted">Көндүмдөр жана иштин түрлөрү — мугалим текшерчү сунуштар. Чейректик иштердин темасын, ордун жана саатын чындап өтүлгөн планга ылайыктаңыз; кошуу жылдык саатты автоматтык көбөйтпөйт.</p><div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={!KTP_TEMPLATES[grade]} onClick={()=>setSec(all=>suggestMissingSkills(all,KTP_TEMPLATES[grade]))}>Көндүмү жок темаларга сунуш кошуу</Button><Button variant="secondary" onClick={()=>setSec(all=>addQuarterlyWorks(all,grade))}>Төрт чейректик ишти кошуу</Button></div><p className="text-sm text-muted">Темага жазылган сааттар: {sections.reduce((n,s)=>n+sectionHours(s),0)} · бөлүмдөрдө: {total}. Сааты такталбаган практикалык/чейректик иштер: {sections.flatMap(s=>s.topics).filter(t=>(t.kind==="practical"||t.kind==="quarterly")&&!t.hours).length}.</p></div>
       {sections.map((sec, si) => {
         const th = sectionHours(sec);
         return (
           <section key={si} className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4 sm:p-5" aria-label={`${si + 1}-бөлүм`}>
             <div className="flex items-start gap-2">
-              <span className="mt-2.5 w-7 shrink-0 font-display text-lg font-bold text-accent">{si + 1}.</span>
+              <span className="mt-2.5 w-7 shrink-0 font-display text-lg font-semibold tracking-tight text-accent">{si + 1}.</span>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <input
                   aria-label={`${si + 1}-бөлүмдүн аталышы`}
@@ -166,13 +173,14 @@ export function KtpEditor({
 
             <ol className="flex flex-col gap-2 sm:pl-9">
               {sec.topics.map((t, ti) => (
-                <li key={ti} className="flex items-center gap-2">
+                <li key={t.id ?? ti} className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="w-10 shrink-0 text-right font-mono text-sm text-muted">
                     {si + 1}.{ti + 1}
                   </span>
                   <input
                     aria-label={`${si + 1}.${ti + 1}-тема`}
-                    className={inputCls}
+                    className={cx(inputCls,"min-w-0 flex-1 basis-48")}
                     value={t.title}
                     placeholder="Сабактын темасы"
                     onChange={(e) => setTopics(si, (all) => all.map((x, i) => (i === ti ? { ...x, title: e.target.value } : x)))}
@@ -199,13 +207,31 @@ export function KtpEditor({
                       if (!t.title.trim() || window.confirm(`«${t.title}» темасын өчүрөсүзбү?`)) setTopics(si, (a) => a.filter((_, i) => i !== ti));
                     }}
                   />
+                </div>
+                <details className="rounded-xl border border-line p-3 sm:ml-12">
+                  <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-accent">Көндүмдөр жана сабактардын планы ({t.sessions?.length ?? 0})</summary>
+                  <KtpMetadataFields prefix={`${si+1}.${ti+1}-тема`} value={t} onChange={patch=>setTopics(si,all=>all.map((x,i)=>i===ti?{...x,...patch}:x))}/>
+                  <p className="mb-3 mt-4 text-sm text-muted">Саат санынан өзүнчө пландаңыз. Ар сабакка жаңы максат жана жыйынтык жазыңыз. Сактагандан кийин «Жаңы сабак» бетинде теманы жана сериядагы сабакты тандаңыз.</p>
+                  {(t.sessions ?? []).map((lesson, li) => (
+                    <fieldset key={lesson.id} className="mb-3 flex min-w-0 flex-col gap-2 rounded-xl bg-surface-2 p-3 border border-line">
+                      <legend className="text-sm font-semibold">{li + 1}-сабак</legend>
+                      <KtpMetadataFields prefix={`${si+1}.${ti+1}.${li+1}-сабак`} value={lesson} inherited={t} product={false} onChange={patch=>setTopics(si,all=>all.map((x,i)=>i===ti?{...x,sessions:x.sessions?.map(item=>item.id===lesson.id?{...item,...patch}:item)}:x))}/>
+                      {([['title', 'Сабактын аталышы'], ['objective', 'Жаңы окуу максаты'], ['product', 'Практикалык жыйынтык']] as const).map(([field, label]) => (
+                        <label key={field} className="text-sm">{label}<input className={inputCls} maxLength={2000} value={lesson[field]} onChange={e => setTopics(si, all => all.map((x, i) => i === ti ? {...x, sessions: x.sessions?.map(item => item.id === lesson.id ? {...item, [field]: e.target.value} : item)} : x))} /></label>
+                      ))}
+                      <button type="button" className="min-h-11 self-start px-3 text-sm text-bad" onClick={() => { if (window.confirm('Бул сабактын планын өчүрөсүзбү?')) setTopics(si, all => all.map((x, i) => i === ti ? {...x, sessions: x.sessions?.filter(item => item.id !== lesson.id)} : x)); }}>Планды өчүрүү</button>
+                    </fieldset>
+                  ))}
+                  <button type="button" disabled={(t.sessions?.length ?? 0) >= 40} className="min-h-11 rounded-xl px-3 text-sm font-semibold text-accent disabled:opacity-40" onClick={() => setTopics(si, all => all.map((x, i) => i === ti ? {...x, id: x.id ?? crypto.randomUUID(), sessions: [...(x.sessions ?? []), {id: crypto.randomUUID(), title: '', objective: '', product: ''}]} : x))}>+ Сабактын планын кошуу</button>
+                </details>
                 </li>
               ))}
             </ol>
+            <button type="button" className="min-h-11 self-start px-3 text-sm font-semibold text-accent" onClick={()=>setTopics(si,all=>[...all,{title:"Жаңы практикалык сабак",kind:"practical",skills:[],product:""}])}>+ Практикалык сабак кошуу</button>
             <button
               type="button"
               onClick={() => setTopics(si, (a) => [...a, { title: "" }])}
-              className="min-h-11 self-start rounded-[10px] px-3 text-sm font-semibold text-accent hover:bg-accent-soft sm:ml-9"
+              className="min-h-11 self-start rounded-md px-3 text-sm font-semibold text-accent hover:bg-accent-soft sm:ml-9"
             >
               + Тема кошуу
             </button>
@@ -216,7 +242,7 @@ export function KtpEditor({
       <button
         type="button"
         onClick={() => setSec((a) => [...a, { title: "", hours: 0, topics: [{ title: "" }] }])}
-        className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line font-semibold text-accent hover:border-accent hover:bg-accent-soft"
+        className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-dashed border-line-strong font-semibold text-accent hover:border-accent hover:bg-accent-soft"
       >
         + Бөлүм кошуу
       </button>
@@ -249,7 +275,7 @@ function Icon({ label, d, onClick, disabled, danger }: { label: string; d: strin
       onClick={onClick}
       disabled={disabled}
       className={cx(
-        "size-11 shrink-0 place-items-center rounded-[10px] text-muted disabled:opacity-30",
+        "size-11 shrink-0 place-items-center rounded-md text-muted disabled:opacity-30",
         // Телефондо орун аз: жылдыруу баскычтары жашырылат, өчүрүү калат.
         danger ? "grid hover:bg-bad-soft hover:text-bad" : "hidden hover:bg-surface-2 hover:text-ink sm:grid",
       )}

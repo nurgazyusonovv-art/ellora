@@ -3,13 +3,20 @@
  * Окуучунун клиенти RLS'тей иштейт: attempts'тен өз аракетин гана көрөт, эч нерсе жаза албайт.
  * Жазуу admin клиент аркылуу гана өтөт.
  */
+vi.mock("server-only",()=>({}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {defaultClassification} from "@/lib/classification";
+import {defaultSheet} from "@/lib/sheet";
+import {MISSION_EXAMPLE} from "@/lib/mission-example";
 import { legacyPythonIf as pythonIf } from "@/content/lessons/python-if";
+import { generatedLesson } from "@/lib/lesson-generator";
+import { lessonPlan } from "@/test/lesson-plan";
 import type { Block, McqBlock, ParsonsBlock } from "@/lib/lesson-types";
-import { studentBlock } from "@/lib/student-view";
+import { parsonsSeed, shufflePerm, studentBlock } from "@/lib/student-view";
 import { correctResponse } from "@/test/helpers";
 
 const content = pythonIf.content;
+let activeContent = content;
 const ME = "student-1";
 
 type AttemptRec = {
@@ -27,16 +34,17 @@ type AnswerRec = { attempt_id: string; block_id: string; stage: number; response
 
 const db = { attempts: [] as AttemptRec[], answers: [] as AnswerRec[] };
 const writes: string[] = [];
-let live: { max_stage: number; paused: boolean } | null = null;
+let live: { max_stage: number; paused: boolean; timed?:boolean; ended?:boolean } | null = null;
 
 /** Окуучунун клиенти: окуй гана алат, RLS: өз аракети жана анын жооптору. */
 function userClient() {
   return {
-    from(table: "attempts" | "answers" | "assignments" | "lessons" | "lesson_sessions") {
+    rpc:async()=>({data:live,error:null}),
+    from(table: "attempts" | "answers" | "assignments" | "lessons" | "lesson_sessions" | "coin_wallets") {
       if (table === "lessons") throw new Error("окуучу lessons таблицасын түз окубайт (0004)");
       const filters: [string, unknown][] = [];
       const visible = (): object[] =>
-        table === "lesson_sessions" ? (live ? [{assignment_id:"asg", ...live}] : []) : table === "attempts"
+        table === "coin_wallets" ? [{student_id:ME,balance:25}] : table === "lesson_sessions" ? (live ? [{assignment_id:"asg", ...live}] : []) : table === "attempts"
           ? db.attempts.filter((a) => a.student_id === ME)
           : table === "assignments"
             ? [{ id: "asg", lesson_id: "L1" }] // окуучунун классынын тапшырмасы
@@ -64,8 +72,14 @@ function userClient() {
 
 function adminClient() {
   return {
+    rpc:async(name:string)=>{writes.push(name);return {data:"ok",error:null};},
     from(table: "attempts" | "answers") {
       return {
+        insert:async(row:AnswerRec)=>{
+          writes.push(`${table}.insert:${row.block_id}`);
+          if(db.answers.some(r=>r.attempt_id===row.attempt_id&&r.block_id===row.block_id))return {error:{code:"23505"}};
+          db.answers.push(row);return {error:null};
+        },
         upsert: async (row: AnswerRec) => {
           writes.push(`${table}.upsert:${row.block_id}`);
           db.answers = db.answers.filter((r) => !(r.attempt_id === row.attempt_id && r.block_id === row.block_id));
@@ -90,7 +104,7 @@ vi.mock("@/lib/auth", () => ({
 }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => adminClient() }));
 vi.mock("@/lib/student-lessons", () => ({
-  lessonContent: async (id: string) => (id === "L1" ? { title: pythonIf.title, content } : null),
+  lessonContent: async (id: string) => (id === "L1" ? { title: pythonIf.title, content: activeContent } : null),
 }));
 
 const { submitAnswer, completeStage } = await import("@/app/actions/student");
@@ -112,6 +126,7 @@ beforeEach(() => {
   db.answers = [];
   writes.length = 0;
   live = null;
+  activeContent = content;
 });
 
 /** Окуучу ойноткучтагыдай жооп берет: интерактивдүү блоктор, анан керек болсо баскыч. */
@@ -140,13 +155,27 @@ async function playStage(si: number) {
 }
 
 describe("submitAnswer / completeStage", () => {
+  it("капчыктын балансы серверден гана келет", async () => {
+    const b=content.stages[0].blocks.find(x=>correctResponse(x))!;
+    const r=await submitAnswer("a1",b.id,{...correctResponse(b),coinBalance:999999});
+    expect(r.coinBalance).toBe(25);
+    expect((await submitAnswer("other",b.id,correctResponse(b)!)).coinBalance).toBeUndefined();
+  });
+  it("5E түшүндүрүүдө өз оюн жазгандан кийин окууга убакыт калат", async () => {
+    activeContent = generatedLesson(lessonPlan(), {topic:"Шарт",grade:7,duration:45,context:"",pairs:false,groups:false,groupSize:4})!.content;
+    db.attempts[0].current_stage = 2;
+    const r = await submitAnswer("a1","p1",{text:"Байкоомдо чек мааниси маанилүү"});
+    expect(r.current_stage).toBe(2);
+    expect((await completeStage("a1",2)).current_stage).toBe(3);
+  });
   it("жандуу сабактын паузасы жана жабык бөлүгү серверде тосулат", async () => {
     const b = content.stages[0].blocks.find(x => correctResponse(x))!;
     live = {max_stage:4, paused:true};
     expect((await submitAnswer("a1", b.id, correctResponse(b)!)).error).toMatch(/Мугалим/);
     expect((await completeStage("a1",0)).error).toMatch(/Мугалим/);
     expect(writes).toEqual([]);
-    live = null; await playStage(0); writes.length = 0;
+    live = null;
+  activeContent = content; await playStage(0); writes.length = 0;
     live = {max_stage:0, paused:false};
     const next = content.stages[1].blocks.find(x => correctResponse(x))!;
     expect((await submitAnswer("a1",next.id,correctResponse(next)!)).error).toMatch(/Мугалим/);
@@ -268,3 +297,41 @@ describe("туура жооптор браузерге жетпейт", () => {
     expect(view).toMatchObject({ bugs: [], bugCount: b.bugs.length, fixed: undefined });
   });
 });
+
+describe("жалпы таймердеги окуучу",()=>{
+ it("мурунку/кийинки бөлүк жана пауза серверде жабык",async()=>{db.attempts.push(attempt("clock"));live={timed:true,max_stage:1,paused:false};const block=content.stages[0].blocks.find(b=>b.type==="open")!;expect((await submitAnswer("clock",block.id,{text:"Жооп"})).error).toBeTruthy();live.paused=true;expect((await submitAnswer("clock",content.stages[1].blocks[0].id,{})).error).toBeTruthy();expect(writes).toHaveLength(0);});
+ it("мурунку бөлүк бүтпөсө да жалпы учурдагы бөлүккө жооп бере алат, атомдук RPC гана жазат",async()=>{db.attempts.push(attempt("clock"));activeContent=generatedLesson(lessonPlan(),{topic:"Шарт",grade:7,duration:45,context:"",pairs:false,groups:false,groupSize:4})!.content;live={timed:true,max_stage:2,paused:false};const block=activeContent.stages[2].blocks.find(b=>b.type==="open")!;expect((await submitAnswer("clock",block.id,{text:"Өз түшүндүрмөм"})).error).toBeUndefined();expect(writes).toEqual(["save_clock_answer"]);expect(db.attempts[0].current_stage).toBe(0);});
+ it("окуучу өз алдынча кийинки бөлүккө өткөрө албайт",async()=>{db.attempts.push(attempt("clock"));live={timed:true,max_stage:0,paused:false};expect((await completeStage("clock",0)).error).toMatch(/таймер/);expect(writes).toHaveLength(0);});
+});
+
+describe("жаңы интерактив серверден сакталат",()=>{
+ it("экрандагы индекс сакталат, сервер чыныгы жуптарды баалайт жана XP бир блокко гана эсептелет",async()=>{
+  activeContent=structuredClone(content);const b={id:"new-m",type:"matching" as const,prompt:"Дал келтир",pairs:[{left:"А",right:"Бир"},{left:"Б",right:"Эки"},{left:"В",right:"Үч"}],xp:10};activeContent.stages[3].blocks=[b];db.attempts[0].current_stage=3;
+  const perm=shufflePerm(3,parsonsSeed(b.id,"a1")),picks=[0,1,2].map(i=>perm.indexOf(i));
+  const r=await submitAnswer("a1",b.id,{picks});expect(r.error).toBeUndefined();expect(r.answer?.is_correct).toBe(true);expect(r.answer?.response.picks).toEqual(picks);expect(r.xp).toBe(10);expect(r.block).toHaveProperty("shuffled",true);
+  expect((await submitAnswer("a1",b.id,{picks})).xp).toBe(10);
+ });
+ it("Баалоодо параллелдүү эки сурам биринчи жоопту баспайт",async()=>{
+  activeContent=structuredClone(content);const b={id:"new-o",type:"ordering" as const,prompt:"Иретте",steps:["Бир","Эки","Үч"]};activeContent.stages[4].blocks=[b];db.attempts[0].current_stage=4;
+  const results=await Promise.all([submitAnswer("a1",b.id,{order:[0,1,2]}),submitAnswer("a1",b.id,{order:[2,1,0]})]);
+  expect(results.filter(r=>!r.error)).toHaveLength(1);expect(db.answers.filter(a=>a.block_id===b.id)).toHaveLength(1);expect(results.find(r=>!r.error)?.answer?.response.positions).toBeUndefined();
+ });
+});
+
+describe("миссияны серверде аткаруу",()=>{
+ it("түз чакырса да кадамды аттап жеке жооп тапшыра албайт",async()=>{activeContent=structuredClone(content);activeContent.stages[3]=structuredClone(MISSION_EXAMPLE);db.attempts[0].current_stage=3;expect((await submitAnswer("a1","mission-independent",{text:"Жооп"})).error).toMatch(/мурунку/);expect(writes).toHaveLength(0);live={timed:true,max_stage:3,paused:false};expect((await submitAnswer("a1","mission-independent",{text:"Жооп"})).error).toMatch(/мурунку/);expect(writes).toHaveLength(0);});
+ it("машыгуудан кийин жеке жооп бир жолу сакталат, баасы күтүлөт жана баштапкы жооп өзгөрбөйт",async()=>{activeContent=structuredClone(content);activeContent.stages[3]=structuredClone(MISSION_EXAMPLE);db.attempts[0].current_stage=3;for(const b of MISSION_EXAMPLE.blocks.slice(0,2))db.answers.push({attempt_id:"a1",block_id:b.id,stage:3,response:{},is_correct:true,tries:1});const r=await submitAnswer("a1","mission-independent",{text:"Менин далилим"});expect(r.error).toBeUndefined();expect(r.answer).toMatchObject({response:{text:"Менин далилим"},is_correct:null});expect(r.block).toHaveProperty("support",undefined);expect((await submitAnswer("a1","mission-independent",{text:"Башка текст"})).error).toBeTruthy();expect(db.answers.find(a=>a.block_id==="mission-independent")?.response.text).toBe("Менин далилим");expect(writes).toContain("answers.insert:mission-independent");});
+});
+
+describe("таблица жооптору",()=>{
+ it("сервер өзү эсептейт: жасалма passed/тууралык кабыл алынбайт; форма/locked жана формула сакталат",async()=>{activeContent=structuredClone(content);const b=defaultSheet("sheet");activeContent.stages[3].blocks=[b];db.attempts[0].current_stage=3;expect((await submitAnswer("a1",b.id,{cells:{B2:"99"},passed:3})).error).toBeTruthy();expect(writes).toHaveLength(0);const wrong=await submitAnswer("a1",b.id,{cells:{D2:"=320",D3:"=50",D4:"=370"},is_correct:true});expect(wrong.answer?.is_correct).toBe(false);const r=await submitAnswer("a1",b.id,{cells:{D2:"=B2*C2",D3:"=B3*C3",D4:"=SUM(D2:D3)"}});expect(r.answer?.is_correct).toBe(true);expect((r.answer?.response.cells as Record<string,string>).D4).toBe("=SUM(D2:D3)");expect(r.xp).toBe(10);expect(r.block).toHaveProperty("checksHidden",true);expect(r.block?.type==="spreadsheet"&&r.block.checks.every(c=>c.expected==="")).toBe(true);});
+ it("Баалоодо таблица кайра жазылбайт",async()=>{activeContent=structuredClone(content);const b=defaultSheet("exit-sheet");activeContent.stages[4].blocks=[b];db.attempts[0].current_stage=4;const r=await submitAnswer("a1",b.id,{cells:{D2:"=B2*C2",D3:"=B3*C3",D4:"=SUM(D2:D3)"}});expect(r.error).toBeUndefined();expect(r.answer?.response.positions).toBeUndefined();expect((await submitAnswer("a1",b.id,{cells:{}})).error).toBeTruthy();expect(writes).toContain("answers.insert:exit-sheet");});
+});
+
+describe("категориялоо сервер агымы",()=>{
+ it("тууралык жана позициялар экрандагы объекттерге дал келип сакталат",async()=>{activeContent=structuredClone(content);const b=defaultClassification("classify");activeContent.stages[3].blocks=[b];db.attempts[0].current_stage=3;const perm=shufflePerm(b.items.length,parsonsSeed(b.id,"a1")),groups=perm.map(i=>b.items[i].category);const wrong=[...groups];wrong[0]=(wrong[0]+1)%b.categories.length;const r=await submitAnswer("a1",b.id,{groups:wrong,is_correct:true});expect(r.answer?.is_correct).toBe(false);expect(r.answer?.response.groups).toEqual(wrong);expect(r.answer?.response.positions).toEqual([false,...Array(b.items.length-1).fill(true)]);const good=await submitAnswer("a1",b.id,{groups});expect(good.answer?.is_correct).toBe(true);expect(good.xp).toBe(10);expect(good.block?.type==="classification"&&good.block.items.every(i=>i.category===-1)).toBe(true);});
+ it("Баалоодо параллелдүү жооп биринчи тандоону баспайт",async()=>{activeContent=structuredClone(content);const b=defaultClassification("exit-classify");activeContent.stages[4].blocks=[b];db.attempts[0].current_stage=4;const rs=await Promise.all([submitAnswer("a1",b.id,{groups:Array(6).fill(0)}),submitAnswer("a1",b.id,{groups:Array(6).fill(1)})]);expect(rs.filter(r=>!r.error)).toHaveLength(1);expect(db.answers.filter(a=>a.block_id===b.id)).toHaveLength(1);expect(rs.find(r=>!r.error)?.answer?.response.positions).toBeUndefined();expect(writes).toContain(`answers.insert:${b.id}`);});
+ it("туура эмес индекс жазылбайт; жалпы таймерде атомдук RPC сакталат",async()=>{activeContent=structuredClone(content);const b=defaultClassification("clock-classify");activeContent.stages[3].blocks=[b];live={timed:true,max_stage:3,paused:false};expect((await submitAnswer("a1",b.id,{groups:Array(6).fill(99)})).error).toBeTruthy();expect(writes).toHaveLength(0);const perm=shufflePerm(6,parsonsSeed(b.id,"a1"));const r=await submitAnswer("a1",b.id,{groups:perm.map(i=>b.items[i].category)});expect(r.answer?.is_correct).toBe(true);expect(writes).toEqual(["save_clock_answer"]);});
+});
+
+it("жаңы практикалык жоопто көрүнгөн объекттер сакталат, туура жооптор ачылбайт жана бекитилген көчүрмө өзгөрбөйт",async()=>{activeContent=structuredClone(content);const b=defaultClassification("captured");activeContent.stages[3].blocks=[b];db.attempts[0].current_stage=3;const perm=shufflePerm(b.items.length,parsonsSeed(b.id,"a1")),groups=perm.map(i=>b.items[i].category);const r=await submitAnswer("a1",b.id,{groups});const task=structuredClone(r.answer?.response.task);expect(task).toMatchObject({version:1,type:"classification",items:perm.map(i=>b.items[i].text),choices:b.categories});expect(JSON.stringify(task)).not.toContain('"category":');b.items[0].text="Башка аталыш";const again=await submitAnswer("a1",b.id,{groups});expect(again.answer?.response.task).toEqual(task);});

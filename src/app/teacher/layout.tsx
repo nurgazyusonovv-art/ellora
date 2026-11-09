@@ -14,13 +14,14 @@ export default async function TeacherLayout({ children }: { children: React.Reac
         items={[
           { href: "/teacher", label: "Башкы бет", icon: "home", exact: true },
           { href: "/teacher/lessons", label: "Сабактар", icon: "lessons" },
+          { href: "/teacher/games", label: "Оюндар", icon: "stats" },
           { href: "/teacher/ktp", label: "КТП", icon: "ktp" },
           { href: "/teacher/classes", label: "Класстар", icon: "classes" },
           ...(profile.is_admin ? [{ href: "/admin", label: "Админ", icon: "admin" as const }] : []),
         ]}
       />
       <div className="app-content flex min-w-0 flex-1 flex-col min-[1440px]:flex-row">
-        <main className="mx-auto flex w-full min-w-0 max-w-6xl flex-1 flex-col gap-8 px-4 pt-6 pb-24 sm:px-8 lg:px-9 lg:py-10 print:max-w-none print:p-0">{children}</main>
+        <main className="teacher-main mx-auto flex w-full min-w-0 max-w-6xl flex-1 flex-col gap-6 px-4 pt-6 pb-24 sm:px-6 lg:px-10 lg:py-8 print:max-w-none print:p-0">{children}</main>
         <TeacherSidebar name={profile.full_name || "Мугалим"} school={profile.school || "Информатика"} today={today} classes={classes ?? []} />
       </div>
     </div>

@@ -35,12 +35,12 @@ export default async function KtpPage({ searchParams }: { searchParams: Promise<
             href={`/teacher/ktp?grade=${t}`}
             aria-current={t === grade ? "page" : undefined}
             className={cx(
-              "flex min-h-11 shrink-0 flex-col justify-center rounded-[10px] border px-4 py-1.5 text-[15px] font-semibold",
+              "flex min-h-11 shrink-0 flex-col justify-center rounded-md border px-4 py-1.5 text-[15px] font-semibold",
               t === grade ? "border-2 border-accent bg-accent-soft" : "border-line bg-surface hover:bg-surface-2",
             )}
           >
             {t}-класс
-            <span className="text-xs font-normal text-muted">{own.has(t) ? "өз планым" : KTP_TEMPLATES[t] ? "расмий үлгү" : "бош"}</span>
+            <span className="text-xs font-normal text-muted">{own.has(t) ? "өз планым" : KTP_TEMPLATES[t] ? "үлгү жана сунуштар" : "бош"}</span>
           </Link>
         ))}
       </nav>

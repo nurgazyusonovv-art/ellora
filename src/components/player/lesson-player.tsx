@@ -440,7 +440,7 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
         </section>
       )}
 
-      <div className="flex justify-between gap-3">
+      <div className="hidden justify-between gap-3 lg:flex">
         <Button variant="secondary" disabled={view === 0 || !!liveSession?.timed} onClick={() => go(view - 1)}>
           ← Мурунку
         </Button>
@@ -450,6 +450,24 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
           </Button>
         )}
       </div>
+
+      {/* Телефондо: баш бармак жетчү ылдыйкы тилке — чыгуу, мурунку жана кийинки бөлүк ар дайым көрүнүп турат. */}
+      <nav aria-label="Сабактын навигациясы" className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-line bg-surface/95 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden print:hidden">
+        <Link href={backHref} className="flex min-h-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-md px-2.5 text-[11px] text-muted hover:bg-surface-2" aria-label="Сабактан чыгуу, башкы бетке">
+          <Icon name="home" size={20} />
+          Чыгуу
+        </Link>
+        <Button variant="secondary" className="min-h-12 flex-1 px-2" disabled={view === 0 || !!liveSession?.timed} onClick={() => go(view - 1)} aria-label="Мурунку бөлүк">
+          ← Мурунку
+        </Button>
+        {view < stages.length - 1 ? (
+          <Button className="min-h-12 flex-[1.4] px-2" disabled={!canNext} onClick={() => go(view + 1)}>
+            {liveSession?.timed ? "Күт" : canNext ? "Кийинки →" : `${view + 1}/${stages.length} · Бүтүр`}
+          </Button>
+        ) : (
+          <span className="flex min-h-12 flex-[1.4] items-center justify-center font-mono text-xs text-muted">{view + 1}/{stages.length} · Exit</span>
+        )}
+      </nav>
     </div>
   );
 }

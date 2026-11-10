@@ -8,6 +8,7 @@ import { Logo } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { readLiveSession } from "@/lib/live-session";
 import { boardSlides } from "@/lib/board-slides";
+import { lessonGoal } from "@/lib/goal-check";
 import { boardResult, type BoardRow } from "@/lib/live-results";
 import { stageMeta, type LessonContent } from "@/lib/lesson-types";
 
@@ -67,7 +68,7 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
         {found && result ? (
           <BoardView prompt={prompt} code={code} result={result} reveal={!!spot.spotlight_reveal} total={total ?? 0} />
         ) : running && !session.paused ? (
-          <BoardStage key={stage} slides={boardSlides(content.stages[stage])} stageLabel={`${stage + 1}/5 · ${stageMeta(content, content.stages[stage].key).label}`} />
+          <BoardStage key={stage} slides={boardSlides(content.stages[stage], stage === 0 ? lessonGoal(content) : null)} stageLabel={`${stage + 1}/5 · ${stageMeta(content, content.stages[stage].key).label}`} />
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
             <p className="font-mono text-sm uppercase tracking-[0.08em] text-muted">{session?.paused ? "Тыныгуу" : session && !session.ended ? "Сабак жүрүп жатат" : "Такта"}</p>

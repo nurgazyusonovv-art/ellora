@@ -49,6 +49,27 @@ export function BoardStage({ slides, stageLabel }: { slides: BoardSlide[]; stage
 }
 
 function SlideView({ s, stageLabel }: { s: BoardSlide; stageLabel: string }) {
+  if (s.kind === "goal")
+    return (
+      <div className="mx-auto grid w-full max-w-6xl gap-8 lg:grid-cols-2">
+        {s.objectives.length > 0 && (
+          <div className="flex flex-col gap-5">
+            <p className="flex items-center gap-3 font-mono text-base uppercase tracking-[0.1em] text-accent"><Icon name="target" size={28} /> Бүгүнкү максат</p>
+            <ul className="flex flex-col gap-4">
+              {s.objectives.map((x) => <li key={x} className="flex gap-3 text-3xl leading-snug font-medium lg:text-4xl"><span aria-hidden className="text-accent">•</span>{x}</li>)}
+            </ul>
+          </div>
+        )}
+        {s.criteria.length > 0 && (
+          <div className="flex flex-col gap-5 rounded-lg border border-line-strong bg-surface p-6">
+            <p className="font-mono text-base uppercase tracking-[0.1em] text-muted">Сабактын аягында мен…</p>
+            <ul className="flex flex-col gap-4">
+              {s.criteria.map((x) => <li key={x} className="flex gap-3 text-2xl leading-snug lg:text-3xl"><Icon name="check" size={30} className="mt-1 text-good" />{x}</li>)}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
   if (s.kind === "intro")
     return (
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 text-center">

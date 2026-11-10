@@ -9,6 +9,8 @@ import {pollLessonClock} from "@/app/actions/lesson-clock";
 import {POLL_CONNECTED,useLessonChannel} from "@/lib/use-lesson-channel";
 import { explanationView } from "@/lib/explanation-view";
 import { Presentation } from "./presentation";
+import { GoalCard, GoalCheck } from "./goal-card";
+import { GOAL_CHECK_ID, lessonGoal, readGoalCheck } from "@/lib/goal-check";
 import { LessonGame, type GameCtx } from "./lesson-game";
 
 import { ENGAGEMENT_LEVELS } from "@/lib/lesson-types";
@@ -281,6 +283,7 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
     previewAdvance(view, answers, xp);
   };
 
+  const goalInfo = lessonGoal(content);
   const st = stages[view];
   const canNext = !liveSession?.timed && view < stages.length - 1 && (preview || (unlocked > view && liveAllows(liveSession, view + 1)));
   const isExit = st.key === "exit";
@@ -318,7 +321,7 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
         </details>
       )}
 
-      {content.model === "5e" && view === 0 && <div className="grid gap-4 rounded-lg border border-line bg-surface p-4 sm:grid-cols-2"><div><h2 className="mb-2 text-sm font-medium">Сабактын максаты</h2><ul className="list-disc pl-5 text-sm">{content.objectives?.map(x => <li key={x}>{x}</li>)}</ul></div><div><h2 className="mb-2 text-sm font-medium">Ийгилик критерийлери</h2><ul className="list-disc pl-5 text-sm">{content.successCriteria?.map(x => <li key={x}>{x}</li>)}</ul></div></div>}
+      {view === 0 && goalInfo && <GoalCard objectives={goalInfo.objectives} criteria={goalInfo.criteria} />}
       <nav aria-label="Сабактын бөлүктөрү" className="lesson-stage-nav sticky top-0 z-10 -mx-4 border-b border-line bg-surface-2/90 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
         <ol ref={stageNavRef} className="flex gap-1.5 overflow-x-auto pb-1 sm:grid sm:grid-cols-5">
           {stages.map((s, i) => {
@@ -410,6 +413,10 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
               {b.extension && answers[b.id] && <details className="rounded-xl bg-surface-2 p-3 border border-line"><summary className="min-h-11 cursor-pointer font-semibold">Тереңдетип көр</summary><RichText text={b.extension} /></details>}
             </div>
           ))}
+
+          {isExit && goalInfo && goalInfo.criteria.length > 0 && (preview || finished || unlocked >= view || !!liveSession?.timed) && (
+            <GoalCheck criteria={goalInfo.criteria} attemptId={attempt?.id} initial={readGoalCheck(answers[GOAL_CHECK_ID]?.response, goalInfo.criteria.length)} />
+          )}
 
           {(!liveSession?.timed ? view === unlocked : isExit && !liveSession.ended) && (isExit || (content.model === "5e" && st.key === "practice") || !st.blocks.some(isInteractive)) && (
             <div className="flex flex-wrap items-center gap-3">

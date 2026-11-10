@@ -5,6 +5,7 @@
 import type { Block, LessonSlide, Stage } from "./lesson-types";
 
 export type BoardSlide =
+  | { kind: "goal"; objectives: string[]; criteria: string[] }
   | { kind: "intro"; title: string; intro?: string; mission?: { title: string; story: string; goal: string } }
   | { kind: "slide"; deck: string; n: number; of: number; slide: LessonSlide }
   | { kind: "text"; title?: string; body: string }
@@ -56,12 +57,14 @@ function blockSlides(b: Block): BoardSlide[] {
   }
 }
 
-export function boardSlides(stage: Stage): BoardSlide[] {
+/** `goal` — сабактын максаты: биринчи бөлүктө эң биринчи слайд (мугалим адегенде максатты түшүндүрөт). */
+export function boardSlides(stage: Stage, goal?: { objectives: string[]; criteria: string[] } | null): BoardSlide[] {
   const intro: BoardSlide = {
     kind: "intro",
     title: stage.title,
     intro: stage.intro?.trim() || undefined,
     mission: stage.mission ? { title: stage.mission.title, story: stage.mission.story, goal: stage.mission.goal } : undefined,
   };
-  return [intro, ...stage.blocks.flatMap(blockSlides)];
+  const first: BoardSlide[] = goal ? [{ kind: "goal", objectives: goal.objectives, criteria: goal.criteria }] : [];
+  return [...first, intro, ...stage.blocks.flatMap(blockSlides)];
 }

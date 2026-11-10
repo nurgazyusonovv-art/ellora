@@ -2,6 +2,7 @@ import {AssignmentTermForm} from "@/components/assignment-term-fields";
 import {ShareCard} from "@/components/share-card";
 import {codeReviewSource,reviewSource,sourceHash} from "@/lib/review-source";
 import { CodeView } from "@/components/code";
+import { GOAL_CHECK_ID, goalSummary, lessonGoal } from "@/lib/goal-check";
 import {readDelivery,readLiveSession} from "@/lib/live-session";
 import { liveState } from "@/lib/classroom";
 import { ClassInsightsPanel } from "@/components/class-insights";
@@ -88,6 +89,9 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
       return { id: m.student_id, name: m.profiles?.full_name ?? "Окуучу", t, st, text };
     })
     .sort((x, y) => STATUS_META[x.st].order - STATUS_META[y.st].order || x.name.localeCompare(y.name, "ky"));
+  const goalStats = lessonGoal(content)?.criteria.length
+    ? goalSummary(content, students.flatMap((s) => { const r = s.t && (answers ?? []).find((x) => x.attempt_id === s.t!.id && x.block_id === GOAL_CHECK_ID); return r ? [{ name: s.name, response: r.response }] : []; }))
+    : null;
   const helpNames = students.filter((s) => s.st === "help" || s.st === "stuck").map((s) => s.name.split(" ")[0]);
 
   return (
@@ -207,6 +211,21 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
       <Link href={`/teacher/assignments/${id}/teams`} className="flex min-h-11 items-center font-semibold text-accent">Жуп жана топ иштерин уюштуруу →</Link>
       <Link href={`/teacher/assignments/${id}/pathways`} className="flex min-h-11 items-center rounded-xl bg-accent-soft px-4 font-semibold text-accent border border-accent/20">Колдоо менен / негизги / тереңдетилген практика →</Link>
       <Link href={`/teacher/assignments/${id}/repetition`} className="flex min-h-11 items-center rounded-xl bg-accent-soft px-4 font-semibold text-accent border border-accent/20">Аралык кайталоону пландоо жана жыйынтыктар →</Link>
+      {goalStats && goalStats.answered > 0 && (
+        <Card className="flex flex-col gap-3">
+          <h2 className="font-semibold">Максатка жетиштиби? · окуучулардын өз баасы ({goalStats.answered})</h2>
+          <p className="text-sm text-muted">Exit бөлүгүндө окуучулар ар бир ийгилик критерийи боюнча өзүн баалады. Баага кирбейт — кийинки сабакта кимге жардам керек экенин көрсөтөт.</p>
+          <ul className="flex flex-col gap-3">
+            {goalStats.criteria.map((c) => (
+              <li key={c.text} className="flex flex-col gap-1.5">
+                <div className="flex items-baseline justify-between gap-3 text-sm"><span>{c.text}</span><span className="shrink-0 font-mono text-muted">{c.yes}/{goalStats.answered}</span></div>
+                <Progress value={(c.yes / goalStats.answered) * 100} tone="good" />
+                {c.notYet.length > 0 && <p className="text-xs text-amber">Азырынча жок: {c.notYet.join(", ")}</p>}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
       <section className="flex flex-col gap-4">
         <h2 className="text-xl font-semibold">Окуучунун далили жана өз алдынча колдонуу</h2>
         <p className="text-sm text-muted">Тесттин баллы өзүнчө. Түшүндүрмө жана колдонуу төмөнкү критерийлер менен мугалим тарабынан бааланат.</p>

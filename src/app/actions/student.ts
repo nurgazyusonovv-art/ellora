@@ -11,6 +11,7 @@ import { lessonContent } from "@/lib/student-lessons";
 import { interactiveResponse } from "@/lib/interactive-tasks";
 import { parsonsSeed, shufflePerm, studentBlock } from "@/lib/student-view";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { exitIndex, GOAL_CHECK_ID, goalCheckInput } from "@/lib/goal-check";
 import { applyLessonGameAnswer, gradeQuestion, type GameQuestion, type GradeResult } from "@/lib/game-questions";
 
 export type Progress = {
@@ -207,4 +208,24 @@ export async function completeStage(attemptId: string, stageIdx: number): Promis
     .eq("id", attemptId);
   if (error) return { error: SAVE_ERROR };
   return { ...await coinBalance(ctx), xp, current_stage: content.stages.length, finished: { score: r.score, total: r.total } };
+}
+
+/**
+ * Exit'теги өзүн баалоо: ар бир ийгилик критерийи боюнча «кыла алам / азырынча жок».
+ * Баага жана XPга кирбейт; сабак бүткөндөн кийин да оңдосо болот. Exit бөлүгү ачылган болушу керек.
+ */
+export async function submitGoalCheck(attemptId: string, met: unknown): Promise<{ error?: string; ok?: boolean }> {
+  const ctx = await load(attemptId);
+  if (!ctx) return { error: "Сабак табылган жок." };
+  const exitIdx = exitIndex(ctx.content);
+  const value = goalCheckInput(ctx.content, met);
+  if (exitIdx < 0 || !value) return { error: "Ар бир критерийди белгиле." };
+  if (!ctx.attempt.finished_at) {
+    if (!liveAllows(ctx.session, exitIdx)) return { error: liveBlockedMessage(ctx.session) };
+    if (!ctx.session?.timed && ctx.attempt.current_stage < exitIdx) return { error: "Бул бөлүк али ачыла элек." };
+  }
+  const { error } = await createAdminClient()
+    .from("answers")
+    .upsert({ attempt_id: attemptId, block_id: GOAL_CHECK_ID, stage: exitIdx, response: { met: value }, is_correct: null, tries: 1, updated_at: new Date().toISOString() });
+  return error ? { error: SAVE_ERROR } : { ok: true };
 }

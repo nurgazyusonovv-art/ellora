@@ -3,6 +3,7 @@ import { createGameSet } from "@/app/actions/game-sets";
 import { GameAiForm } from "@/components/game-ai-form";
 import { DeleteGameAssignment, GameAssignForm, LiveStartForm } from "@/components/game-assign-form";
 import { Icon } from "@/components/icons";
+import { QuizAiForm } from "@/components/quiz-ai-form";
 import { Button, Card, Chip, PageTitle, Progress } from "@/components/ui";
 import { GAME_SETS } from "@/content/game-sets";
 import { requireRole } from "@/lib/auth";
@@ -68,6 +69,14 @@ export default async function GamesPage() {
           Оюн ойнотуу үчүн адегенде <Link href="/teacher/classes" className="font-medium underline">класс ачыңыз</Link>.
         </p>
       )}
+
+      <details className="group rounded-lg border border-accent/30 bg-surface" open={(sets ?? []).length === 0}>
+        <summary className="flex min-h-12 cursor-pointer items-center gap-2 px-4 text-sm font-medium">
+          <Icon name="spark" size={16} className="text-accent" /> ЖИ менен оюн түзүү
+          <span className="font-normal text-muted">— тема жазсаңыз, тест суроолорун даярдап берет</span>
+        </summary>
+        <div className="border-t border-line p-4"><QuizAiForm /></div>
+      </details>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-medium">Менин оюндарым</h2>

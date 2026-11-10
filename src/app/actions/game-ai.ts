@@ -1,8 +1,10 @@
 "use server";
 import {revalidatePath} from "next/cache";
+import {redirect} from "next/navigation";
 import {requireRole} from "@/lib/auth";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {gameInput,gameSchema,generatedGame,GAME_INSTRUCTIONS} from "@/lib/game-generator";
+import {generatedQuiz,quizInput,quizSchema,QUIZ_INSTRUCTIONS,QUIZ_MAX,QUIZ_MIN} from "@/lib/quiz-generator";
 import type {LessonAiState} from "./lesson-ai";
 export async function generateGame(_:LessonAiState,fd:FormData):Promise<LessonAiState>{
  const {supabase,profile}=await requireRole("teacher"),input=gameInput(fd);
@@ -31,4 +33,34 @@ export async function generateGame(_:LessonAiState,fd:FormData):Promise<LessonAi
  const {error:linked}=await update({status:"ready",lesson_id:lesson.id});revalidatePath("/teacher/games");revalidatePath("/teacher/lessons");
  return {lessonId:lesson.id,generationId:gid,...(linked?{warning:"Оюн сакталды, бирок тарыхтагы шилтемеси жаңырган жок."}:{})};
  }catch{return fail("ЖИ менен байланыш үзүлдү. Кийин кайра аракет кылыңыз.");}
+}
+
+export type QuizAiState={error?:string;generationId?:string};
+/** ЖИ менен квиз-оюн (game_sets): тест суроолору. Сабак менен жалпы күнүмдүк лимит. Ийгиликте — редакторго. */
+export async function generateQuiz(_:QuizAiState,fd:FormData):Promise<QuizAiState>{
+ const {supabase,profile}=await requireRole("teacher"),input=quizInput(fd);
+ if(!input)return {error:`Теманы, 5–9-классты жана ${QUIZ_MIN}–${QUIZ_MAX} суроо санын туура тандаңыз.`};
+ const key=process.env.OPENAI_API_KEY;if(!key)return {error:"ЖИ кызматы азырынча туташтырылган эмес."};
+ const model=process.env.OPENAI_LESSON_MODEL||"gpt-4.1";
+ const {data:gid,error}=await supabase.rpc("reserve_lesson_generation",{p_input:input,p_model:model});
+ if(error)return {error:"ЖИ түзүү кызматы жеткиликтүү эмес."};
+ if(typeof gid!=="string")return {error:"30 секунд күтө туруңуз. Оюн жана сабак үчүн жалпы күнүнө 10 долбоор түзүүгө болот."};
+ const admin=createAdminClient(),update=async(patch:Record<string,unknown>)=>admin.from("ai_lesson_generations").update(patch).eq("id",gid).eq("teacher_id",profile.id);
+ const fail=async(message:string):Promise<QuizAiState>=>{await update({status:"failed",error:message});return {error:message,generationId:gid};};
+ let setId:string;
+ try{
+ const response=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{Authorization:`Bearer ${key}`,"Content-Type":"application/json"},signal:AbortSignal.timeout(90000),body:JSON.stringify({model,store:false,max_output_tokens:6000,instructions:QUIZ_INSTRUCTIONS,input:JSON.stringify(input),text:{format:{type:"json_schema",name:"live_quiz",strict:true,schema:quizSchema(input)}}})});
+ if(!response.ok)return fail("ЖИ оюн түзө алган жок. Кийин кайра аракет кылыңыз.");
+ const data=await response.json() as {status?:string;usage?:{input_tokens:number;output_tokens:number};output?:{type:string;content?:{type:string;text?:string}[]}[]};
+ const raw=data.output?.filter(x=>x.type==="message").flatMap(x=>x.content??[]).filter(x=>x.type==="output_text").map(x=>x.text??"").join("")??"";
+ await update({result:raw,input_tokens:data.usage?.input_tokens??null,output_tokens:data.usage?.output_tokens??null});
+ if(data.status!=="completed")return fail("ЖИ оюну толук түзүлгөн жок. Кайра аракет кылыңыз.");
+ let parsed:unknown;try{parsed=JSON.parse(raw);}catch{return fail("ЖИ жообунун форматы туура эмес. Кайра аракет кылыңыз.");}
+ const quiz=generatedQuiz(parsed,input);if(!quiz)return fail("Суроолор текшерүүдөн өткөн жок. Кайра аракет кылыңыз.");
+ const {data:set,error:saveError}=await supabase.from("game_sets").insert({author_id:profile.id,title:quiz.title,grade:input.grade,topic:input.topic,skills:quiz.skills,questions:quiz.questions}).select("id").single();
+ if(saveError||!set)return fail("Оюн сакталган жок. Кайра аракет кылыңыз.");
+ await update({status:"ready"});setId=set.id;
+ }catch{return fail("ЖИ менен байланыш үзүлдү. Кийин кайра аракет кылыңыз.");}
+ revalidatePath("/teacher/games");
+ redirect(`/teacher/games/sets/${setId}?ai=1`);
 }

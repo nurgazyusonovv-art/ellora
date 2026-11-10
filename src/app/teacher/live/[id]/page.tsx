@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { LiveStatus, LiveSync, OnlineCount, OnlineDot } from "@/components/live-sync";
 import { Icon } from "@/components/icons";
 import { LiveControls } from "@/components/live-controls";
+import { BoardButtons, HideAnswer } from "@/components/board-controls";
 import { Card, Chip, cx, Progress } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { liveState, type Delivery, type LiveState } from "@/lib/classroom";
@@ -53,7 +54,11 @@ export default async function LiveLessonPage({ params }: { params: Promise<{ id:
   const stage = session?.max_stage ?? 0;
   const running = state === "live" || state === "paused";
   const st = content.stages[stage];
-  const stageBlocks = st.blocks.filter((b) => isInteractive(b) && b.type !== "confidence");
+  const stageBlocks = st.blocks.filter((b) => isInteractive(b));
+  // Такта (0020): мугалим кайсы тапшырманы проекторго чыгарганы.
+  const spot = (session ?? {}) as { spotlight_block?: string | null; spotlight_reveal?: boolean; spotlight_hidden?: string[] | null };
+  const spotBlock = spot.spotlight_block ? content.stages.flatMap((x) => x.blocks).find((b) => b.id === spot.spotlight_block) : undefined;
+  const hiddenSet = new Set(spot.spotlight_hidden ?? []);
   const stageIds = new Set(stageBlocks.map((b) => b.id));
   const attemptOf = new Map((attempts ?? []).map((t) => [t.student_id, t]));
 
@@ -83,7 +88,10 @@ export default async function LiveLessonPage({ params }: { params: Promise<{ id:
     <LiveSync assignmentId={id} teacherId={profile.id} active={running}>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <Link href={`/teacher/assignments/${id}`} className="text-sm font-medium text-muted hover:text-ink">← Натыйжалар барагы</Link>
-        <LiveStatus />
+        <span className="flex items-center gap-4">
+          <LiveStatus />
+          <a href={`/board/${id}`} target="_blank" rel="noopener" className="text-sm font-medium text-accent hover:underline">Тактаны ачуу ↗</a>
+        </span>
       </div>
       <header className="flex flex-col gap-2 border-b border-line pb-5">
         <div className="flex flex-wrap items-center gap-2">
@@ -163,10 +171,43 @@ export default async function LiveLessonPage({ params }: { params: Promise<{ id:
 
         <section className="flex flex-col gap-3" aria-label="Учурдагы бөлүктүн тапшырмалары">
           <h2 className="text-base font-medium">{stage + 1}-бөлүк: {stageMeta(content, st.key).label}</h2>
+          {spotBlock && running && !stageBlocks.some((b) => b.id === spotBlock.id) && (
+            <Card className="flex flex-col gap-2 border-accent/30">
+              <p className="text-sm"><span className="text-muted">Тактада (башка бөлүктөн):</span> {blockSummary(spotBlock)}</p>
+              <BoardButtons assignmentId={id} blockId={spotBlock.id} active reveal={!!spot.spotlight_reveal} canReveal={spotBlock.type === "mcq"} />
+            </Card>
+          )}
+          {spotBlock && running && (spotBlock.type === "open" || spotBlock.type === "investigation") && (
+            <Card className="flex flex-col gap-2">
+              <p className="text-sm font-medium">Тактадагы жооптор</p>
+              <p className="text-xs text-muted">Тактада аттар көрүнбөйт. Ылайыксыз жоопту жашырыңыз.</p>
+              <ul className="flex flex-col divide-y divide-line">
+                {(answers ?? [])
+                  .filter((x) => x.block_id === spotBlock.id && x.response)
+                  .map((x) => {
+                    const who = (attempts ?? []).find((t) => t.id === x.attempt_id);
+                    const name = (members ?? []).find((m) => m.student_id === who?.student_id)?.profiles?.full_name ?? "Окуучу";
+                    const r = x.response as Record<string, unknown>;
+                    const text = String((spotBlock.type === "open" ? r.text : r.conclusion || r.prediction) ?? "").trim();
+                    if (!text) return null;
+                    const hidden = hiddenSet.has(x.attempt_id);
+                    return (
+                      <li key={x.attempt_id} className={cx("flex items-start gap-3 py-2.5", hidden && "opacity-60")}>
+                        <span className="min-w-0 flex-1 text-sm">
+                          <span className="font-medium">{name}:</span> <span className="break-words">{text}</span>
+                        </span>
+                        <HideAnswer assignmentId={id} attemptId={x.attempt_id} hidden={hidden} />
+                      </li>
+                    );
+                  })}
+              </ul>
+            </Card>
+          )}
           {blockStats.length === 0 && <p className="text-sm text-muted">Бул бөлүктө жооп талап кылган тапшырма жок.</p>}
           {blockStats.map(({ b, n, right, graded, options }) => (
             <Card key={b.id} className="flex flex-col gap-2.5">
               <p className="text-sm font-medium">{blockSummary(b)}</p>
+              {running && <BoardButtons assignmentId={id} blockId={b.id} active={spot.spotlight_block === b.id} reveal={!!spot.spotlight_reveal} canReveal={b.type === "mcq"} />}
               <div className="flex items-center gap-3">
                 <div className="flex-1"><Progress value={students.length ? (n / students.length) * 100 : 0} /></div>
                 <span className="shrink-0 font-mono text-xs text-muted tabular-nums">

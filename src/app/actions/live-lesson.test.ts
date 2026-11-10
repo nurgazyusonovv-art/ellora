@@ -35,7 +35,7 @@ function client() {
           return { error: null };
         },
         maybeSingle: async () => {
-          if (table === "assignments") return { data: { id: ID, class_id: "C1" } };
+          if (table === "assignments") return { data: { id: ID, class_id: "C1", lessons: { content: { stages: [{ blocks: [{ id: "p1" }, { id: "p2" }] }] } } } };
           if (table === "classes") return { data: db.ownClass ? { id: "C1" } : null };
           return { data: db.session, error: null };
         },
@@ -113,6 +113,31 @@ describe("мугалим башкарган сабак", () => {
     expect(db.session).toBeNull();
     expect(db.delivery).toBe("self");
     expect(db.dueAt).toBe(new Date("2026-11-20T23:59:00+06:00").toISOString());
+  });
+
+  it("тактага чыгарат, туура жоопту ачат жана ачык жоопту жашырат", async () => {
+    await liveCommand(undefined, fd({ command: "start" }));
+    db.session!.spotlight_reveal = true;
+    expect((await liveCommand(undefined, fd({ command: "spotlight", block: "p2" })))?.success).toBeTruthy();
+    expect(db.session).toMatchObject({ spotlight_block: "p2", spotlight_reveal: false, max_stage: 0 });
+    await liveCommand(undefined, fd({ command: "reveal", on: "true" }));
+    expect(db.session?.spotlight_reveal).toBe(true);
+    const att = "40000000-0000-0000-0000-000000000001";
+    await liveCommand(undefined, fd({ command: "hide", attempt: att }));
+    await liveCommand(undefined, fd({ command: "hide", attempt: att }));
+    expect(db.session?.spotlight_hidden).toEqual([att]);
+    await liveCommand(undefined, fd({ command: "unhide", attempt: att }));
+    expect(db.session?.spotlight_hidden).toEqual([]);
+    await liveCommand(undefined, fd({ command: "spotlight", block: "" }));
+    expect(db.session?.spotlight_block).toBeNull();
+  });
+
+  it("тактага сабакта жок тапшырманы же жараксыз жоопту кабыл албайт", async () => {
+    await liveCommand(undefined, fd({ command: "start" }));
+    expect((await liveCommand(undefined, fd({ command: "spotlight", block: "zzz" })))?.error).toBeTruthy();
+    expect((await liveCommand(undefined, fd({ command: "hide", attempt: "bad" })))?.error).toBeTruthy();
+    db.session = null;
+    expect((await liveCommand(undefined, fd({ command: "spotlight", block: "p1" })))?.error).toBeTruthy();
   });
 
   it("башка мугалимдин сабагын, жалпы таймерди жана жараксыз буйрукту четке кагат", async () => {

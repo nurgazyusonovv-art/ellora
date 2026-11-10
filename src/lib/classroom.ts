@@ -1,4 +1,4 @@
-export type LiveSession = { max_stage: number; paused: boolean; timed?:boolean; ended?:boolean; auto_advance?:boolean; deadline?:string|null; remaining_seconds?:number; durations?:number[]; clock_version?:number; server_now?:string ;waiting?:boolean;started_at?:string|null};
+export type LiveSession = { max_stage: number; paused: boolean; timed?:boolean; ended?:boolean; auto_advance?:boolean; deadline?:string|null; remaining_seconds?:number; durations?:number[]; clock_version?:number; server_now?:string ;waiting?:boolean;started_at?:string|null;spotlight_block?:string|null};
 export type Review = { block_id: string; criteria_met: boolean[]; feedback: string };
 
 export type Delivery = "class" | "self";

@@ -1,12 +1,14 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
+import type { LessonContent } from "@/lib/lesson-types";
 
 export type LiveCommandState = { error?: string; success?: string } | undefined;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const COMMANDS = new Set(["start", "next", "back", "pause", "resume", "close", "homework"]);
-type Session = { max_stage: number; paused: boolean; ended: boolean; timed: boolean | null };
+const COMMANDS = new Set(["start", "next", "back", "pause", "resume", "close", "homework", "spotlight", "reveal", "hide", "unhide"]);
+const BOARD = new Set(["spotlight", "reveal", "hide", "unhide"]);
+type Session = { max_stage: number; paused: boolean; ended: boolean; timed: boolean | null; spotlight_hidden?: string[] | null };
 
 /**
  * Мугалим башкарган сабак (0018). Укук RLS менен текшерилет: дайындама мугалимдин өз классыныкы болушу керек.
@@ -19,11 +21,11 @@ export async function liveCommand(_: LiveCommandState, fd: FormData): Promise<Li
   const stage = Number(fd.get("stage"));
   if (!UUID.test(id) || !COMMANDS.has(command)) return { error: "Башкаруу маалыматы туура эмес." };
 
-  const { data: a } = await supabase.from("assignments").select("id, class_id").eq("id", id).maybeSingle();
+  const { data: a } = await supabase.from("assignments").select("id, class_id, lessons(content)").eq("id", id).maybeSingle<{ id: string; class_id: string; lessons: { content: LessonContent } | null }>();
   const { data: own } = a ? await supabase.from("classes").select("id").eq("id", a.class_id).eq("teacher_id", profile.id).maybeSingle() : { data: null };
   if (!a || !own) return { error: "Сабак табылган жок." };
 
-  const { data: s, error: readError } = await supabase.from("lesson_sessions").select("max_stage, paused, ended, timed").eq("assignment_id", id).maybeSingle<Session>();
+  const { data: s, error: readError } = await supabase.from("lesson_sessions").select(BOARD.has(command) ? "max_stage, paused, ended, timed, spotlight_hidden" : "max_stage, paused, ended, timed").eq("assignment_id", id).maybeSingle<Session>();
   if (readError) return { error: "Сабактын абалы жүктөлгөн жок. 0018 база жаңыртуусун текшериңиз." };
   if (s?.timed && !s.ended) return { error: "Бул сабак жалпы таймер менен жүрүп жатат. Аны натыйжалар барагынан башкарыңыз." };
   const now = new Date().toISOString();
@@ -43,7 +45,10 @@ export async function liveCommand(_: LiveCommandState, fd: FormData): Promise<Li
       supabase.from("assignments").update({ delivery: "class" }).eq("id", id),
       supabase.from("lesson_sessions").upsert({ assignment_id: id, max_stage: 0, paused: false, ended: false, timed: false, deadline: null, started_at: now, ended_at: null, updated_at: now }),
     ]);
-    return e1 || e2 ? { error: "Сабак башталган жок. 0018 база жаңыртуусун текшериңиз." } : done("Сабак башталды. Окуучулардын экранында 1-бөлүк ачылды.");
+    if (e1 || e2) return { error: "Сабак башталган жок. 0018 база жаңыртуусун текшериңиз." };
+    // Такта (0020) жаңы сабакта бош башталат. 0020 иштетиле элек болсо бул жаңыртуу ката берет — эске алынбайт.
+    await supabase.from("lesson_sessions").update({ spotlight_block: null, spotlight_reveal: false, spotlight_hidden: [] }).eq("assignment_id", id);
+    return done("Сабак башталды. Окуучулардын экранында 1-бөлүк ачылды.");
   }
 
   if (command === "homework") {
@@ -57,6 +62,30 @@ export async function liveCommand(_: LiveCommandState, fd: FormData): Promise<Li
   }
 
   if (!s || s.ended) return { error: "Сабак азыр жүрүп жаткан жок." };
+
+  if (BOARD.has(command)) {
+    // Такта: кайсы тапшырма көрсөтүлөт, туура жооп ачылабы, кайсы ачык жооп жашырылат. Бөлүк өзгөрбөйт.
+    let patch: Record<string, unknown>;
+    if (command === "spotlight") {
+      const block = String(fd.get("block") ?? "");
+      if (block && !a.lessons?.content.stages.some((st) => st.blocks.some((b) => b.id === block))) return { error: "Тапшырма табылган жок." };
+      patch = { spotlight_block: block || null, spotlight_reveal: false };
+    } else if (command === "reveal") patch = { spotlight_reveal: fd.get("on") === "true" };
+    else {
+      const attempt = String(fd.get("attempt") ?? "");
+      if (!UUID.test(attempt)) return { error: "Жооп табылган жок." };
+      const hidden = new Set(s.spotlight_hidden ?? []);
+      if (command === "hide") hidden.add(attempt);
+      else hidden.delete(attempt);
+      if (hidden.size > 200) return { error: "Жашырылган жооптор өтө көп." };
+      patch = { spotlight_hidden: [...hidden] };
+    }
+    const { error } = await supabase.from("lesson_sessions").update({ ...patch, updated_at: now }).eq("assignment_id", id);
+    if (error) return { error: "Такта сакталган жок. 0020 база жаңыртуусун текшериңиз." };
+    revalidatePath(`/teacher/live/${id}`);
+    revalidatePath(`/teacher/live/${id}/board`);
+    return { success: command === "spotlight" ? (patch.spotlight_block ? "Тактага чыгарылды." : "Такта тазаланды.") : command === "reveal" ? (patch.spotlight_reveal ? "Туура жооп тактада ачылды." : "Туура жооп жашырылды.") : command === "hide" ? "Жооп тактадан жашырылды." : "Жооп тактага кайтарылды." };
+  }
   if (!Number.isInteger(stage) || stage !== s.max_stage) return { error: "Сабактын абалы өзгөрдү. Баракты жаңыртыңыз." };
 
   const patch =

@@ -151,6 +151,8 @@ export async function saveLesson(id: string, draft: LessonDraft): Promise<SaveRe
     .eq("status", cur.status)
     .select("id")
     .maybeSingle();
+  if (error?.message?.includes("lesson_locked"))
+    return { error: "Окуучулар бул сабакка жооп берген, ошондуктан мазмуну бекитилген. Өзгөртүү үчүн көчүрмө түзүңүз (жогорудагы баскыч)." };
   if (error || !data) return { error: "Сакталган жок. Байланышты текшериңиз же сабактын абалы өзгөрсө, баракты кайра ачыңыз." };
   return { savedAt: updated_at };
 }

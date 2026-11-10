@@ -14,3 +14,6 @@ describe("мугалимдин класс укугу",()=>{
 });
 
 it("эски ЖИ сунушун жана мугалим ырастабаган сунушту сактабайт",async()=>{const f=fd();f.set("sourceHash","old");expect((await reviewAnswer({},f)).error).toMatch(/өзгөрдү/);f.delete("sourceHash");f.set("aiApplied","true");expect((await reviewAnswer({},f)).error).toMatch(/белгилеңиз/);expect(db.write).not.toHaveBeenCalled();});
+describe("Python тапшырмасы",()=>{
+ it("Python тапшырмасын мугалим бир критерий менен ырастайт",async()=>{const block=pythonIf.content.stages.flatMap(st=>st.blocks).find(b=>b.type==="code_task");if(!block)return;const f=fd();f.set("blockId",block.id);f.set("criteria","[true]");f.delete("feedback");expect((await reviewAnswer({},f)).success).toBeTruthy();expect(db.write).toHaveBeenCalledWith("answer_reviews",expect.objectContaining({block_id:block.id,criteria_met:[true],source_snapshot:expect.objectContaining({rubric:null})}));});
+});

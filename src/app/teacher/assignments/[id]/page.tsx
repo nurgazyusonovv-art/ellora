@@ -1,13 +1,14 @@
 import {AssignmentTermForm} from "@/components/assignment-term-fields";
 import {ShareCard} from "@/components/share-card";
-import {reviewSource,sourceHash} from "@/lib/review-source";
+import {codeReviewSource,reviewSource,sourceHash} from "@/lib/review-source";
+import { CodeView } from "@/components/code";
 import {readDelivery,readLiveSession} from "@/lib/live-session";
 import { liveState } from "@/lib/classroom";
 import { ClassInsightsPanel } from "@/components/class-insights";
 import { classInsights } from "@/lib/class-insights";
 import { RevisionCard, RequestRevisionForm } from "@/components/revision-forms";
 import { REVISION_COLUMNS, canRevise, type Revision } from "@/lib/revisions";
-import { ReviewForm } from "@/components/classroom-forms";
+import { CodeConfirmForm, ReviewForm } from "@/components/classroom-forms";
 import { ClockControls } from "@/components/lesson-clock";
 import type { Review } from "@/lib/classroom";
 import Link from "next/link";
@@ -211,7 +212,7 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
         <p className="text-sm text-muted">Тесттин баллы өзүнчө. Түшүндүрмө жана колдонуу төмөнкү критерийлер менен мугалим тарабынан бааланат.</p>
         {students.map(s => {
           if (!s.t) return null;
-          const blocks = content.stages.flatMap(st => st.blocks).filter(b => b.type === "investigation" || (b.type === "open" && b.rubric?.length));
+          const blocks = content.stages.flatMap(st => st.blocks.filter(b => b.type === "investigation" || (b.type === "open" && b.rubric?.length) || (st.key === "exit" && b.type === "code_task")));
           return <details key={s.id} className="rounded-2xl border border-line bg-surface p-5"><summary className="min-h-11 cursor-pointer font-semibold">{s.name}</summary><div className="flex flex-col gap-5">{blocks.map(b => {
             const answer = (answers ?? []).find(x => x.attempt_id === s.t!.id && x.block_id === b.id);
             const r = answer?.response as Record<string, string> | undefined;
@@ -221,7 +222,7 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
             const last=history.at(-1);
             const stageKey=content.stages.find(st=>st.blocks.some(x=>x.id===b.id))!.key;
             const initial = b.type === "open" && b.compareTo ? (answers ?? []).find(x => x.attempt_id === s.t!.id && x.block_id === b.compareTo)?.response as {text?: string} | undefined : undefined;
-            return <div key={b.id} id={`class-answer-${s.id}-${b.id}`} className="flex flex-col gap-3 border-t border-line pt-4"><h3 className="font-semibold">{"prompt" in b ? b.prompt : ""}</h3>{initial?.text && <p className="rounded-xl bg-accent-soft p-3 whitespace-pre-wrap border border-accent/20">Баштапкы ой: {initial.text}</p>}{b.type === "investigation" ? <><p className="whitespace-pre-wrap">Божомол: {r.prediction}</p><p className="whitespace-pre-wrap">Байкоо: {r.observations}</p><p className="whitespace-pre-wrap">Жыйынтык: {r.conclusion}</p></> : <p className="whitespace-pre-wrap">{r.text}</p>}{b.type === "open" && b.rubric?.length && !sessionError && <ReviewForm initialSourceHash={sourceHash(reviewSource(b,r))} key={JSON.stringify(review)} attemptId={s.t!.id} blockId={b.id} rubric={b.rubric} review={review} />}
+            return <div key={b.id} id={`class-answer-${s.id}-${b.id}`} className="flex flex-col gap-3 border-t border-line pt-4"><h3 className="font-semibold">{"prompt" in b ? b.prompt : ""}</h3>{initial?.text && <p className="rounded-xl bg-accent-soft p-3 whitespace-pre-wrap border border-accent/20">Баштапкы ой: {initial.text}</p>}{b.type === "code_task" ? <><CodeView code={String(r.code ?? "")} /><p className="text-sm text-muted">Окуучунун браузери билдирди: {String(r.passed ?? 0)}/{b.tests.length} тест өттү. Бул далил эмес — кодду карап ырастаңыз.</p>{!sessionError && <CodeConfirmForm key={JSON.stringify(review)} attemptId={s.t!.id} blockId={b.id} sourceHash={sourceHash(codeReviewSource(b, r))} review={review} />}</> : b.type === "investigation" ? <><p className="whitespace-pre-wrap">Божомол: {r.prediction}</p><p className="whitespace-pre-wrap">Байкоо: {r.observations}</p><p className="whitespace-pre-wrap">Жыйынтык: {r.conclusion}</p></> : <p className="whitespace-pre-wrap">{r.text}</p>}{b.type === "open" && b.rubric?.length && !sessionError && <ReviewForm initialSourceHash={sourceHash(reviewSource(b,r))} key={JSON.stringify(review)} attemptId={s.t!.id} blockId={b.id} rubric={b.rubric} review={review} />}
             {history.map(revision=><RevisionCard key={revision.id} revision={revision} teacher/>)}
             {canRevise(b,stageKey)&&review&&!revisionError&&(!last||last.status==="reviewed")&&<RequestRevisionForm key={last?.id??"first"} attemptId={s.t!.id} blockId={b.id} feedback={last?.feedback??review.feedback}/>}
             {revisionError&&canRevise(b,stageKey)&&<p className="text-sm text-muted">Кайра иштөө тарыхы жеткиликсиз. База жаңыртылганын текшериңиз.</p>}

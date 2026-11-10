@@ -8,3 +8,15 @@ it("жетишпеген же текшериле элек иш нөл эмес �
 it("оюн, монета жана ылдамдык жыйынтыкка кирбейт",()=>{const rows=[work("a","daily",70),work("q","quarterly",70)];expect(quarterScore([...rows,work("game","game",0)])).toEqual(quarterScore(rows));});
 it("жыл/чейрек/эрежелер текшерилет",()=>{expect(termInput(2026,4)).toEqual({academic_year:2026,quarter:4});expect(termInput(2026,5)).toBeNull();expect(termInput("",1)).toBeNull();expect(validRules({...DEFAULT_QUARTER_RULES,daily_weight:101})).toBe(false);expect(validRules({...DEFAULT_QUARTER_RULES,grade4_min:49})).toBe(false);});
 it("текшерилген Exit критерийлери жана тесттери гана эсептелет",()=>{const c=emptyLesson();c.stages[3].blocks=[{id:"practice",type:"mcq",prompt:"",options:["a","b"],correct:0}];c.stages[4].blocks=[{id:"q",type:"mcq",prompt:"",options:["a","b"],correct:0},{id:"o",type:"open",prompt:"Далилде",rubric:["Бир","Эки"]},{id:"confidence",type:"confidence",prompt:"Ишеним"},{id:"optional",type:"mcq",optional:true,prompt:"",options:["a","b"],correct:0}];const answers=[{block_id:"q",is_correct:true,tries:1,response:{picked:0}},{block_id:"o",is_correct:null,tries:1,response:{text:"Далил"}}];const reviews=[{block_id:"o",criteria_met:[true,false],source_snapshot:{prompt:"Далилде",rubric:["Бир","Эки"],response:{text:"Далил"}}}];expect(workScore(c,true,answers,reviews)).toEqual({state:"ready",percentage:2/3*100,points:2,total:3});expect(workScore(c,false,answers,reviews).percentage).toBeNull();expect(workScore(c,true,answers,[]).state).toBe("pending");expect(workScore(c,true,answers,[{...reviews[0],source_snapshot:{}}]).percentage).toBeNull();c.activityKind="game";expect(workScore(c,true,answers,reviews).state).toBe("excluded");});
+it("Python тапшырмасы браузердин натыйжасы менен эмес, мугалим ырастаганда гана эсептелет",()=>{
+ const c=emptyLesson();
+ c.stages[4].blocks=[{id:"py",type:"code_task",prompt:"Жаз",starter:"",tests:[{input:"",expected:"1"}]}];
+ const answer={block_id:"py",is_correct:true,response:{code:"print(1)",passed:1},tries:1};
+ // Браузер «баары өттү» десе да — мугалим текшермейинче күтүүдө.
+ expect(workScore(c,true,[answer],[]).state).toBe("pending");
+ const snap={prompt:"Жаз",rubric:null,response:answer.response};
+ expect(workScore(c,true,[answer],[{block_id:"py",criteria_met:[true],source_snapshot:snap}])).toMatchObject({state:"ready",points:1,total:1});
+ expect(workScore(c,true,[answer],[{block_id:"py",criteria_met:[false],source_snapshot:snap}])).toMatchObject({points:0,total:1});
+ // Окуучу кодду ырастагандан кийин өзгөртсө — кайра текшерүү керек.
+ expect(workScore(c,true,[{...answer,response:{code:"print(2)",passed:1}}],[{block_id:"py",criteria_met:[true],source_snapshot:snap}]).state).toBe("pending");
+});

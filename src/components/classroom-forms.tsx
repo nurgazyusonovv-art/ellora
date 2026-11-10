@@ -19,3 +19,29 @@ export function ReviewForm({ attemptId, blockId, rubric, review, initialSourceHa
     <Button disabled={pending||aiPending}>{pending?"Сакталууда…":"Баалоону сактоо"}</Button><FormError message={state.error}/>{state.success&&<p role="status" className="text-sm text-accent">{state.success}</p>}
   </form></div>;
 }
+
+/** Python тапшырмасын мугалим ырастайт: браузер билдирген тесттердин саны чейректик баага өзү кирбейт. */
+export function CodeConfirmForm({ attemptId, blockId, sourceHash, review }: { attemptId: string; blockId: string; sourceHash: string; review?: Review }) {
+  const [state, action, pending] = useActionState<ClassroomState, FormData>(reviewAnswer, {});
+  const verdict = review?.criteria_met.length === 1 ? review.criteria_met[0] : undefined;
+  return (
+    <form action={action} className="flex flex-col gap-3 rounded-md border border-line bg-surface-2 p-3">
+      <input type="hidden" name="attemptId" value={attemptId} />
+      <input type="hidden" name="blockId" value={blockId} />
+      <input type="hidden" name="sourceHash" value={sourceHash} />
+      <p className="text-sm">
+        {verdict === undefined ? <span className="font-medium text-amber">Текшериле элек — чейректик баага кире элек.</span> : verdict ? <span className="font-medium text-good">Сиз ырастадыңыз: туура.</span> : <span className="font-medium text-bad">Сиз белгиледиңиз: туура эмес.</span>}
+      </p>
+      <label className="flex flex-col gap-1.5 text-sm">
+        Окуучуга пикир (милдеттүү эмес)
+        <textarea name="feedback" defaultValue={review?.feedback ?? ""} maxLength={2000} rows={2} className="rounded-md border border-line-strong bg-surface p-2.5" />
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <Button name="criteria" value="[true]" disabled={pending}>Туура</Button>
+        <Button name="criteria" value="[false]" variant="secondary" disabled={pending}>Туура эмес</Button>
+      </div>
+      <FormError message={state.error} />
+      {state.success && <p role="status" className="text-sm text-good">{state.success}</p>}
+    </form>
+  );
+}

@@ -1,5 +1,5 @@
 "use server";
-import {reviewSource,sourceHash} from "@/lib/review-source";
+import {codeReviewSource,reviewSource,sourceHash} from "@/lib/review-source";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { findBlock } from "@/lib/grading";
@@ -37,8 +37,22 @@ export async function reviewAnswer(_: ClassroomState, fd: FormData): Promise<Cla
   const { data: classroom } = assignment ? await supabase.from("classes").select("id").eq("id", assignment.class_id).eq("teacher_id", profile.id).maybeSingle() : { data: null };
   if (!classroom || !assignment?.lessons) return { error: "Жооп табылган жок." };
   const block = findBlock(assignment.lessons.content, blockId)?.block;
+  const { data: answer } = block ? await supabase.from("answers").select("block_id,response").eq("attempt_id", attemptId).eq("block_id", blockId).maybeSingle() : { data: null };
+  if (block?.type === "code_task") {
+    // Python: мугалим кодду карап, «туура/туура эмес» деп ырастайт — ушул гана чейректик баага кирет.
+    if (!answer) return { error: "Окуучу бул тапшырмага жооп бере элек." };
+    const snapshot = codeReviewSource(block, answer.response);
+    const expected = fd.get("sourceHash");
+    if (expected && expected !== sourceHash(snapshot)) return { error: "Окуучу кодду өзгөрттү. Баракты жаңыртып кайра текшериңиз." };
+    const criteria = reviewCriteria(fd.get("criteria"), 1);
+    const feedback = String(fd.get("feedback") ?? "").trim() || (criteria?.[0] ? "Мугалим кодду текшерди: туура." : "Мугалим кодду текшерди: оңдоо керек.");
+    if (!criteria || feedback.length > 2000) return { error: "Жыйынтыкты тандаңыз (пикир 2000 белгиге чейин)." };
+    const { error } = await supabase.from("answer_reviews").upsert({ attempt_id: attemptId, block_id: blockId, teacher_id: profile.id, source_snapshot: snapshot, criteria_met: criteria, feedback, updated_at: new Date().toISOString() });
+    if (error) return { error: "Сакталган жок. База жаңыртылганын текшериңиз." };
+    revalidatePath(`/teacher/assignments/${attempt!.assignment_id}`);
+    return { success: "Код текшерилди." };
+  }
   if (block?.type !== "open" || !block.rubric?.length) return { error: "Бул тапшырмада баалоо критерийи жок." };
-  const { data: answer } = await supabase.from("answers").select("block_id,response").eq("attempt_id", attemptId).eq("block_id", blockId).maybeSingle();
   if (!answer) return { error: "Окуучу бул суроого жооп бере элек." };
   const snapshot=reviewSource(block,answer.response);
   const expected=fd.get("sourceHash");if(expected&&expected!==sourceHash(snapshot))return {error:"Жооп же критерий өзгөрдү. Баракты жаңыртып кайра баалаңыз."};

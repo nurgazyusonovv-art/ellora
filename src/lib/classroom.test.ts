@@ -25,4 +25,10 @@ describe("сабактын жашоо цикли (0018)", () => {
     expect(liveState("class", { max_stage: 2, paused: false, ended: true })).toBe("ended");
     expect(liveBlockedMessage({ max_stage: 2, paused: false, ended: true })).toBe("Сабак аяктады.");
   });
+  it("үйдө бүтүрүүгө ачылган сабак окуучуга өз алдынча (0021)", () => {
+    const session = { max_stage: 2, paused: false, ended: true, homework: true };
+    expect(liveState("class", session)).toBe("homework");
+    expect(studentSession("class", session)).toBeNull();
+    expect(liveAllows(studentSession("class", session), 4)).toBe(true);
+  });
 });

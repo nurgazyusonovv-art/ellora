@@ -7,7 +7,8 @@ import { ClassInsightsPanel } from "@/components/class-insights";
 import { classInsights } from "@/lib/class-insights";
 import { RevisionCard, RequestRevisionForm } from "@/components/revision-forms";
 import { REVISION_COLUMNS, canRevise, type Revision } from "@/lib/revisions";
-import { SessionControls, ReviewForm } from "@/components/classroom-forms";
+import { ReviewForm } from "@/components/classroom-forms";
+import { ClockControls } from "@/components/lesson-clock";
 import type { Review } from "@/lib/classroom";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -93,8 +94,18 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
       <ShareCard assignmentId={id}/><AssignmentTermForm assignmentId={id} year={a.academic_year} quarter={a.quarter} kind={a.work_kind} activityKind={content.activityKind}/><AutoRefresh seconds={session?.timed?3:20} />
       {sessionError ? <p className="rounded-xl bg-amber-soft p-4 text-sm text-amber border border-amber/25">Жандуу режим жана баалоо үчүн 0008 база жаңыртуусу керек.</p> : <>
         <LiveLink id={id} state={liveState(delivery, session)} />
-        {/* «Класста өтөм» сабагы жандуу экрандан башкарылат; мурунку режимдер өз алдынча дайындамалар үчүн калат. */}
-        {delivery === "self" && <SessionControls key={JSON.stringify(session)} assignmentId={id} session={session} content={content} />}
+        {/* Сабак жандуу экрандан башкарылат. Жалпы таймер — кошумча ыкма: жүрүп жатса ачык, болбосо жыйылган. */}
+        {session?.timed ? (
+          <ClockControls key={JSON.stringify(session)} assignmentId={id} session={session} />
+        ) : ["self", "waiting"].includes(liveState(delivery, session)) && (
+          <details className="rounded-lg border border-line bg-surface">
+            <summary className="flex min-h-12 cursor-pointer items-center px-4 text-sm font-medium">Кошумча: жалпы таймер менен өткөрүү</summary>
+            <div className="border-t border-line p-3">
+              <p className="mb-3 text-sm text-muted">Бөлүктөр убакыт боюнча өзү алмашат, ар бир бөлүккө так бир гана жооп кабыл алынат. Көпчүлүк сабак үчүн жандуу экран ыңгайлуураак.</p>
+              <ClockControls assignmentId={id} session={session} />
+            </div>
+          </details>
+        )}
       </>}
       {content.teacherNotes && <details className="rounded-xl bg-accent-soft p-4 border border-accent/20"><summary className="min-h-11 cursor-pointer font-semibold">Сабакты өткөрүү боюнча көрсөтмө</summary><p className="leading-relaxed">{content.teacherNotes}</p></details>}
       <div className="flex flex-col gap-2">
@@ -241,7 +252,7 @@ function dueInput(iso: string | null) {
 
 
 function LiveLink({ id, state }: { id: string; state: ReturnType<typeof liveState> }) {
-  const text = state === "waiting" ? "Сабак али башталган жок." : state === "live" ? "Сабак азыр жүрүп жатат." : state === "paused" ? "Сабак тыныгууда." : state === "ended" ? "Сабак жабылды." : "Сабакты класста мугалим башкарган режимде өткөрө аласыз.";
+  const text = state === "waiting" ? "Сабак али башталган жок." : state === "live" ? "Сабак азыр жүрүп жатат." : state === "paused" ? "Сабак тыныгууда." : state === "ended" ? "Сабак жабылды." : state === "homework" ? "Сабак бүттү, калгандар үйдө бүтүрүп жатат." : "Сабакты класста мугалим башкарган режимде өткөрө аласыз.";
   return (
     <Link href={`/teacher/live/${id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/25 bg-accent-soft p-4 transition-colors hover:border-accent/50">
       <span className="flex flex-col gap-0.5">

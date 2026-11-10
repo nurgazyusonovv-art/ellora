@@ -8,7 +8,7 @@ export type LiveCommandState = { error?: string; success?: string } | undefined;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const COMMANDS = new Set(["start", "next", "back", "pause", "resume", "close", "homework", "spotlight", "reveal", "hide", "unhide"]);
 const BOARD = new Set(["spotlight", "reveal", "hide", "unhide"]);
-type Session = { max_stage: number; paused: boolean; ended: boolean; timed: boolean | null; spotlight_hidden?: string[] | null };
+type Session = { max_stage: number; paused: boolean; ended: boolean; timed: boolean | null; spotlight_hidden?: string[] | null; homework?: boolean };
 
 /**
  * Мугалим башкарган сабак (0018). Укук RLS менен текшерилет: дайындама мугалимдин өз классыныкы болушу керек.
@@ -25,7 +25,7 @@ export async function liveCommand(_: LiveCommandState, fd: FormData): Promise<Li
   const { data: own } = a ? await supabase.from("classes").select("id").eq("id", a.class_id).eq("teacher_id", profile.id).maybeSingle() : { data: null };
   if (!a || !own) return { error: "Сабак табылган жок." };
 
-  const { data: s, error: readError } = await supabase.from("lesson_sessions").select(BOARD.has(command) ? "max_stage, paused, ended, timed, spotlight_hidden" : "max_stage, paused, ended, timed").eq("assignment_id", id).maybeSingle<Session>();
+  const { data: s, error: readError } = await supabase.from("lesson_sessions").select("*").eq("assignment_id", id).maybeSingle<Session>();
   if (readError) return { error: "Сабактын абалы жүктөлгөн жок. 0018 база жаңыртуусун текшериңиз." };
   if (s?.timed && !s.ended) return { error: "Бул сабак жалпы таймер менен жүрүп жатат. Аны натыйжалар барагынан башкарыңыз." };
   const now = new Date().toISOString();
@@ -46,21 +46,39 @@ export async function liveCommand(_: LiveCommandState, fd: FormData): Promise<Li
       supabase.from("lesson_sessions").upsert({ assignment_id: id, max_stage: 0, paused: false, ended: false, timed: false, deadline: null, started_at: now, ended_at: null, updated_at: now }),
     ]);
     if (e1 || e2) return { error: "Сабак башталган жок. 0018 база жаңыртуусун текшериңиз." };
-    // Такта (0020) жаңы сабакта бош башталат. 0020 иштетиле элек болсо бул жаңыртуу ката берет — эске алынбайт.
+    // Такта (0020) жана үй тапшырмасы (0021) жаңы сабакта бош башталат. Миграция иштетиле элек болсо бул жаңыртуулар
+    // ката берет — эске алынбайт (ар бири өзүнчө, бири экинчисин бузбасын).
     await supabase.from("lesson_sessions").update({ spotlight_block: null, spotlight_reveal: false, spotlight_hidden: [] }).eq("assignment_id", id);
+    await supabase.from("lesson_sessions").update({ homework: false }).eq("assignment_id", id);
     return done("Сабак башталды. Окуучулардын экранында 1-бөлүк ачылды.");
   }
 
   if (command === "homework") {
-    // Бүтүрө албагандар үйдө өз алдынча бүтүрөт: сессия алынат, ыкма «self» болот.
+    // Бүтүрө албагандар үйдө өз алдынча бүтүрөт. Сессия сакталат (отчет үчүн башталган/бүткөн убакыт), homework=true (0021).
     const due = String(fd.get("due_at") ?? "").trim();
     if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) return { error: "Датаны туура жазыңыз." };
+    if (s) {
+      const { error: eh } = await supabase.from("lesson_sessions").update({ homework: true, ended: true, paused: false, ...(s.ended ? {} : { ended_at: now }), updated_at: now }).eq("assignment_id", id);
+      if (!eh) {
+        if (due) {
+          const { error: ed } = await supabase.from("assignments").update({ due_at: new Date(`${due}T23:59:00+06:00`).toISOString() }).eq("id", id);
+          if (ed) return failed;
+        }
+        return done("Сабак бүттү. Бүтүрө албаган окуучулар үйдө өз алдынча бүтүрө алат.");
+      }
+      // 0021 жок: мурунку жол — сессия алынат, ыкма «self».
+    }
     const { error: e1 } = await supabase.from("assignments").update({ delivery: "self", ...(due ? { due_at: new Date(`${due}T23:59:00+06:00`).toISOString() } : {}) }).eq("id", id);
     if (e1) return failed;
     const { error: e2 } = await supabase.from("lesson_sessions").delete().eq("assignment_id", id);
     return e2 ? failed : done("Сабак бүттү. Бүтүрө албаган окуучулар үйдө өз алдынча бүтүрө алат.");
   }
 
+  // Үй тапшырмасы катары ачык сабакты кайра «Жабуу» мүмкүн.
+  if (command === "close" && s?.homework) {
+    const { error } = await supabase.from("lesson_sessions").update({ homework: false, ended: true, updated_at: now }).eq("assignment_id", id);
+    return error ? failed : done("Сабак жабылды. Мындан ары жооп кабыл алынбайт.");
+  }
   if (!s || s.ended) return { error: "Сабак азыр жүрүп жаткан жок." };
 
   if (BOARD.has(command)) {

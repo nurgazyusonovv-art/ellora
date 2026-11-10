@@ -27,7 +27,7 @@ export function LiveControls({ assignmentId, state, stage, stages }: { assignmen
       <ol className="grid grid-cols-5 gap-1.5" aria-label="Сабактын бөлүктөрү">
         {stages.map((label, i) => {
           const current = running && i === stage;
-          const passed = (running || state === "ended") && i < stage;
+          const passed = (running || state === "ended" || state === "homework") && i < stage;
           return (
             <li
               key={label}
@@ -51,6 +51,12 @@ export function LiveControls({ assignmentId, state, stage, stages }: { assignmen
           <Button name="command" value="start" className="min-h-12 px-6 text-base">
             <Icon name="bolt" size={18} /> Сабакты баштоо
           </Button>
+        ) : state === "homework" ? (
+          <>
+            <span className="text-sm text-muted">Сабак бүттү. Бүтүрө албагандар үйдө өз алдынча бүтүрүп жатат.</span>
+            <Button name="command" value="close" variant="secondary">Сабакты жабуу</Button>
+            <Button name="command" value="start" variant="ghost">Кайра баштоо</Button>
+          </>
         ) : state === "ended" ? (
           <>
             <span className="text-sm text-muted">Сабак жабылды.</span>

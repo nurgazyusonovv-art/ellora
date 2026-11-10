@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { LiveStatus, LiveSync, OnlineCount, OnlineDot } from "@/components/live-sync";
 import { Icon } from "@/components/icons";
 import { LiveControls } from "@/components/live-controls";
+import { LessonReportCard } from "@/components/lesson-report";
+import { lessonReport } from "@/lib/live-report";
 import { BoardButtons, HideAnswer } from "@/components/board-controls";
 import { Card, Chip, cx, Progress } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
@@ -14,7 +16,7 @@ import { isGraded, isInteractive, stageMeta, type LessonContent } from "@/lib/le
 export const metadata = { title: "Жандуу сабак" };
 
 type A = { id: string; class_id: string; delivery?: Delivery; lessons: { title: string; content: LessonContent } | null; classes: { name: string } | null };
-type Att = { id: string; student_id: string; current_stage: number; finished_at: string | null };
+type Att = { id: string; student_id: string; current_stage: number; finished_at: string | null; exit_score: number | null; exit_total: number | null };
 type Ans = { attempt_id: string; block_id: string; is_correct: boolean | null; tries: number; response: Record<string, unknown> | null; updated_at: string | null };
 
 const STATE: Record<LiveState, { label: string; tone: "neutral" | "good" | "warn" | "accent" }> = {
@@ -23,6 +25,7 @@ const STATE: Record<LiveState, { label: string; tone: "neutral" | "good" | "warn
   live: { label: "Жүрүп жатат", tone: "good" },
   paused: { label: "Тыныгуу", tone: "warn" },
   ended: { label: "Бүттү", tone: "accent" },
+  homework: { label: "Үйдө бүтүрүүдө", tone: "accent" },
 };
 
 const ago = (iso: string | null) => {
@@ -43,7 +46,7 @@ export default async function LiveLessonPage({ params }: { params: Promise<{ id:
   const [session, { data: members }, { data: attempts }] = await Promise.all([
     readLiveSession(supabase, id).catch(() => null),
     supabase.from("class_members").select("student_id, profiles(full_name)").eq("class_id", a.class_id).returns<{ student_id: string; profiles: { full_name: string } | null }[]>(),
-    supabase.from("attempts").select("id, student_id, current_stage, finished_at").eq("assignment_id", id).returns<Att[]>(),
+    supabase.from("attempts").select("id, student_id, current_stage, finished_at, exit_score, exit_total").eq("assignment_id", id).returns<Att[]>(),
   ]);
   const ids = (attempts ?? []).map((t) => t.id);
   const { data: answers } = ids.length
@@ -109,6 +112,20 @@ export default async function LiveLessonPage({ params }: { params: Promise<{ id:
         <Card className="sticky top-[calc(var(--mobile-header-height,0px)+0.5rem)] z-10 flex flex-col gap-3 shadow-xs lg:top-4">
           <LiveControls assignmentId={id} state={state} stage={stage} stages={content.stages.map((s) => stageMeta(content, s.key).label)} />
         </Card>
+      )}
+
+      {(state === "ended" || state === "homework") && (
+        <LessonReportCard
+          homework={state === "homework"}
+          report={lessonReport({
+            content,
+            members: (members ?? []).map((m) => ({ id: m.student_id, name: m.profiles?.full_name || "Окуучу" })),
+            attempts: attempts ?? [],
+            answers: answers ?? [],
+            startedAt: session?.started_at,
+            endedAt: session?.ended_at,
+          })}
+        />
       )}
 
       {state === "waiting" && (

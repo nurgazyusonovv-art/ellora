@@ -107,12 +107,23 @@ describe("мугалим башкарган сабак", () => {
     expect((await liveCommand(undefined, fd({ command: "back", stage: 4 })))?.error).toBeTruthy();
   });
 
-  it("«үйдө бүтүрсүн» сабакты өз алдынча режимге которот", async () => {
+  it("«үйдө бүтүрсүн» сессияны сактап, үй тапшырмасы деп белгилейт (0021)", async () => {
     await liveCommand(undefined, fd({ command: "start" }));
     expect((await liveCommand(undefined, fd({ command: "homework", stage: 0, due_at: "2026-11-20" })))?.success).toBeTruthy();
-    expect(db.session).toBeNull();
-    expect(db.delivery).toBe("self");
+    expect(db.session).toMatchObject({ homework: true, ended: true, paused: false });
+    expect(db.session?.ended_at).toBeTruthy();
+    expect(db.delivery).toBe("class");
     expect(db.dueAt).toBe(new Date("2026-11-20T23:59:00+06:00").toISOString());
+  });
+
+  it("жабылган сабакты үйдө бүтүрүүгө ачып, кайра жабат; бүткөн убакыт өзгөрбөйт", async () => {
+    await liveCommand(undefined, fd({ command: "start" }));
+    await liveCommand(undefined, fd({ command: "close", stage: 0 }));
+    const endedAt = db.session?.ended_at;
+    await liveCommand(undefined, fd({ command: "homework", stage: 0 }));
+    expect(db.session).toMatchObject({ homework: true, ended: true, ended_at: endedAt });
+    expect((await liveCommand(undefined, fd({ command: "close", stage: 0 })))?.success).toBeTruthy();
+    expect(db.session).toMatchObject({ homework: false, ended: true });
   });
 
   it("тактага чыгарат, туура жоопту ачат жана ачык жоопту жашырат", async () => {

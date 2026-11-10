@@ -16,6 +16,11 @@ export function LiveControls({ assignmentId, state, stage, stages }: { assignmen
   useEffect(() => {
     if (res?.success) notify("session");
   }, [res, notify]);
+  const [withBoard, setWithBoard] = useState(true);
+  // Басуу учурунда ачылат — браузер калкып чыкма терезе катары бөгөттөбөйт. Бир эле аталыштагы өтмөк кайра колдонулат.
+  const openBoard = () => {
+    if (withBoard) window.open(`/board/${assignmentId}`, `ellora-board-${assignmentId}`);
+  };
   const last = stage >= stages.length - 1;
   const running = state === "live" || state === "paused";
 
@@ -48,9 +53,15 @@ export function LiveControls({ assignmentId, state, stage, stages }: { assignmen
 
       <fieldset disabled={pending} className="flex flex-wrap items-center gap-2">
         {state === "waiting" || state === "self" ? (
-          <Button name="command" value="start" className="min-h-12 px-6 text-base">
-            <Icon name="bolt" size={18} /> Сабакты баштоо
-          </Button>
+          <>
+            <Button name="command" value="start" className="min-h-12 px-6 text-base" onClick={openBoard}>
+              <Icon name="bolt" size={18} /> Сабакты баштоо
+            </Button>
+            <label className="flex min-h-11 items-center gap-2 text-sm text-muted">
+              <input type="checkbox" checked={withBoard} onChange={(e) => setWithBoard(e.target.checked)} className="size-4 accent-accent" />
+              Тактаны (чоң экранды) жаңы өтмөктө ачуу
+            </label>
+          </>
         ) : state === "homework" ? (
           <>
             <span className="text-sm text-muted">Сабак бүттү. Бүтүрө албагандар үйдө өз алдынча бүтүрүп жатат.</span>

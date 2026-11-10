@@ -93,7 +93,7 @@ export default async function LiveLessonPage({ params }: { params: Promise<{ id:
         <Link href={`/teacher/assignments/${id}`} className="text-sm font-medium text-muted hover:text-ink">← Натыйжалар барагы</Link>
         <span className="flex items-center gap-4">
           <LiveStatus />
-          <a href={`/board/${id}`} target="_blank" rel="noopener" className="text-sm font-medium text-accent hover:underline">Тактаны ачуу ↗</a>
+          <a href={`/board/${id}`} target={`ellora-board-${id}`} rel="noopener" className="text-sm font-medium text-accent hover:underline">Тактаны ачуу ↗</a>
         </span>
       </div>
       <header className="flex flex-col gap-2 border-b border-line pb-5">

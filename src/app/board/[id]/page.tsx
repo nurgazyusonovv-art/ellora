@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BoardStage } from "@/components/board-stage";
 import { BoardView } from "@/components/live-board";
 import { FullscreenButton } from "@/components/fullscreen-button";
 import { LiveSync } from "@/components/live-sync";
 import { Logo } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { readLiveSession } from "@/lib/live-session";
+import { boardSlides } from "@/lib/board-slides";
 import { boardResult, type BoardRow } from "@/lib/live-results";
 import { stageMeta, type LessonContent } from "@/lib/lesson-types";
 
@@ -40,7 +42,8 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
       ? await supabase.from("answers").select("attempt_id, response, is_correct").eq("block_id", found.b.id).in("attempt_id", ids).returns<BoardRow[]>()
       : { data: [] as BoardRow[] };
   const result = found ? boardResult(found.b, rows ?? [], spot.spotlight_hidden ?? []) : null;
-  const stage = session?.max_stage ?? 0;
+  const stage = Math.min(session?.max_stage ?? 0, content.stages.length - 1);
+  const running = !!session && !session.ended;
   const prompt = found ? ("prompt" in found.b ? found.b.prompt : found.b.type === "game" ? `Оюн: ${found.b.title}` : "") : "";
   const code = found?.b.type === "mcq" ? found.b.code : undefined;
 
@@ -63,13 +66,15 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
 
         {found && result ? (
           <BoardView prompt={prompt} code={code} result={result} reveal={!!spot.spotlight_reveal} total={total ?? 0} />
+        ) : running && !session.paused ? (
+          <BoardStage key={stage} slides={boardSlides(content.stages[stage])} stageLabel={`${stage + 1}/5 · ${stageMeta(content, content.stages[stage].key).label}`} />
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
             <p className="font-mono text-sm uppercase tracking-[0.08em] text-muted">{session?.paused ? "Тыныгуу" : session && !session.ended ? "Сабак жүрүп жатат" : "Такта"}</p>
             <p className="max-w-2xl text-3xl font-medium lg:text-4xl">
               {session && !session.ended ? stageMeta(content, content.stages[stage].key).label : a.lessons.title}
             </p>
-            <p className="text-lg text-muted">Мугалим тапшырманы «Тактага» чыгарганда класстын жыйынтыгы бул жерде көрүнөт. Окуучулардын аттары көрсөтүлбөйт.</p>
+            <p className="text-lg text-muted">{session?.paused ? "Мугалим сабакты улантканда бул жерде бөлүктүн мазмуну кайра чыгат." : "Мугалим сабакты баштаганда бул жерде бөлүктүн мазмуну чыгат, ал эми тапшырманы «Тактага» чыгарганда — класстын жыйынтыгы (аттарсыз)."}</p>
           </div>
         )}
       </main>

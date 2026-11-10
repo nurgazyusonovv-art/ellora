@@ -20,7 +20,7 @@ describe("quizInput", () => {
 
 describe("generatedQuiz", () => {
   it("схема так count суроону талап кылат", () => {
-    const s = quizSchema(input) as { properties: { questions: { minItems: number; maxItems: number } } };
+    const s = quizSchema(input) as unknown as { properties: { questions: { minItems: number; maxItems: number } } };
     expect(s.properties.questions.minItems).toBe(5);
     expect(s.properties.questions.maxItems).toBe(5);
   });

@@ -33,10 +33,10 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   // "/student-login" да "/student" менен башталат — ошондуктан сегментти так текшеребиз.
   const under = (base: string) => path === base || path.startsWith(`${base}/`);
-  const needsAuth = under("/teacher") || under("/student") || under("/admin") || under("/board");
+  const needsAuth = under("/teacher") || under("/student") || under("/admin") || under("/board") || under("/host") || under("/play");
   if (needsAuth && !user) {
     const url = request.nextUrl.clone();
-    url.pathname = under("/student") ? "/student-login" : "/login";
+    url.pathname = under("/student") || under("/play") ? "/student-login" : "/login";
     url.search = "";
     return NextResponse.redirect(url);
   }

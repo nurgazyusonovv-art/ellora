@@ -5,7 +5,7 @@
 import { shufflePerm } from "./student-view";
 
 type Base = { id: string; prompt: string; explain?: string };
-export type ChoiceQuestion = Base & { type: "choice"; code?: string; options: string[]; correct: number };
+export type ChoiceQuestion = Base & { type: "choice"; code?: string; options: string[]; correct: number; /** Жандуу оюндагы убакыт (сек), демейки 20. */ time?: number };
 export type MatchQuestion = Base & { type: "match"; pairs: { left: string; right: string }[] };
 export type OrderQuestion = Base & { type: "order"; steps: string[] };
 export type SortQuestion = Base & { type: "sort"; categories: string[]; items: { text: string; category: number }[] };
@@ -117,6 +117,7 @@ export function validateQuestions(questions: unknown): string[] {
       if (!Array.isArray(o) || o.length < 2 || o.length > 5 || !o.every((x) => text(x, 300)) || !uniqueTexts(o as string[])) errors.push(`${n}-суроодо 2–5 ар башка вариант болушу керек.`);
       else if (!Number.isInteger(q.correct) || (q.correct as number) < 0 || (q.correct as number) >= o.length) errors.push(`${n}-суроонун туура жообу белгиленген эмес.`);
       if (q.code !== undefined && !text(q.code, 1500)) errors.push(`${n}-суроонун коду туура эмес.`);
+      if (q.time !== undefined && !(Number.isInteger(q.time) && (q.time as number) >= 5 && (q.time as number) <= 120)) errors.push(`${n}-суроонун убактысы 5–120 секунд болсун.`);
     } else if (q.type === "match") {
       const p = q.pairs;
       if (!Array.isArray(p) || p.length < 2 || p.length > 8 || !p.every((x) => x && text(x.left, 200) && text(x.right, 200)) || !uniqueTexts(p.map((x) => x.left)) || !uniqueTexts(p.map((x) => x.right)))

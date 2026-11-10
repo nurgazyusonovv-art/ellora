@@ -133,3 +133,12 @@
 - [Parsons Problems and Beyond — системалуу обзор](https://acris.aalto.fi/ws/portalfiles/portal/131069230/Parsons_Problems_and_Beyond_-_Systematic_Literature_Review_and_Empirical_Study_Designs_.pdf)
 - [Faded Parsons Problems (CHI 2021)](https://acelab.berkeley.edu/wp-content/papercite-data/pdf/parsons-chi2021.pdf)
 - [Raspberry Pi Foundation — мектепте программалоону окутуу педагогикасы](https://www.raspberrypi.org/app/uploads/2021/11/Teaching-programming-in-schools-pedagogy-review-Raspberry-Pi-Foundation.pdf)
+
+
+## Жандуу квиз-оюн (0024)
+
+Мугалим өз суроолорун жазат же даяр оюнду алат, «Жандуу ойнотуу» басат → проектордо PIN чыгат.
+Окуучулар телефондон `/play` барагына PIN киргизишет. Ар суроо: таймер → баары жооп берсе же убакыт бүтсө жооп өзү ачылат
+→ туура жооп, ким канча тандады, алдыңкы 5 → «Кийинки суроо». Аягында подиум.
+Жандуу оюнга тест (choice) суроолору гана кирет; калган түрлөрү машыгууда калат. Оюндар чейректик баага кошулбайт.
+Дизайн ellora'нын өзүнүн: A–D тамгалары, токен түстөрү (accent, lilac, amber, rose).

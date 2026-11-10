@@ -32,6 +32,8 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
     supabase.from("game_assignments").select("id, set_id, due_at, classes(name)").order("created_at", { ascending: false }).returns<{ id: string; set_id: string; due_at: string | null; classes: { name: string } | null }[]>(),
     supabase.from("game_progress").select("assignment_id, best_score, rounds").eq("student_id", profile.id),
   ]);
+  // Жандуу оюн (0024): RLS окуучуга өз классынын оюндарын гана көрсөтөт. Таблица жок болсо — көрсөтүлбөйт.
+  const { data: liveGames } = await supabase.from("game_lives").select("id, status").neq("status", "ended");
   const [coinProfile, review] = await Promise.all([coinPromise, reviewStatus(supabase, profile.id)]);
   const hasProgress = (attempts ?? []).some((t) => t.finished_at || t.current_stage > 2);
   const totalXp = (attempts ?? []).reduce((s, a) => s + a.xp, 0);
@@ -109,6 +111,17 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
         </div>
       </div>
 
+      {(liveGames ?? []).map((g) => (
+        <Link key={g.id} href={`/play/${g.id}`} className="flex items-center gap-3 rounded-lg border border-accent/30 bg-accent-soft p-4 hover:border-accent/60">
+          <span className="grid size-10 shrink-0 place-items-center rounded-md border border-accent/30 bg-surface text-accent"><Icon name="bolt" size={20} /></span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="font-medium text-ink">Жандуу оюн башталды!</span>
+            <span className="text-sm text-muted">{g.status === "lobby" ? "Мугалим оюнчуларды күтүп жатат." : "Оюн жүрүп жатат — кошулууга болот."}</span>
+          </span>
+          <span className="shrink-0 text-sm font-medium text-accent">Кошулуу →</span>
+        </Link>
+      ))}
+
       {review && hasProgress && (
         <Link
           href="/student/review"
@@ -130,6 +143,7 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
 
       <nav aria-label="Кошумча бөлүмдөр" className="grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2">
         {[
+          { href: "/play", label: "Оюнга кошулуу (PIN)" },
           { href: "/student/path", label: "Менин жолум" },
           { href: "/student/cards", label: "Билим китеби" },
           { href: "/student/quarters", label: "Чейректик бааларым" },

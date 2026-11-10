@@ -9,6 +9,8 @@ export const POLL_CONNECTED = 15000;
 
 type Options = {
   assignmentId: string | null | undefined;
+  /** Жандуу оюн (0024): `game_lives` катары (id боюнча) угулат. Демейки — сабактын сессиясы. */
+  kind?: "lesson" | "game";
   /** Presence ачкычы — колдонуучунун id'си. Жок болсо presence'ке катталбайт. */
   presenceKey?: string;
   /** Сессия өзгөрдү (мугалим бөлүктү которду, баштады, токтотту…). Абалды серверден кайра окуу керек. */
@@ -25,7 +27,7 @@ type Options = {
  * - Presence: ким онлайн (ачкыч — колдонуучунун id'си, аты жөнөтүлбөйт).
  * Канал туташпаса (Realtime өчүк, тармак) — `connected=false`, чакыруучу тез сурамга кайтат.
  */
-export function useLessonChannel({ assignmentId, presenceKey, onSession, onActivity }: Options) {
+export function useLessonChannel({ assignmentId, kind = "lesson", presenceKey, onSession, onActivity }: Options) {
   const [connected, setConnected] = useState(false);
   const [online, setOnline] = useState<string[]>([]);
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -40,9 +42,10 @@ export function useLessonChannel({ assignmentId, presenceKey, onSession, onActiv
     } catch {
       return;
     }
-    const channel = supabase.channel(`lesson:${assignmentId}`, { config: { presence: { key: presenceKey ?? "" }, broadcast: { self: false } } });
+    const game = kind === "game";
+    const channel = supabase.channel(`${game ? "game" : "lesson"}:${assignmentId}`, { config: { presence: { key: presenceKey ?? "" }, broadcast: { self: false } } });
     channel
-      .on("postgres_changes", { event: "*", schema: "public", table: "lesson_sessions", filter: `assignment_id=eq.${assignmentId}` }, () => handlers.current.onSession?.())
+      .on("postgres_changes", game ? { event: "*", schema: "public", table: "game_lives", filter: `id=eq.${assignmentId}` } : { event: "*", schema: "public", table: "lesson_sessions", filter: `assignment_id=eq.${assignmentId}` }, () => handlers.current.onSession?.())
       .on("broadcast", { event: "session" }, () => handlers.current.onSession?.())
       .on("broadcast", { event: "activity" }, () => handlers.current.onActivity?.())
       .on("presence", { event: "sync" }, () => setOnline(Object.keys(channel.presenceState()).filter(Boolean)))
@@ -57,7 +60,7 @@ export function useLessonChannel({ assignmentId, presenceKey, onSession, onActiv
       setConnected(false);
       void supabase.removeChannel(channel);
     };
-  }, [assignmentId, presenceKey]);
+  }, [assignmentId, presenceKey, kind]);
 
   /** Башкаларга «жаңырт» деген белги жөнөтөт (мазмунсуз). Туташпаса — эч нерсе кылбайт. */
   const notify = useCallback((event: "session" | "activity") => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { liveAllows, liveBlockedMessage, liveState, studentSession } from "./classroom";
+import { classGoal, liveAllows, liveBlockedMessage, liveState, studentSession } from "./classroom";
 
 describe("сабактын жашоо цикли (0018)", () => {
   it("«Класста өтөм» сабагы мугалим баштаганча жабык", () => {
@@ -30,5 +30,14 @@ describe("сабактын жашоо цикли (0018)", () => {
     expect(liveState("class", session)).toBe("homework");
     expect(studentSession("class", session)).toBeNull();
     expect(liveAllows(studentSession("class", session), 4)).toBe(true);
+  });
+});
+
+describe("класстын жалпы максаты (4-этап)", () => {
+  it("класстын 80%ы бөлүктү бүтүрсө жетет", () => {
+    expect(classGoal(20, 25)).toEqual({ done: 20, total: 25, target: 20, reached: true });
+    expect(classGoal(19, 25)?.reached).toBe(false);
+    expect(classGoal(1, 1)).toMatchObject({ target: 1, reached: true });
+    expect(classGoal(0, 0)).toBeNull();
   });
 });

@@ -8,7 +8,7 @@ import { lessonReport } from "@/lib/live-report";
 import { BoardButtons, HideAnswer } from "@/components/board-controls";
 import { Card, Chip, cx, Progress } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
-import { liveState, type Delivery, type LiveState } from "@/lib/classroom";
+import { classGoal, liveState, type Delivery, type LiveState } from "@/lib/classroom";
 import { blockSummary } from "@/lib/lesson-edit";
 import { readLiveSession } from "@/lib/live-session";
 import { isGraded, isInteractive, stageMeta, type LessonContent } from "@/lib/lesson-types";
@@ -144,6 +144,10 @@ export default async function LiveLessonPage({ params }: { params: Promise<{ id:
           <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted">{running ? `${stage + 1}-бөлүктү бүттү` : "Сабакты бүттү"}</span>
           <span className="font-mono text-2xl font-medium tabular-nums">{running ? doneN : students.filter((s) => s.t?.finished_at).length}/{students.length}</span>
           {running && <Progress value={students.length ? (doneN / students.length) * 100 : 0} tone="good" />}
+          {running && (() => {
+            const g = classGoal(doneN, students.length);
+            return g ? <span className={cx("text-xs", g.reached ? "font-medium text-good" : "text-muted")}>{g.reached ? "Класстын максатына жетти ✓" : `Класстын максаты: ${g.target} окуучу (80%)`}</span> : null;
+          })()}
         </Card>
         <Card className="col-span-2 flex flex-col gap-1.5 sm:col-span-1">
           <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted">Көңүл буруңуз</span>

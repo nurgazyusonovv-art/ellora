@@ -89,7 +89,7 @@ export type BoardRow = { id: string; name: string; xp: number; finished: number;
 const MEDAL = ["bg-[#f3c66e] text-[#5e4104]", "bg-[#d5deda] text-ink", "bg-[#e8c3a0] text-[#6b3d14]"];
 
 /** Класстык рейтинг. `rows` — көрсөтүлө турган саптар (окуучуга: алгачкы 5 + өзү). */
-export function Leaderboard({ rows, total }: { rows: BoardRow[]; total: number }) {
+export function Leaderboard({ rows, total, unit = "XP" }: { rows: BoardRow[]; total: number; unit?: string }) {
   if (!rows.length) return <p className="text-sm text-muted">Класста азырынча окуучу жок.</p>;
   return (
     <ol className="flex flex-col">
@@ -119,7 +119,7 @@ export function Leaderboard({ rows, total }: { rows: BoardRow[]; total: number }
               {r.me && <span className="ml-1.5 text-xs font-normal text-accent-dark">(сен)</span>}
             </span>
             <span className="hidden text-xs text-muted sm:inline">{r.finished} сабак</span>
-            <span className="rounded-full bg-amber-soft px-2.5 py-0.5 font-mono text-sm font-semibold text-amber tabular-nums">{r.xp} XP</span>
+            <span className="rounded-full bg-amber-soft px-2.5 py-0.5 font-mono text-sm font-semibold text-amber tabular-nums">{r.xp} {unit}</span>
           </span>
         </li>
       ))}

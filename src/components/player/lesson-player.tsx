@@ -20,7 +20,7 @@ import { LEVELS, STATIONS } from "@/lib/quest";
 import { CoinIcon } from "@/components/coin-profile";
 import { STAGE_COINS } from "@/lib/coins";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { liveAllows, liveBlockedMessage, type LiveSession, type Review } from "@/lib/classroom";
+import { liveAllows, liveBlockedMessage, type ClassGoal, type LiveSession, type Review } from "@/lib/classroom";
 import { TeamworkCard } from "@/components/player/teamwork-card";
 import { AiTutor } from "@/components/player/ai-tutor";
 import { useEffect, useRef, useState } from "react";
@@ -38,7 +38,7 @@ import {
   type AnswerFn,
   type SavedAnswer,
 } from "@/components/player/blocks";
-import { Button, cx, RichText } from "@/components/ui";
+import { Button, cx, Progress as ProgressBar, RichText } from "@/components/ui";
 import { attemptXp, EXIT_BONUS_XP, exitResult, lessonGrowth, lessonStars, stageDone } from "@/lib/grading";
 import { isGraded, isInteractive, stageMeta, type Block, type LessonContent } from "@/lib/lesson-types";
 import { warmUpPython } from "@/lib/python";
@@ -67,6 +67,7 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
   const preview = !attempt;
   const clockAttemptId=attempt?.id;
   const [liveSession,setLiveSession]=useState(initialLiveSession);
+  const [goal,setGoal]=useState<ClassGoal|null>(null);
   useEffect(()=>{setLiveSession(initialLiveSession);},[initialLiveSession]);
   // Realtime (0019): мугалим бөлүктү которсо дароо сурайбыз. Туташса запас сурам сейрек; таймер режиминде ар 3 сек
   // (автоматтык өтүү сервердеги сурам учурунда эсептелет).
@@ -76,8 +77,10 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
   useEffect(()=>{
     if(!clockAttemptId)return;
     let active=true,busy=false;
-    const sync=async()=>{if(busy)return;busy=true;try{const r=await pollLessonClock(clockAttemptId);if(active){if(r.error)setSaveError(r.error);else if(r.session!==undefined)setLiveSession(r.session);}}catch{if(active)setSaveError("Жалпы саат жаңырган жок. Байланышты текшериңиз.");}finally{busy=false;}};
+    const sync=async()=>{if(busy)return;busy=true;try{const r=await pollLessonClock(clockAttemptId);if(active){if(r.error)setSaveError(r.error);else{if(r.session!==undefined)setLiveSession(r.session);if(r.goal!==undefined)setGoal(r.goal);}}}catch{if(active)setSaveError("Жалпы саат жаңырган жок. Байланышты текшериңиз.");}finally{busy=false;}};
     syncRef.current=sync;
+    // Класстын максаты дароо көрүнсүн (биринчи сурам күтпөй).
+    if(document.visibilityState==="visible")void sync();
     const timer=setInterval(()=>{if(document.visibilityState==="visible")void sync();},connected&&!timedNow?POLL_CONNECTED:3000);
     const visible=()=>{if(document.visibilityState==="visible")void sync();};document.addEventListener("visibilitychange",visible);
     return()=>{active=false;syncRef.current=async()=>{};clearInterval(timer);document.removeEventListener("visibilitychange",visible);};
@@ -365,6 +368,19 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
       {attempt && reviews.length > 0 && <Link href="/student/revisions" className="flex min-h-11 items-center rounded-xl bg-accent-soft px-4 font-semibold text-accent border border-accent/20">Мугалимдин пикири бар: кайра иштөө тапшырмаларын көрүү →</Link>}
       {coinNotice && <div key={coinNotice.id} role="status" className="coin-reward flex items-center justify-between gap-3 rounded-2xl bg-amber-soft p-4 text-amber border border-amber/25"><span className="flex items-center gap-2 font-semibold"><CoinIcon/>+{coinNotice.amount} монета кошулду!</span><button type="button" className="min-h-11 px-2 text-sm font-semibold" onClick={()=>setCoinNotice(null)}>Жабуу</button></div>}
       {liveSession?.timed && <div className="rounded-xl bg-accent-soft p-4 border border-accent/20"><p className="text-sm font-semibold">Мугалим башкарган жалпы сабак · {liveSession.max_stage+1}/5</p><ClockDisplay session={liveSession}/><p className="mt-2 text-sm">Кийинки бөлүккө жалпы таймер же мугалим өткөрөт. Терип жаткан текст бул түзмөктө черновик болуп сакталат; ал жөнөтүлгөн жооп эмес.</p>{liveSession.ended&&<p className="mt-2 text-sm">Жалпы убакыт бүттү. Аяктай элек иш туура эмес деп автоматтык бааланбайт. Улантуу үчүн мугалим менен такта.</p>}</div>}
+      {goal && liveSession && !liveSession.timed && !liveSession.ended && (
+        <div role="status" className={cx("flex flex-col gap-2 rounded-md border p-3.5", goal.reached ? "border-good/30 bg-good-soft" : "border-line bg-surface")}>
+          <p className={cx("flex items-center gap-2 text-sm font-medium", goal.reached ? "text-good" : "text-ink")}>
+            <Icon name={goal.reached ? "trophy" : "users"} size={16} className={goal.reached ? "" : "text-accent"} />
+            {goal.reached ? "Класс максатка жетти! Баарыңар бирге жасадыңар." : `Класстын максаты: ${goal.target} окуучу бул бөлүктү бүтүрсүн`}
+          </p>
+          <div className="flex items-center gap-3">
+            <div className="flex-1"><ProgressBar value={Math.min(100, (goal.done / goal.target) * 100)} tone="good" /></div>
+            <span className="font-mono text-xs text-muted tabular-nums">{goal.done}/{goal.target}</span>
+          </div>
+          {!goal.reached && <p className="text-xs text-muted">Бүтүрсөң — жанындагы досуңа жардам бер. Аттар көрсөтүлбөйт.</p>}
+        </div>
+      )}
       {liveSession && !liveSession.timed && <p role="status" className={cx("rounded-md border p-4 text-sm", liveSession.paused || liveSession.ended ? "border-amber/25 bg-amber-soft text-amber" : "border-accent/20 bg-accent-soft text-accent-dark")}>{liveSession.ended ? "Сабак аяктады. Жоопторуң сакталды." : liveSession.paused ? "Мугалим сабакты талкуу үчүн токтотту. Тактага кара, азыр жооп жибербе." : liveSession.spotlight_block ? "Мугалим класстын жоопторун тактада көрсөтүп жатат — тактага кара. Аттар көрүнбөйт." : unlocked < liveSession.max_stage ? `Мугалим ${liveSession.max_stage + 1}-бөлүккө өттү. Адегенде ${unlocked + 1}-бөлүктү бүтүр — анан кийинкиси ачылат.` : `Мугалим башкарган сабак: ${stageMeta(content, stages[liveSession.max_stage].key).label} бөлүгү ачык.`}</p>}
       {!liveAllows(liveSession, view) ? <p className="rounded-lg border border-line bg-surface p-5">{liveBlockedMessage(liveSession)}</p> : (
         <section className="flex flex-col gap-4">

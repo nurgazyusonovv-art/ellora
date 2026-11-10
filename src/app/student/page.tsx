@@ -7,7 +7,7 @@ import { InstallButton, SignOutButton } from "@/components/pwa";
 import { Card, Chip, cx, Logo, Progress } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { computeBadges } from "@/lib/badges";
-import { classLeaderboard, shortName } from "@/lib/leaderboard";
+import { boardMode, classLeaderboard, shortName, weeklyLeaderboard } from "@/lib/leaderboard";
 import { lessonTitles } from "@/lib/student-lessons";
 import { gameSetTitles } from "@/lib/game-data";
 import { reviewStatus } from "@/lib/review-data";
@@ -60,9 +60,10 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
   // Рейтинг — мугалим жашырбаган класстар үчүн (0006 иштетилбесе — көрсөтүлөт). RLS: окуучу өз класстарын гана көрөт.
   const boards = await Promise.all(
     (classes ?? [])
-      .filter((c) => c.show_leaderboard !== false)
+      .filter((c) => boardMode(c) !== "off")
       .map(async (c) => {
-        const all = await classLeaderboard(c.id as string);
+        const mode = boardMode(c);
+        const all = mode === "weekly" ? await weeklyLeaderboard(c.id as string) : await classLeaderboard(c.id as string);
         const me = all.find((r) => r.id === profile.id);
         const top = all.slice(0, 5);
         const rows = [...top, ...(me && !top.includes(me) ? [me] : [])].map((r) => ({
@@ -70,7 +71,7 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
           name: r.id === profile.id ? r.name : shortName(r.name),
           me: r.id === profile.id,
         }));
-        return { id: c.id as string, name: c.name as string, rows, total: all.length };
+        return { id: c.id as string, name: c.name as string, rows, total: all.length, weekly: mode === "weekly" };
       }),
   );
 
@@ -210,9 +211,10 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
 
       {boards.map((b) => (
         <section key={b.id} className="flex flex-col gap-3">
-          <h2 className="text-base font-medium">Класстын рейтинги · {b.name}</h2>
+          <h2 className="text-base font-medium">{b.weekly ? "Апталык рейтинг" : "Класстын рейтинги"} · {b.name}</h2>
+          {b.weekly && <p className="-mt-1.5 text-xs text-muted">Акыркы 7 күн: сабактагы жылдыздар + күнүмдүк кайталоо. Ар жума баары кайра башташат.</p>}
           <Card className="p-3 sm:p-4">
-            <Leaderboard rows={b.rows} total={b.total} />
+            <Leaderboard rows={b.rows} total={b.total} unit={b.weekly ? "упай" : "XP"} />
           </Card>
         </section>
       ))}

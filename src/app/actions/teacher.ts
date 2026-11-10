@@ -227,3 +227,15 @@ export async function setLeaderboardVisible(classId: string, visible: boolean) {
   await supabase.from("classes").update({ show_leaderboard: visible }).eq("id", classId);
   revalidatePath(`/teacher/classes/${classId}`);
 }
+
+/** Рейтингдин режими (0023): апталык / жалпы XP / жашыруу. RLS: мугалим өз классын гана өзгөртөт. */
+export async function setLeaderboardMode(classId: string, fd: FormData) {
+  const { supabase } = await requireRole("teacher");
+  const mode = String(fd.get("mode") ?? "");
+  if (!["weekly", "xp", "off"].includes(mode)) return;
+  const { error } = await supabase.from("classes").update({ leaderboard_mode: mode, show_leaderboard: mode !== "off" }).eq("id", classId);
+  // 0023 жок: мурунку белги гана.
+  if (error) await supabase.from("classes").update({ show_leaderboard: mode !== "off" }).eq("id", classId);
+  revalidatePath(`/teacher/classes/${classId}`);
+  revalidatePath("/student");
+}

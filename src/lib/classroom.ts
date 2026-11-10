@@ -51,3 +51,12 @@ export function clockRemaining(session:LessonClock,elapsedMs=0) {
  if(!session.deadline||!session.server_now)return 0;
  return Math.max(0,Math.ceil((Date.parse(session.deadline)-Date.parse(session.server_now)-elapsedMs)/1000));
 }
+
+/** Жандуу сабактагы класстын жалпы максаты (геймификация, 4-этап): класстын 80%ы учурдагы бөлүктү бүтүрсүн. */
+export const CLASS_GOAL_SHARE = 0.8;
+export type ClassGoal = { done: number; total: number; target: number; reached: boolean };
+export function classGoal(done: number, total: number): ClassGoal | null {
+  if (total <= 0) return null;
+  const target = Math.max(1, Math.ceil(total * CLASS_GOAL_SHARE));
+  return { done, total, target, reached: done >= target };
+}

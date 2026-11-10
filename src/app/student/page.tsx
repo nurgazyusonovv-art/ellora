@@ -4,12 +4,13 @@ import { CoinProfile } from "@/components/coin-profile";
 import { JoinAnotherClassForm } from "@/components/auth-forms";
 import { BadgeGrid, Leaderboard } from "@/components/gamification";
 import { InstallButton, SignOutButton } from "@/components/pwa";
-import { Card, Chip, Logo, Progress } from "@/components/ui";
+import { Card, Chip, cx, Logo, Progress } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { computeBadges } from "@/lib/badges";
 import { classLeaderboard, shortName } from "@/lib/leaderboard";
 import { lessonTitles } from "@/lib/student-lessons";
 import { gameSetTitles } from "@/lib/game-data";
+import { reviewStatus } from "@/lib/review-data";
 import { liveState, type Delivery, type LiveState } from "@/lib/classroom";
 import { lessonStars } from "@/lib/grading";
 import { Icon } from "@/components/icons";
@@ -31,7 +32,8 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
     supabase.from("game_assignments").select("id, set_id, due_at, classes(name)").order("created_at", { ascending: false }).returns<{ id: string; set_id: string; due_at: string | null; classes: { name: string } | null }[]>(),
     supabase.from("game_progress").select("assignment_id, best_score, rounds").eq("student_id", profile.id),
   ]);
-  const coinProfile = await coinPromise;
+  const [coinProfile, review] = await Promise.all([coinPromise, reviewStatus(supabase, profile.id)]);
+  const hasProgress = (attempts ?? []).some((t) => t.finished_at || t.current_stage > 2);
   const totalXp = (attempts ?? []).reduce((s, a) => s + a.xp, 0);
   const attemptOf = (id: string) => attempts?.find((a) => a.assignment_id === id);
   // RLS тапшырмаларды окуучунун класстары менен чектеди — аталыштарды ошолор үчүн гана алабыз.
@@ -106,8 +108,28 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
         </div>
       </div>
 
+      {review && hasProgress && (
+        <Link
+          href="/student/review"
+          className={cx(
+            "flex items-center gap-3 rounded-lg border p-4 transition-colors",
+            review.doneToday ? "border-good/25 bg-good-soft" : "border-amber/30 bg-amber-soft hover:border-amber/60",
+          )}
+        >
+          <span className={cx("grid size-10 shrink-0 place-items-center rounded-md border bg-surface", review.doneToday ? "border-good/30 text-good" : "border-amber/30 text-amber")}>
+            <Icon name={review.doneToday ? "check" : "flame"} size={20} />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="font-medium text-ink">{review.doneToday ? "Бүгүнкү кайталоо аткарылды" : "Күнүмдүк кайталоо · 3 суроо"}</span>
+            <span className="text-sm text-muted">Серия: {review.streak} күн{review.doneToday ? ". Эртең кайра кел!" : review.streak ? ". Үзбө!" : ". Бүгүн башта!"}</span>
+          </span>
+          {!review.doneToday && <span className="shrink-0 text-sm font-medium text-amber">Баштоо →</span>}
+        </Link>
+      )}
+
       <nav aria-label="Кошумча бөлүмдөр" className="grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2">
         {[
+          { href: "/student/path", label: "Менин жолум" },
           { href: "/student/cards", label: "Билим китеби" },
           { href: "/student/quarters", label: "Чейректик бааларым" },
           { href: "/student/pathways", label: "Мага ылайыктуу кошумча практика" },

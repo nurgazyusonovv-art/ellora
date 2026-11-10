@@ -94,7 +94,8 @@ export async function submitAnswer(attemptId: string, blockId: string, response:
   }
   const task=practicalSnapshot(block,attemptId);if(task&&!prev?.is_correct)g.response.task=task;
   const snapshot=structuredClone(answers);
-  const answer: SavedAnswer = { response: g.response, is_correct: g.is_correct, tries: (prev?.tries ?? 0) + 1 };
+  // Чечилгенден кийинки кайра жиберүү аракет саналбайт: XP туура жоопко жеткен аракетке жараша (attemptXp).
+  const answer: SavedAnswer = { response: g.response, is_correct: g.is_correct, tries: prev?.is_correct === true ? prev.tries : (prev?.tries ?? 0) + 1 };
   answers[blockId] = answer;
 
   let current_stage = attempt.current_stage;

@@ -181,6 +181,7 @@ export function validateLesson(title: string, content: LessonContent): Issue[] {
           if (b.options.length < 2) bad("Жок дегенде 2 вариант керек.");
           if (b.options.some((o) => blank(o))) bad("Бош вариант бар.");
           if (!(b.correct >= 0 && b.correct < b.options.length)) bad("Туура жоопту белгилеңиз.");
+          if (b.precheck && st.key !== "discover") bad("Баштапкы текшерүү суроосу Кызыктыруу бөлүгүндө гана болот.");
           break;
         case "code_task":
           if (blank(b.prompt)) bad("Тапшырманын шартын жазыңыз.");

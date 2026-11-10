@@ -11,6 +11,8 @@ import { classLeaderboard, shortName } from "@/lib/leaderboard";
 import { lessonTitles } from "@/lib/student-lessons";
 import { gameSetTitles } from "@/lib/game-data";
 import { liveState, type Delivery, type LiveState } from "@/lib/classroom";
+import { lessonStars } from "@/lib/grading";
+import { Icon } from "@/components/icons";
 import { formatDate, type AttemptRow } from "@/lib/stats";
 import { getOwnReport } from "@/lib/student-report";
 
@@ -164,7 +166,8 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
           {done.map((a) => (
             <Link key={a.id} href={`/student/assignments/${a.id}`} className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4 transition-colors hover:border-line-strong hover:bg-surface-2/50">
               <span className="font-medium">{a.title}</span>
-              <span className="shrink-0 font-mono text-sm text-muted">
+              <span className="flex shrink-0 items-center gap-2 font-mono text-sm text-muted">
+                <Stars n={lessonStars(a.t?.exit_score ?? 0, a.t?.exit_total ?? 0)} />
                 {a.t?.exit_score}/{a.t?.exit_total} · {a.t?.xp} XP
               </span>
             </Link>
@@ -197,5 +200,15 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
         <JoinAnotherClassForm />
       </Card>
     </main>
+  );
+}
+
+function Stars({ n }: { n: number }) {
+  return (
+    <span className="flex" role="img" aria-label={`${n} жылдыз 3төн`}>
+      {[1, 2, 3].map((k) => (
+        <Icon key={k} name="star" size={14} className={k <= n ? "fill-current text-amber" : "text-line-strong"} />
+      ))}
+    </span>
   );
 }

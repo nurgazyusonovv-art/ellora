@@ -46,8 +46,9 @@ export function gradeAnswer(block: Block, raw: Record<string, unknown>, prev: Sa
     case "mcq": {
       const picked = int(raw.picked);
       if (picked === null || picked < 0 || picked >= block.options.length) return { error: "Жооп туура эмес форматта." };
-      if (exit) {
-        if (prev) return { error: "Exit ticket'те ар бир суроого бир гана жолу жооп берилет." };
+      // Exit ticket жана баштапкы текшерүү: бир гана аракет, туурасы көрсөтүлбөйт.
+      if (exit || block.precheck) {
+        if (prev) return { error: block.precheck ? "Баштапкы текшерүүгө бир жолу гана жооп берилет." : "Exit ticket'те ар бир суроого бир гана жолу жооп берилет." };
         return { response: { picked }, is_correct: picked === block.correct };
       }
       const wrong = new Set(ints(prev?.response.wrong) ?? []);
@@ -117,12 +118,21 @@ export function stageDone(stage: Stage, answers: Answers) {
 
 const blockXp = (b: Block) => ("xp" in b && typeof b.xp === "number" && b.xp > 0 ? b.xp : 0);
 
+/**
+ * Биринчи аракетке сыйлык: 1-аракетте толук XP, 2-аракетте жарымы, андан кийин 0.
+ * Кайра аракет пикир катары пайдалуу, бирок кокус табуу сыйланбайт.
+ */
+export function attemptXp(full: number, tries: number) {
+  if (full <= 0) return 0;
+  return tries <= 1 ? full : tries === 2 ? Math.floor(full / 2) : 0;
+}
+
 /** XP жооптордон кайра эсептелет (браузер жиберген санга ишенбейбиз). */
 export function computeXp(content: LessonContent, answers: Answers, finished: boolean) {
   let xp = finished ? EXIT_BONUS_XP : 0;
   for (const st of content.stages) {
     if (st.key === "exit") continue;
-    for (const b of st.blocks) if (isGraded(b) && answers[b.id]?.is_correct) xp += blockXp(b);
+    for (const b of st.blocks) if (isGraded(b) && answers[b.id]?.is_correct) xp += attemptXp(blockXp(b), answers[b.id].tries);
   }
   return xp;
 }
@@ -141,4 +151,23 @@ export function findBlock(content: LessonContent, blockId: string) {
     if (block) return { block, stageIdx: i };
   }
   return undefined;
+}
+
+
+/** Өздөштүрүү жылдыздары (1–3) Баалоонун жыйынтыгы боюнча: бүттү — 1, ≥60% — 2, ≥90% — 3. XP көлөмдү, жылдыз сапатты көрсөтөт. */
+export function lessonStars(score: number, total: number): 1 | 2 | 3 {
+  if (!total) return 1;
+  const p = score / total;
+  return p >= 0.9 ? 3 : p >= 0.6 ? 2 : 1;
+}
+
+/**
+ * Окуучунун өсүшү: Кызыктыруудагы баштапкы текшерүү (`precheck`) ↔ Баалоонун тесттери.
+ * Баштапкы текшерүү жок же ага жооп берилбесе — null.
+ */
+export function lessonGrowth(content: LessonContent, answers: Answers) {
+  const pre = (content.stages[0]?.blocks ?? []).filter((b) => b.type === "mcq" && b.precheck);
+  if (!pre.length || !pre.some((b) => answers[b.id])) return null;
+  const r = exitResult(content, answers);
+  return { before: pre.filter((b) => answers[b.id]?.is_correct === true).length, beforeTotal: pre.length, after: r.score, afterTotal: r.total };
 }

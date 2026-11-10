@@ -26,7 +26,7 @@ export const isSkillId = (v: unknown): v is SkillId => typeof v === "string" && 
 export type SkillEvidence = { skill: SkillId; lessonId: string; assignmentId: string; blockId: string; title: string; date: string; result: "correct" | "retry" | "incorrect" | "pending" };
 export type SkillProgress = { id: SkillId; label: string; status: "few" | "practice" | "evidence"; evidence: SkillEvidence[] };
 export function skillEvidence(block: Block, answer: {is_correct:boolean|null;tries:number}|undefined, context: Omit<SkillEvidence,"skill"|"result">): SkillEvidence[] {
-  if (!answer || !isInteractive(block) || block.type === "confidence") return [];
+  if (!answer || !isInteractive(block) || block.type === "confidence" || (block.type === "mcq" && block.precheck)) return [];
   const result: SkillEvidence["result"] = !isGraded(block) ? "pending" : answer.is_correct === true ? (answer.tries === 1 ? "correct" : "retry") : "incorrect";
   return (block.skills ?? []).filter(isSkillId).map(skill=>({...context,skill,result}));
 }

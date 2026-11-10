@@ -14,6 +14,7 @@ import { LessonGame, type GameCtx } from "./lesson-game";
 import { ENGAGEMENT_LEVELS } from "@/lib/lesson-types";
 
 import Link from "next/link";
+import { Icon } from "@/components/icons";
 import { CoinIcon } from "@/components/coin-profile";
 import { STAGE_COINS } from "@/lib/coins";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -36,7 +37,7 @@ import {
   type SavedAnswer,
 } from "@/components/player/blocks";
 import { Button, cx, RichText } from "@/components/ui";
-import { EXIT_BONUS_XP, exitResult, stageDone } from "@/lib/grading";
+import { attemptXp, EXIT_BONUS_XP, exitResult, lessonGrowth, lessonStars, stageDone } from "@/lib/grading";
 import { isGraded, isInteractive, stageMeta, type Block, type LessonContent } from "@/lib/lesson-types";
 import { warmUpPython } from "@/lib/python";
 
@@ -252,7 +253,7 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
     }
     setAnswers(all);
 
-    const gained = isCorrect && !prev?.is_correct && "xp" in block && block.xp && stages[stageIdx].key !== "exit" ? block.xp : 0;
+    const gained = isCorrect && !prev?.is_correct && isGraded(block) && "xp" in block && block.xp && stages[stageIdx].key !== "exit" ? attemptXp(block.xp, all[block.id].tries) : 0;
     const newXp = xp + gained;
     if (gained) setXp(newXp);
     if (stages[stageIdx].key !== "exit" && !(content.model === "5e" && stages[stageIdx].key === "practice") && stageIdx === unlocked && stageDone(stages[stageIdx], all)) previewAdvance(stageIdx, all, newXp);
@@ -349,7 +350,7 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
       {liveSession && !liveSession.timed && <p role="status" className={cx("rounded-md border p-4 text-sm", liveSession.paused || liveSession.ended ? "border-amber/25 bg-amber-soft text-amber" : "border-accent/20 bg-accent-soft text-accent-dark")}>{liveSession.ended ? "Сабак аяктады. Жоопторуң сакталды." : liveSession.paused ? "Мугалим сабакты талкуу үчүн токтотту. Тактага кара, азыр жооп жибербе." : liveSession.spotlight_block ? "Мугалим класстын жоопторун тактада көрсөтүп жатат — тактага кара. Аттар көрүнбөйт." : unlocked < liveSession.max_stage ? `Мугалим ${liveSession.max_stage + 1}-бөлүккө өттү. Адегенде ${unlocked + 1}-бөлүктү бүтүр — анан кийинкиси ачылат.` : `Мугалим башкарган сабак: ${stageMeta(content, stages[liveSession.max_stage].key).label} бөлүгү ачык.`}</p>}
       {!liveAllows(liveSession, view) ? <p className="rounded-lg border border-line bg-surface p-5">{liveBlockedMessage(liveSession)}</p> : (
         <section className="flex flex-col gap-4">
-          {finished && isExit && <FinishCard score={finished.score} total={finished.total} xp={xp} backHref={backHref} preview={preview} />}
+          {finished && isExit && <FinishCard score={finished.score} total={finished.total} xp={xp} backHref={backHref} preview={preview} growth={lessonGrowth({ ...content, stages }, answers)} />}
           <div className="flex flex-col gap-1.5">
             <span className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
               {view + 1}-бөлүк · {stageMeta(content, st.key).label} · ~{st.minutes} мүн
@@ -424,7 +425,7 @@ function renderBlock(b: Block, saved: SavedAnswer | undefined, onAnswer: AnswerF
     case "code_example":
       return <CodeExample block={b} />;
     case "mcq":
-      return <Mcq block={b} saved={saved} onAnswer={onAnswer} exitMode={exitMode} failed={failed} />;
+      return <Mcq block={b} saved={saved} onAnswer={onAnswer} exitMode={exitMode || !!b.precheck} failed={failed} />;
     case "code_task":
       return <CodeTask block={b} saved={saved} onAnswer={onAnswer} />;
     case "parsons":
@@ -438,13 +439,25 @@ function renderBlock(b: Block, saved: SavedAnswer | undefined, onAnswer: AnswerF
   }
 }
 
-function FinishCard({ score, total, xp, backHref, preview }: { score: number; total: number; xp: number; backHref: string; preview: boolean }) {
+function FinishCard({ score, total, xp, backHref, preview, growth }: { score: number; total: number; xp: number; backHref: string; preview: boolean; growth: ReturnType<typeof lessonGrowth> }) {
+  const stars = lessonStars(score, total);
   const msg = score === total ? "Мыкты! Баалоодогу бардык тапшырмалар туура." : score >= total / 2 ? "Жакшы натыйжа." : "Бул теманы дагы бир кайталап алалы.";
   return (
     <section className="flex flex-col items-start gap-4 rounded-lg border border-line bg-surface p-6 shadow-xs">
+      <div className="flex items-center gap-1" role="img" aria-label={`${stars} жылдыз 3төн`}>
+        {[1, 2, 3].map((k) => (
+          <Icon key={k} name="star" size={30} className={k <= stars ? "fill-current text-amber" : "text-line-strong"} />
+        ))}
+      </div>
       <span className="font-mono text-5xl font-medium tracking-tight text-accent tabular-nums">
         {score}/{total}
       </span>
+      {growth && (
+        <p className="rounded-md border border-good/25 bg-good-soft px-3 py-2 text-sm text-good">
+          Сабактын башында: <b>{growth.before}/{growth.beforeTotal}</b> → аягында: <b>{growth.after}/{growth.afterTotal}</b>
+          {growth.afterTotal && growth.beforeTotal && growth.after / growth.afterTotal > growth.before / growth.beforeTotal ? ". Сен өстүң!" : "."}
+        </p>
+      )}
       <h2 className="text-xl font-medium">{msg}</h2>
       <p className="text-muted">
         {preview ? "Алдын ала көрүү: окуучу ушул экранды көрөт." : `Жоопторуң мугалимге жөнөтүлдү. Бул сабактан ${xp} XP топтодуң.`}

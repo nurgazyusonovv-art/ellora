@@ -3,7 +3,7 @@ import {sheetAddress} from "./sheet";
 import { validSlides } from "@/lib/presentation";
 import { isGrade } from "@/lib/grades";
 import { DURATION_OPTIONS, emptyLesson, validateLesson, checkStructure } from "@/lib/lesson-edit";
-import type { LessonContent, OpenBlock } from "@/lib/lesson-types";
+import { isInteractive, type LessonContent, type OpenBlock } from "@/lib/lesson-types";
 
 export type GenerationInput = { quarterAssessment?:boolean; curriculum?:ReturnType<typeof import("./lesson-series").ktpTopicContext>; topic: string; grade: number; duration: number; context: string; pairs: boolean; groups: boolean; groupSize: number; presentation?: boolean; interactive?:boolean; mission?:boolean; spreadsheet?:boolean; classification?:boolean };
 export function generationInput(fd: FormData): GenerationInput | null {
@@ -32,6 +32,8 @@ export const lessonGenerationSchema = (groupSize: number, interactive=false, mis
   explain: obj({ question: str, body: str, code: str }),
   application: taskSchema(2), pairTask: taskSchema(2), groupTask: taskSchema(groupSize),
   exitQuestions: { type: "array", minItems: 3, maxItems: 3, items: obj({ prompt: str, options: {type:"array",items:str,minItems:3,maxItems:4}, correct: {type:"integer"} }) },
+  precheckQuestions: { type: "array", minItems: 3, maxItems: 3, items: obj({ prompt: str, options: {type:"array",items:str,minItems:3,maxItems:4}, correct: {type:"integer"} }) },
+  practiceQuestions: { type: "array", minItems: 3, maxItems: 3, items: obj({ prompt: str, options: {type:"array",items:str,minItems:3,maxItems:4}, correct: {type:"integer"}, explain: str }) },
   reflection: str,
 });
 export const LESSON_GENERATION_SCHEMA = lessonGenerationSchema(4);
@@ -49,6 +51,8 @@ classification=true болсо classification ичинде тема/максат
 spreadsheet=true болсо sheet ичинде 6 сап × 4 мамычалуу A1:D6 таблица түз. Баштапкы маалымат cells матрицасында; жыйынтык уячаларын бош калтыр. locked ичинде маалымат/аталыш уячаларынын даректерин бер. checks ичинде 1–4 уникалдуу, бекитилбеген жыйынтык уяча жана expected формула же маани бер; formula=true болсо expected да = менен башталсын. Сан жана текст өз-өзүнчө уячада болсун, ондук чекит колдон. Колдоого алынгандар: + - * / кашаа, A1:D6 шилтемелери, SUM/AVERAGE/MIN/MAX жана диапазондор. Башка функция, макрос, JS, сырткы шилтеме жок. Тапшырма тема/класска ылайык сандык маалыматтан жаңы жыйынтык чыгарсын, таблицанын даректерин так көрсөт. Миссия бар болсо бул акыркы жеке иштен мурдагы машыгуу болот.
 mission=true болсо миссияга кыска аталыш, темага байланышкан конкреттүү окуя жана байкалуучу максат бер. application акыркы ЖЕКЕ иш болот: applicationGame жана groupTask ишиндегиден башка сандар/кырдаал колдонуп, окуучудан өз чечимин жана анын себебин талап кыл. application.support даяр жооп бербесин; жеке иште кеңеш көрсөтүлбөйт. Критерийлер жаңы мисалдагы чечимди жана далилди бааласын.
 interactive=true болсо applicationGame үчүн темага тиешелүү 3–4 кайталанбаган жуп түз: left менен right бир сапта так дал келсин. Формула/маани, түзмөк/функция же шарт/натыйжа сыяктуу конкреттүү жаңы кырдаал колдон. exitGame үчүн 3–4 кадамы бир гана логикалык туура тартипке ээ кыска жаңы практикалык кырдаал түз; steps туура тартипте, кайталанбай берилсин. Колдонуу менен Баалоодогу мисал кайталанбасын. Тапшырмалар 12/5 мүнөттүк бөлүккө батсын, кыска болсун.
+Баштапкы текшерүү: precheckQuestions — Баалоодогу тесттер текшерген көндүмдөрдү ошол эле татаалдыкта текшерген 3 бир жооптуу тест, бирок башка сан/кырдаал менен (Баалоонун жоопторун ачып койбосун). Окуучу сабакка чейин бир жолу жооп берет, туурасы ага көрсөтүлбөйт.
+Колдонуудагы машыгуу: practiceQuestions — 3 бир жооптуу тест, татаалдыгы өсөт: 1-тааныш мисал, 2-эки шартты бириктирүү, 3-жаңы кырдаал. Ар биринде explain: туура жооп эмне үчүн туура жана эң көп кетүүчү ката эмне үчүн туура эмес (окуучу 2 жолу жаңылганда көрсөтүлөт). Варианттарга типтүү каталарды кош.
 Баалоо: тема/максатка байланышкан 3 бир жооптуу тест, ар биринде 3–4 вариант, correct нөлдөн башталган туура индекс. Туура вариант бирөө гана. Тест суроосуна аткарылбай турган бир саптуу татаал Python кодду жазба; жөнөкөй түшүнүк же конкреттүү шарт жөнүндө сура. reflection даяр жыйынтык эмес, окуучу жооп бере турган АЧЫК СУРОО болсун: «Баштапкы оюңду азыркы оюң менен салыштыр. Эмне өзгөрдү? Кайсы байкоо далил болду?» Баалоо жеке аткарылат.
 Ар бир сабакта slides массивинде СӨЗСҮЗ ТАК 5 слайд бер: 1) байкоодон негизги түшүнүккө көпүрө; 2) жөнөкөй мисал; 3) кадамдык түшүндүрмө; 4) жаңы кырдаалда колдонуу; 5) жыйынтык жана кыска текшерүү. Ар слайдда бир негизги ой, кыска кыргызча body, ылайыктуу icon жана мазмунду түшүндүргөн 2–4 кыска diagram белгиси болсун. diagram жөн гана «1-кадам/2-кадам» эмес, темадагы конкреттүү түшүнүк/маани/аракет болсун. question окуучу ойлончу суроо же бош сап. Аталыш/текст/схема бош болбосун. Схема байланышкан кадамдар катары көрсөтүлөт. HTML, SVG же сүрөт URL жазба.
 Сабак input.duration менен берилген мүнөттүн ичинде аткарыла тургандай көлөмдө болсун: топ/жуп тандалса application кыска болсун. Жалпы жооп 3000 сөздөн аз, teacherNotes 800 белгиден аз болсун. Кодду серверде иштетпейбиз. Мугалим текшерчү долбоорду гана түз. JSON схеманы так аткар.
@@ -57,7 +61,7 @@ input.quarterAssessment=true болсо чейректик жеке текшер
 skillTags: ар тапшырмага мазмуну чындап текшерген 1–3 кайталанбаган көндүм ID танда. Көндүмдөр: ${JSON.stringify(SKILLS)}. explore — изилдөө, explain — түшүндүрүү суроосу, application — жеке колдонуу, pairTask/groupTask — жуп/топ, exit1/exit2/exit3 — тесттер, reflection — далилдүү салыштыруу; applicationGame/exitGame/sheet/classification берилсе ошол тапшырмага тиешелүү. Электрондук таблицадагы формула үчүн spreadsheets, маалыматты топтоо үчүн information колдонсо болот, бирок блоктун түрүнө гана карап бардык көндүмдү белгилебе. Эски сабактын көндүмдөрүн көчүрбө; тапшырманын суроосу/критерийи менен шайкеш болсун. Бул мугалим текшерип өзгөртө турган сунуш; автоматтык баа же өздөштүрүү чечими эмес.`;
 
 type Task = { prompt: string; instructions: string; roles: string[]; outcome: string; rubric: string[]; support: string; extension: string };
-type Plan = {skillTags?:Record<string,SkillId[]>;classification?:{prompt:string;categories:string[];items:{text:string;category:number}[];explain:string};sheet?:{prompt:string;cells:string[][];locked:string[];checks:{cell:string;expected:string;formula:boolean}[]}; mission?:{title:string;story:string;goal:string}; applicationGame?:{prompt:string;pairs:{left:string;right:string}[];explain:string};exitGame?:{prompt:string;steps:string[];explain:string}; slides?: import("./lesson-types").LessonSlide[]; title: string; objectives: string[]; successCriteria: string[]; teacherNotes: string; engage: {activities:{prompt:string;level:1|2|3;kind:"question"|"activity"}[]}; explore: {prompt:string;procedure:string;code:string;support:string}; explain: {question:string;body:string;code:string}; application:Task;pairTask:Task;groupTask:Task;exitQuestions:{prompt:string;options:string[];correct:number}[];reflection:string };
+type Plan = {precheckQuestions:{prompt:string;options:string[];correct:number}[];practiceQuestions:{prompt:string;options:string[];correct:number;explain:string}[];skillTags?:Record<string,SkillId[]>;classification?:{prompt:string;categories:string[];items:{text:string;category:number}[];explain:string};sheet?:{prompt:string;cells:string[][];locked:string[];checks:{cell:string;expected:string;formula:boolean}[]}; mission?:{title:string;story:string;goal:string}; applicationGame?:{prompt:string;pairs:{left:string;right:string}[];explain:string};exitGame?:{prompt:string;steps:string[];explain:string}; slides?: import("./lesson-types").LessonSlide[]; title: string; objectives: string[]; successCriteria: string[]; teacherNotes: string; engage: {activities:{prompt:string;level:1|2|3;kind:"question"|"activity"}[]}; explore: {prompt:string;procedure:string;code:string;support:string}; explain: {question:string;body:string;code:string}; application:Task;pairTask:Task;groupTask:Task;exitQuestions:{prompt:string;options:string[];correct:number}[];reflection:string };
 const text = (v: unknown, max = 10000): v is string => typeof v === "string" && v.trim().length > 0 && v.length <= max;
 const texts = (v: unknown, min = 1, max = 6): v is string[] => Array.isArray(v) && v.length >= min && v.length <= max && v.every(x => text(x,1000));
 const optionalCode = (v: unknown): v is string => typeof v === "string" && v.length <= 10000;
@@ -79,16 +83,25 @@ export function generatedLesson(raw: unknown, input: GenerationInput): { title: 
   if (!validSlides(p.slides) || p.slides.length!==5 || p.slides.some(s=>!s.title.trim() || !s.body.trim() || s.diagram.some(x=>!x.trim()))) return null;
   if (!text(p.title,200) || !texts(p.objectives,1,5) || !texts(p.successCriteria,1,5) || !text(p.teacherNotes,4000) || !validEngagement(p.engage?.activities) || !text(p.explore?.prompt) || !text(p.explore?.procedure) || !optionalCode(p.explore?.code) || !text(p.explore?.support) || !text(p.explain?.question) || !text(p.explain?.body) || !optionalCode(p.explain?.code) || !text(p.reflection) || !validTask(p.application) || (input.pairs && !validTask(p.pairTask,2)) || (input.groups && !validTask(p.groupTask,input.groupSize))) return null;
   if (!Array.isArray(p.exitQuestions) || p.exitQuestions.length !== 3 || p.exitQuestions.some(q => !q || !text(q.prompt) || !texts(q.options,3,4) || new Set(q.options.map(x=>x.trim())).size !== q.options.length || !Number.isInteger(q.correct) || q.correct < 0 || q.correct >= q.options.length)) return null;
+  // Баштапкы текшерүү жана Колдонуудагы машыгуу (үйрөнүүнүн чынчылдыгы, 1-этап): ошол эле форматтагы 3+3 тест.
+  const mcqOk = (q: {prompt:string;options:string[];correct:number;explain?:string}|undefined, withExplain: boolean) => !!q && text(q.prompt) && texts(q.options,3,4) && new Set(q.options.map(x=>x.trim())).size === q.options.length && Number.isInteger(q.correct) && q.correct >= 0 && q.correct < q.options.length && (!withExplain || text(q.explain,2000));
+  if (!Array.isArray(p.precheckQuestions) || p.precheckQuestions.length !== 3 || !p.precheckQuestions.every(q => mcqOk(q,false))) return null;
+  if (!Array.isArray(p.practiceQuestions) || p.practiceQuestions.length !== 3 || !p.practiceQuestions.every(q => mcqOk(q,true))) return null;
   if(input.interactive&&(!p.applicationGame||!p.exitGame))return null;
   const c = emptyLesson(input.duration);
   c.objectives = p.objectives; c.successCriteria = p.successCriteria; c.teacherNotes = p.teacherNotes;
-  c.stages[0].blocks = p.engage.activities.map((a,i) => ({id:`d${i+1}`,type:"open",prompt:a.prompt,lockOnSubmit:true,engagement:{level:a.level,kind:a.kind}}));
+  c.stages[0].blocks = [
+    // Сабактын башындагы текшерүү: бир жолу, XP жок, Баалоо менен салыштырылып өсүш көрсөтүлөт.
+    ...p.precheckQuestions.map((q,i)=>({id:`d-pre${i+1}`,type:"mcq" as const,...q,precheck:true})),
+    ...p.engage.activities.map((a,i) => ({id:`d${i+1}`,type:"open" as const,prompt:a.prompt,lockOnSubmit:true,engagement:{level:a.level,kind:a.kind}})),
+  ];
   c.stages[1].blocks = [{id:"l1",type:"investigation",prompt:p.explore.prompt,procedure:p.explore.procedure,code:p.explore.code || undefined,support:p.explore.support}];
   c.stages[2].blocks = [{id:"p1",type:"open",prompt:p.explain.question,rubric:["Байкоодон далил келтирди", "Жыйынтыгын далил менен түшүндүрдү"]}, {id:"p2",type:"text",body:p.explain.body}];
   if (p.explain.code.trim()) c.stages[2].blocks.push({id:"p3",type:"code_example",code:p.explain.code,runnable:true});
   const task = (t:Task,id:string,collaboration: "individual"|"pair"|"group"):OpenBlock => ({id,type:"open",prompt:t.prompt,rubric:t.rubric,support:t.support,extension:t.extension,collaboration,teamwork:collaboration==="individual"?undefined:{instructions:t.instructions,roles:t.roles,outcome:t.outcome,size:collaboration==="pair"?2:input.groupSize}});
   c.stages[2].blocks.push({id:"p-slides",type:"presentation",title:"Теманы түшүндүрүү",slides:p.slides});
-  c.stages[3].blocks = [task(p.application,"r1","individual")];
+  // Колдонуу: адегенде татаалдыгы өскөн 3 машыгуу тести (биринчи аракетке XP), анан жаңы кырдаалдагы ачык тапшырма.
+  c.stages[3].blocks = [...p.practiceQuestions.map((q,i)=>({id:`r-q${i+1}`,type:"mcq" as const,...q,xp:10})),task(p.application,"r1","individual")];
   if (input.pairs) c.stages[1].blocks.push(task(p.pairTask,"l2","pair"));
   if (input.groups) c.stages[3].blocks.push(task(p.groupTask,"r2","group"));
   c.stages[4].blocks = [...p.exitQuestions.map((q,i)=>({id:`e${i+1}`,type:"mcq" as const,...q})),{id:"e4",type:"open",prompt:p.reflection,compareTo:"d1",rubric:["Баштапкы жана акыркы оюн салыштырды","Өзгөрүүнү далил менен негиздеди"]},{id:"e5",type:"confidence",prompt:"Теманы канчалык түшүндүң?"}];
@@ -107,7 +120,11 @@ export function generatedLesson(raw: unknown, input: GenerationInput): { title: 
     if(!p.mission||![p.mission.title,p.mission.story,p.mission.goal].every(x=>text(x,2000))||!input.interactive)return null;
     const challenge=c.stages[3].blocks.find(b=>b.id==="r1") as OpenBlock;
     challenge.lockOnSubmit=true;
-    c.stages[3].blocks=[...c.stages[3].blocks.filter(b=>b.id==="r-game"),...c.stages[3].blocks.filter(b=>b.id!=="r1"&&b.id!=="r-game"),challenge];
+    // Миссияда 2–5 интерактивдүү кадам (missionError): машыгуу тесттери чекке батканча гана калат.
+    const rest=c.stages[3].blocks.filter(b=>b.id!=="r1"&&b.id!=="r-game"&&!b.id.startsWith("r-q"));
+    const practice=c.stages[3].blocks.filter(b=>b.id.startsWith("r-q"));
+    const fixed=[...c.stages[3].blocks.filter(b=>b.id==="r-game"),...rest,challenge].filter(isInteractive).length;
+    c.stages[3].blocks=[...c.stages[3].blocks.filter(b=>b.id==="r-game"),...practice.slice(0,Math.max(0,5-fixed)),...rest,challenge];
     c.stages[3].mission={...p.mission,challengeId:"r1"};
   }
   if(input.quarterAssessment){
@@ -121,7 +138,7 @@ export function generatedLesson(raw: unknown, input: GenerationInput): { title: 
   if(p.skillTags!==undefined){
     const slots=skillSlots(input.interactive,input.spreadsheet,input.classification),keys=Object.values(slots);
     if(!p.skillTags||typeof p.skillTags!=="object"||Array.isArray(p.skillTags)||Object.keys(p.skillTags).length!==keys.length||keys.some(k=>!Object.hasOwn(p.skillTags!,k)||!Array.isArray(p.skillTags![k])||p.skillTags![k].length<1||p.skillTags![k].length>3||new Set(p.skillTags![k]).size!==p.skillTags![k].length||!p.skillTags![k].every(isSkillId)))return null;
-    for(const stage of c.stages)for(const block of stage.blocks){const slot=slots[block.id as keyof typeof slots];if(slot)block.skills=[...p.skillTags[slot]];if(block.id==="e-practical")block.skills=[...p.skillTags.application];}
+    for(const stage of c.stages)for(const block of stage.blocks){const slot=slots[block.id as keyof typeof slots];if(slot)block.skills=[...p.skillTags[slot]];if(block.id==="e-practical"||block.id.startsWith("r-q"))block.skills=[...p.skillTags.application];}
   }
   return !checkStructure(c) && !validateLesson(p.title,c).length ? {title:p.title.trim(),content:c} : null;
 }

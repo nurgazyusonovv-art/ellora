@@ -26,7 +26,9 @@ describe("Кызыктыруунун кадамдары", () => {
   });
   it("жаңы талаалардын форматын жана татаалдык иретин текшерет", () => {
     const l=generatedLesson(lessonPlan(),input)!;
-    expect(l.content.stages[0].blocks).toHaveLength(3);
+    // Кызыктыруу: 3 баштапкы текшерүү суроосу + 3 кадам.
+    expect(l.content.stages[0].blocks.filter((b) => b.type === "open")).toHaveLength(3);
+    expect(l.content.stages[0].blocks.filter((b) => b.type === "mcq" && b.precheck)).toHaveLength(3);
     l.content.stages[0].blocks.reverse();expect(validateLesson(l.title,l.content).some(i=>i.message.includes("жөнөкөйдөн татаалга"))).toBe(true);
     const raw=JSON.parse(JSON.stringify(l.content));raw.stages[0].blocks[0].engagement.level=99;expect(checkStructure(raw)).toContain("деңгээли");
   });

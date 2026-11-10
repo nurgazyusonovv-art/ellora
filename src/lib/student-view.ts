@@ -37,8 +37,13 @@ export function studentBlock(b: Block, answer: SavedAnswer | undefined, exit: bo
       const perm=shufflePerm(b.steps.length,parsonsSeed(b.id,attemptId));
       return {...b,steps:perm.map(i=>b.steps[i]),shuffled:true,explain:solved&&!exit?b.explain:undefined};
     }
-    case "mcq":
-      return solved && !exit ? b : { ...b, correct: -1, explain: undefined };
+    case "mcq": {
+      // Баштапкы текшерүү Exit сыяктуу: туурасы эч качан ачылбайт.
+      if (solved && !exit && !b.precheck) return b;
+      // Машыгууда 2 катадан кийин түшүндүрмө ачылат (туура вариант белгиленбейт).
+      const wrong = Array.isArray(answer?.response.wrong) ? answer.response.wrong.length : 0;
+      return { ...b, correct: -1, explain: !exit && !b.precheck && wrong >= 2 ? b.explain : undefined };
+    }
     case "parsons": {
       if (solved) return b;
       const perm = shufflePerm(b.lines.length, parsonsSeed(b.id, attemptId));

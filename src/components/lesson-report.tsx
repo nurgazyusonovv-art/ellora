@@ -37,6 +37,16 @@ export function LessonReportCard({ report, homework }: { report: LessonReport; h
         </Card>
       </div>
 
+      {report.growth && (
+        <Card className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <span className={label}>Класстын өсүшү</span>
+          <span className="font-mono text-2xl font-medium tabular-nums">
+            {report.growth.before}% <span className="text-muted">→</span> <span className="text-good">{report.growth.after}%</span>
+          </span>
+          <span className="text-xs text-muted">Сабактын башындагы текшерүү ↔ Баалоо, {report.growth.n} окуучу боюнча орточо.</span>
+        </Card>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         <Card className="flex flex-col gap-3">
           <span className={label}>Бөлүктөр боюнча бүтүргөндөр</span>

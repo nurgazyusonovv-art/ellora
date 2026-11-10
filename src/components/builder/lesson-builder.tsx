@@ -392,6 +392,12 @@ export function LessonBuilder({
                         ))}
                       </ul>
                     )}
+                    {stage.key === "discover" && b.type === "mcq" && (
+                      <label className="flex min-h-11 items-start gap-2.5 rounded-md border border-line-strong bg-surface p-3 text-sm">
+                        <input type="checkbox" className="mt-0.5 size-5 shrink-0 accent-accent" checked={!!b.precheck} onChange={(e) => changeBlock({ ...b, precheck: e.target.checked || undefined })} />
+                        <span><b className="font-medium">Баштапкы текшерүү.</b> Окуучу бир жолу жооп берет, туурасы көрсөтүлбөйт, XP берилбейт. Баалоонун тесттери менен салыштырылып, окуучунун өсүшү көрсөтүлөт.</span>
+                      </label>
+                    )}
                     {stage.key === "discover" && b.type === "open" && <div className="grid gap-3 sm:grid-cols-2">
                       <label className="flex flex-col gap-1.5 text-sm font-semibold">Татаалдык деңгээли<select className={inputCls} value={b.engagement?.level ?? ""} onChange={e => changeBlock({...b, engagement:e.target.value ? {level:Number(e.target.value) as 1|2|3,kind:b.engagement?.kind ?? "question"}:undefined})}><option value="">Белгиленген жок</option>{([1,2,3] as const).map(level=><option key={level} value={level}>{level}. {ENGAGEMENT_LEVELS[level]}</option>)}</select></label>
                       {b.engagement && <label className="flex flex-col gap-1.5 text-sm font-semibold">Түрү<select className={inputCls} value={b.engagement.kind} onChange={e => changeBlock({...b,engagement:{...b.engagement!,kind:e.target.value as "question"|"activity"}})}><option value="question">Суроо</option><option value="activity">Кызыктуу тапшырма</option></select></label>}

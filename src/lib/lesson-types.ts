@@ -57,6 +57,11 @@ export type McqBlock = Base & {
   explain?: string;
   hint?: string;
   xp?: number;
+  /**
+   * Сабактын башындагы текшерүү (Кызыктыруу гана): бир жолу жооп берилет, туурасы ачылбайт, XP жок, бөлүктү бөгөбөйт.
+   * Баалоодогу тесттер менен салыштырылып, окуучунун өсүшү көрсөтүлөт.
+   */
+  precheck?: boolean;
 };
 
 /** Окуучу Python кодун жазат, программа тесттер менен текшерилет (stdin → stdout). */
@@ -162,7 +167,7 @@ export function isInteractive(b: Block) {
 
 /** Бул блок туура/туура эмес деп бааланабы. */
 export function isGraded(b: Block) {
-  return b.type === "classification" || b.type === "spreadsheet" || b.type === "matching" || b.type === "ordering" || b.type === "mcq" || b.type === "code_task" || b.type === "parsons" || b.type === "bug_hunt";
+  return b.type === "classification" || b.type === "spreadsheet" || b.type === "matching" || b.type === "ordering" || (b.type === "mcq" && !b.precheck) || b.type === "code_task" || b.type === "parsons" || b.type === "bug_hunt";
 }
 
 export const CONFIDENCE_LABELS = ["Түшүнбөдүм", "Жарым-жартылай", "Түшүндүм", "Башкага түшүндүрө алам"];

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { legacyPythonIf as pythonIf } from "@/content/examples/python-if";
-import { computeXp, EXIT_BONUS_XP, exitResult, findBlock, gradeAnswer, stageDone, type Answers, type SavedAnswer } from "@/lib/grading";
+import { attemptXp, computeXp, EXIT_BONUS_XP, lessonGrowth, lessonStars, exitResult, findBlock, gradeAnswer, stageDone, type Answers, type SavedAnswer } from "@/lib/grading";
 import type { Block, BugHuntBlock, CodeTaskBlock, McqBlock, ParsonsBlock } from "@/lib/lesson-types";
 import { correctResponse } from "@/test/helpers";
+import { emptyLesson } from "@/lib/lesson-edit";
 
 const content = pythonIf.content;
 const all = content.stages.flatMap((s) => s.blocks);
@@ -151,5 +152,37 @@ describe("сабакты толук өтүү", () => {
     const b = content.stages[2].blocks[0];
     expect(findBlock(content, b.id)).toEqual({ block: b, stageIdx: 2 });
     expect(findBlock(content, "жок")).toBeUndefined();
+  });
+});
+
+describe("биринчи аракетке сыйлык", () => {
+  it("1-аракет толук, 2-аракет жарым, андан кийин 0", () => {
+    expect([1, 2, 3, 7].map((t) => attemptXp(10, t))).toEqual([10, 5, 0, 0]);
+    expect(attemptXp(15, 2)).toBe(7);
+    expect(attemptXp(0, 1)).toBe(0);
+  });
+});
+
+describe("баштапкы текшерүү жана жылдыздар", () => {
+  const pre: McqBlock = { id: "pre", type: "mcq", prompt: "?", options: ["A", "B"], correct: 1, xp: 10, precheck: true };
+  it("бир жолу жооп берилет, туура эмес болсо да бөлүк бүтөт, XP берилбейт", () => {
+    const g = gradeAnswer(pre, { picked: 0 }, undefined, false);
+    expect(g).toMatchObject({ is_correct: false });
+    expect(gradeAnswer(pre, { picked: 1 }, { response: { picked: 0 }, is_correct: false, tries: 1 }, false)).toHaveProperty("error");
+    const stage = { key: "discover" as const, title: "К", minutes: 5, blocks: [pre] };
+    expect(stageDone(stage, { pre: { response: { picked: 0 }, is_correct: false, tries: 1 } })).toBe(true);
+    const c = emptyLesson();
+    c.stages[0].blocks = [pre];
+    expect(computeXp(c, { pre: { response: { picked: 1 }, is_correct: true, tries: 1 } }, false)).toBe(0);
+  });
+  it("өсүш баштапкы текшерүү ↔ Баалоо боюнча", () => {
+    const c = emptyLesson();
+    c.stages[0].blocks = [pre];
+    c.stages[4].blocks = [{ id: "e", type: "mcq", prompt: "?", options: ["A", "B"], correct: 1 }];
+    expect(lessonGrowth(c, {})).toBeNull();
+    expect(lessonGrowth(c, { pre: { response: { picked: 0 }, is_correct: false, tries: 1 }, e: { response: { picked: 1 }, is_correct: true, tries: 1 } })).toEqual({ before: 0, beforeTotal: 1, after: 1, afterTotal: 1 });
+  });
+  it("жылдыздар Баалоонун пайызы боюнча", () => {
+    expect([lessonStars(0, 3), lessonStars(2, 3), lessonStars(3, 3), lessonStars(0, 0)]).toEqual([1, 2, 3, 1]);
   });
 });

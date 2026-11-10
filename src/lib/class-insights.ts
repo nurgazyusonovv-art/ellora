@@ -34,7 +34,8 @@ export function classInsights(input:{content:LessonContent;members:{student_id:s
  for(const r of input.revisions){const key=`${r.attempt_id}:${r.block_id}`;if((revisions.get(key)?.revision_no??0)<r.revision_no)revisions.set(key,r);}
  const blocks:BlockInsight[]=[];
  content.stages.forEach((stage,si)=>stage.blocks.forEach(b=>{
-  if(!isInteractive(b)||b.type==="confidence")return;
+  // Баштапкы текшерүү өсүш үчүн гана — далил же «текшерүүнү күтөт» эмес.
+  if(!isInteractive(b)||b.type==="confidence"||(b.type==="mcq"&&b.precheck))return;
   const row:BlockInsight={id:b.id,prompt:"prompt" in b?b.prompt:"",stage:stageMeta(content,stage.key).label,skills:[...new Set((b.skills??[]).filter(isSkillId))],answered:0,notReached:0,noAnswer:0,help:0,pending:0,correct:0,students:[],groupSignal:false,...(b.type==="mcq"?{options:b.options.map((text,i)=>({text,n:0,correct:i===b.correct}))}:{})};
   for(const m of members){
    const t=attempts.get(m.student_id),key=`${t?.id}:${b.id}`,a=t?answers.get(key):undefined;

@@ -21,6 +21,8 @@ export type LessonReport = {
   lowExit: string[];
   stages: { label: string; done: number }[];
   hardest: { id: string; summary: string; pct: number; n: number }[];
+  /** Баштапкы текшерүү ↔ Баалоо (экөөнө тең жооп бергендер боюнча орточо пайыз). */
+  growth: { before: number; after: number; n: number } | null;
 };
 
 export function lessonReport(input: {
@@ -55,7 +57,22 @@ export function lessonReport(input: {
     .sort((a, b) => a.pct - b.pct)
     .slice(0, 3);
 
+  // Өсүш: баштапкы текшерүүгө жооп берип, сабакты бүткөндөр.
+  const pre = (content.stages[0]?.blocks ?? []).filter((b) => b.type === "mcq" && b.precheck).map((b) => b.id);
+  const exitIds = (content.stages.find((st) => st.key === "exit")?.blocks ?? []).filter((b) => b.type === "mcq").map((b) => b.id);
+  const pairs = finished
+    .map((t) => {
+      const rows = answers.filter((a) => a.attempt_id === t.id);
+      const preRows = rows.filter((a) => pre.includes(a.block_id));
+      if (!pre.length || !preRows.length || !exitIds.length) return null;
+      return { before: preRows.filter((a) => a.is_correct === true).length / pre.length, after: rows.filter((a) => exitIds.includes(a.block_id) && a.is_correct === true).length / exitIds.length };
+    })
+    .filter((x): x is { before: number; after: number } => !!x);
+  const avg = (k: "before" | "after") => Math.round((pairs.reduce((s, p) => s + p[k], 0) / pairs.length) * 100);
+  const growth = pairs.length ? { before: avg("before"), after: avg("after"), n: pairs.length } : null;
+
   return {
+    growth,
     minutes,
     total: members.length,
     joined: mine.length,

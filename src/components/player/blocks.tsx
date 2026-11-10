@@ -95,8 +95,12 @@ export function Mcq({ block, saved, onAnswer, exitMode, failed }: Props<McqBlock
         })}
       </div>
       {!exitMode && solved && <Feedback tone="good" title="Туура!" text={block.explain} />}
-      {!exitMode && !solved && wrong.length > 0 && <Feedback tone="bad" title="Дагы бир жолу аракет кыл." text={block.hint} />}
-      {exitMode && solved && <p className="text-sm text-muted">Жооп кабыл алынды.</p>}
+      {!exitMode && !solved && wrong.length === 1 && <Feedback tone="bad" title="Дагы бир жолу аракет кыл." text={block.hint} />}
+      {/* 2 катадан кийин: түшүндүрмө ачылат (сервер жөнөтөт), бул суроо үчүн XP берилбейт — ойлонуп тандоого үндөйт. */}
+      {!exitMode && !solved && wrong.length >= 2 && (
+        <Feedback tone="info" title="Келгиле, бирге карайлы." text={block.explain ? `${block.explain}\n\nЭми түшүндүрмөгө таянып туура жоопту танда. Бул суроо үчүн XP берилбейт.` : "Эми ар бир вариантты шарт менен салыштырып, ойлонуп танда. Бул суроо үчүн XP берилбейт."} />
+      )}
+      {exitMode && solved && <p className="text-sm text-muted">{block.precheck ? "Жооп кабыл алынды. Сабактын аягында бул суроолорго кайтабыз." : "Жооп кабыл алынды."}</p>}
     </div>
   );
 }

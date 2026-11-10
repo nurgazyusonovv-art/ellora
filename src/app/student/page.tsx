@@ -111,6 +111,20 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
         </div>
       </div>
 
+      {todo.filter((a) => a.live === "live" || a.live === "paused").map((a) => (
+        <Link key={`live-${a.id}`} href={`/student/assignments/${a.id}`} className="flex items-center gap-3 rounded-lg border border-good/30 bg-good-soft p-4 hover:border-good/60">
+          <span className="relative grid size-10 shrink-0 place-items-center rounded-md border border-good/30 bg-surface text-good">
+            <Icon name="bolt" size={20} />
+            {a.live === "live" && <span aria-hidden className="absolute -top-1 -right-1 size-3 animate-pulse rounded-full bg-good" />}
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="font-medium text-ink">{a.live === "live" ? "Сабак жүрүп жатат" : "Сабакта тыныгуу"}</span>
+            <span className="truncate text-sm text-muted">{a.title}</span>
+          </span>
+          <span className="shrink-0 text-sm font-medium text-good">Кирүү →</span>
+        </Link>
+      ))}
+
       {(liveGames ?? []).map((g) => (
         <Link key={g.id} href={`/play/${g.id}`} className="flex items-center gap-3 rounded-lg border border-accent/30 bg-accent-soft p-4 hover:border-accent/60">
           <span className="grid size-10 shrink-0 place-items-center rounded-md border border-accent/30 bg-surface text-accent"><Icon name="bolt" size={20} /></span>
@@ -141,24 +155,6 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
         </Link>
       )}
 
-      <nav aria-label="Кошумча бөлүмдөр" className="grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2">
-        {[
-          { href: "/play", label: "Оюнга кошулуу (PIN)" },
-          { href: "/student/path", label: "Менин жолум" },
-          { href: "/student/cards", label: "Билим китеби" },
-          { href: "/student/quarters", label: "Чейректик бааларым" },
-          { href: "/student/pathways", label: "Мага ылайыктуу кошумча практика" },
-          { href: "/student/repetition", label: "Аралык менен кайталоо" },
-          { href: "/student/revisions", label: "Мугалимдин пикиринен кийин кайра иштөө" },
-        ].map((l) => (
-          <Link key={l.href} href={l.href} className="flex min-h-12 items-center justify-between gap-3 bg-surface px-4 text-sm font-medium hover:bg-surface-2">
-            {l.label}
-            <span aria-hidden className="text-muted">→</span>
-          </Link>
-        ))}
-      </nav>
-
-      {coinProfile.available && <CoinProfile {...coinProfile} name={profile.full_name} />}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-medium">Аткаруу керек</h2>
@@ -232,6 +228,28 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
           </Card>
         </section>
       ))}
+
+      {coinProfile.available && <CoinProfile {...coinProfile} name={profile.full_name} />}
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-base font-medium">Дагы</h2>
+        <nav aria-label="Кошумча бөлүмдөр" className="grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2">
+          {[
+            { href: "/play", label: "Оюнга кошулуу (PIN)", desktop: true },
+            { href: "/student/path", label: "Менин жолум", desktop: true },
+            { href: "/student/cards", label: "Билим китеби", desktop: true },
+            { href: "/student/quarters", label: "Чейректик бааларым" },
+            { href: "/student/pathways", label: "Мага ылайыктуу кошумча практика" },
+            { href: "/student/repetition", label: "Аралык менен кайталоо" },
+            { href: "/student/revisions", label: "Мугалимдин пикиринен кийин кайра иштөө" },
+          ].map((l) => (
+            <Link key={l.href} href={l.href} className={cx("min-h-12 items-center justify-between gap-3 bg-surface px-4 text-sm font-medium hover:bg-surface-2", l.desktop ? "hidden lg:flex" : "flex")}>
+              {l.label}
+              <span aria-hidden className="text-muted">→</span>
+            </Link>
+          ))}
+        </nav>
+      </section>
 
       <InstallButton />
 

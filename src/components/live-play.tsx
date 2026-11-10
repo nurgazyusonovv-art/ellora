@@ -171,7 +171,7 @@ export function LivePlay({ liveId, studentId, initial }: { liveId: string; stude
               ))}
             </ol>
           )}
-          <Link href="/student" className="text-sm font-medium text-accent hover:underline">Башкы бетке →</Link>
+          <Link href="/student" className="flex min-h-11 items-center text-sm font-medium text-accent hover:underline">Башкы бетке →</Link>
         </section>
       )}
 

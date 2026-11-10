@@ -79,7 +79,7 @@ export function ReviewQuiz({ questions: initial, streak: initialStreak }: { ques
         <section className="flex flex-col items-start gap-3 rounded-lg border border-good/25 bg-good-soft p-5" role="status">
           <p className="flex items-center gap-2 font-medium text-good"><Icon name="flame" size={20} /> Бүгүнкү кайталоо бүттү: {score}/{questions.length}</p>
           <p className="text-sm text-ink">Серия: <b>{streak}</b> күн катары менен. Эртең кайра кел — мээ эстеген сайын билим бекемделет.</p>
-          <Link href="/student" className="text-sm font-medium text-accent hover:underline">Башкы бетке →</Link>
+          <Link href="/student" className="flex min-h-11 items-center text-sm font-medium text-accent hover:underline">Башкы бетке →</Link>
         </section>
       )}
     </div>

@@ -2,6 +2,7 @@
 import { cx } from "@/components/ui";
 
 const ICONS = {
+  home: <path d="M3 11 12 3l9 8M5 9.5V21h5v-6h4v6h5V9.5" />,
   book: (
     <>
       <path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" />

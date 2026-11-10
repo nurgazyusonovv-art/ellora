@@ -14,7 +14,7 @@ export default async function MyReportPage() {
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-5 px-4 py-6 sm:px-6 print:max-w-none print:p-0">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <Link href="/student" className="text-sm font-medium text-muted hover:text-ink">
+        <Link href="/student" className="flex min-h-11 items-center text-sm font-medium text-muted hover:text-ink">
           ← Менин сабактарым
         </Link>
         <PrintButton label="PDF сактоо" />

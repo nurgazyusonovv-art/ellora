@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { JoinForm } from "@/components/live-play";
+import { StudentTabBar } from "@/components/student-tab-bar";
 import { Logo } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 
@@ -15,7 +16,8 @@ export default async function PlayJoin() {
         <p className="text-sm text-muted">Мугалимдин тактасындагы 6 сандан турган PIN кодду жаз.</p>
         <JoinForm />
       </div>
-      <Link href="/student" className="text-sm font-medium text-muted hover:text-ink">← Башкы бет</Link>
+      <Link href="/student" className="flex min-h-11 items-center text-sm font-medium text-muted hover:text-ink">← Башкы бет</Link>
+      <StudentTabBar />
     </main>
   );
 }

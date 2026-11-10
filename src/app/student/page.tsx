@@ -108,6 +108,7 @@ export default async function StudentHome({ searchParams }: { searchParams: Prom
 
       <nav aria-label="Кошумча бөлүмдөр" className="grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2">
         {[
+          { href: "/student/cards", label: "Билим китеби" },
           { href: "/student/quarters", label: "Чейректик бааларым" },
           { href: "/student/pathways", label: "Мага ылайыктуу кошумча практика" },
           { href: "/student/repetition", label: "Аралык менен кайталоо" },

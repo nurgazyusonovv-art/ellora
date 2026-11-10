@@ -62,3 +62,17 @@ it("ЖИ сабагында баштапкы текшерүү жана деңг�
   bad2.precheckQuestions = bad2.precheckQuestions.slice(0, 2);
   expect(generatedLesson(bad2, input)).toBeNull();
 });
+
+it("ЖИ сабагы — бир миссия: окуя, билим карталары жана деңгээлдер", () => {
+  const input = { topic: "Шарт", grade: 7, duration: 45, context: "", pairs: false, groups: false, groupSize: 4 };
+  const l = generatedLesson(lessonPlan(), input)!;
+  expect(l.content.quest?.title).toBe("Мектептин коңгуроосу");
+  expect(l.content.cards).toEqual([expect.objectContaining({ id: "k1", title: "if шарты" })]);
+  expect(l.content.stages[3].blocks.map((b) => b.level)).toEqual([1, 2, 3, 3]);
+  const noQuest = lessonPlan() as Partial<ReturnType<typeof lessonPlan>>;
+  delete noQuest.quest;
+  expect(generatedLesson(noQuest, input)).toBeNull();
+  const tooMany = lessonPlan();
+  tooMany.cards = [tooMany.cards[0], tooMany.cards[0], tooMany.cards[0]];
+  expect(generatedLesson(tooMany, input)).toBeNull();
+});

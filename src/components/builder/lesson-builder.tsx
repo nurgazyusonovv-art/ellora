@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { QuestEditor } from "./quest-editor";
+import { LEVELS } from "@/lib/quest";
 import { GameOptionsContext, type GameOptions } from "./game-editor";
 import {insertMissionPractice} from "@/lib/missions";
 import {MissionEditor} from "./mission-editor";
@@ -254,6 +256,18 @@ export function LessonBuilder({
         <label className="flex flex-col gap-2 text-sm font-semibold">Ийгилик критерийлери (ар бир сапка бирден)<textarea className={inputCls} rows={3} value={(draft.content.successCriteria ?? []).join("\n")} onChange={e => update(d => ({ ...d, content: { ...d.content, successCriteria: e.target.value.split("\n") } }))} /></label>
         <label className="flex flex-col gap-2 text-sm font-semibold sm:col-span-2">Мугалимге көрсөтмө<textarea className={inputCls} rows={2} value={draft.content.teacherNotes ?? ""} onChange={e => update(d => ({ ...d, content: { ...d.content, teacherNotes: e.target.value } }))} /></label>
       </section>}
+      <QuestEditor
+        quest={draft.content.quest}
+        cards={draft.content.cards}
+        onChange={(next) =>
+          update((d) => {
+            const content = { ...d.content, quest: next.quest, cards: next.cards?.length ? next.cards : undefined };
+            if (!next.quest) delete content.quest;
+            if (!content.cards) delete content.cards;
+            return { ...d, content };
+          })
+        }
+      />
       <div className="grid gap-6 xl:grid-cols-[210px_minmax(0,1fr)_240px] xl:items-start">
         {/* ───────── 5 бөлүк ───────── */}
         <nav aria-label="Сабактын бөлүктөрү" className="flex flex-col gap-2 xl:sticky xl:top-6">
@@ -391,6 +405,9 @@ export function LessonBuilder({
                           <li key={m}>{m}</li>
                         ))}
                       </ul>
+                    )}
+                    {stage.key === "reinforce" && b.type !== "text" && b.type !== "presentation" && b.type !== "code_example" && (
+                      <label className="flex flex-col gap-1.5 text-sm font-semibold sm:max-w-xs">Татаалдык деңгээли<select className={inputCls} value={b.level ?? ""} onChange={(e) => { const v = Number(e.target.value); const nb = { ...b }; if (v === 1 || v === 2 || v === 3) nb.level = v; else delete nb.level; changeBlock(nb); }}><option value="">Белгиленген жок</option>{([1, 2, 3] as const).map((l) => <option key={l} value={l}>{LEVELS[l]}</option>)}</select></label>
                     )}
                     {stage.key === "discover" && b.type === "mcq" && (
                       <label className="flex min-h-11 items-start gap-2.5 rounded-md border border-line-strong bg-surface p-3 text-sm">

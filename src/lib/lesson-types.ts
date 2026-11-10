@@ -25,7 +25,7 @@ export function stageMeta(content: LessonContent, key: StageKey) {
 
 export type Teamwork = { instructions: string; roles: string[]; outcome: string; size: number };
 
-type Base = { id: string; skills?: import("@/lib/skills").SkillId[]; teamwork?: Teamwork; support?: string; extension?: string; collaboration?: "individual" | "pair" | "group" };
+type Base = { id: string; /** Колдонуудагы татаалдык деңгээли (1–3), 2-этап. */ level?: import("@/lib/quest").Level; skills?: import("@/lib/skills").SkillId[]; teamwork?: Teamwork; support?: string; extension?: string; collaboration?: "individual" | "pair" | "group" };
 
 export type InvestigationBlock = Base & {
   type: "investigation";
@@ -158,7 +158,9 @@ export type Stage = { mission?:Mission; key: StageKey; title: string; intro?: st
 
 /** `duration` — мугалим тандаган сабактын жалпы узактыгы (мүнөт). Жок болсо 45 деп эсептелет. */
 export type LessonContent = {
-  activityKind?: "game" | "quarterly"; version: 1; model?: "5e"; objectives?: string[]; successCriteria?: string[]; teacherNotes?: string; duration?: number; stages: Stage[] };
+  activityKind?: "game" | "quarterly"; version: 1; model?: "5e";
+  /** Сабак — бир миссия: окуя жана билим карталары (2-этап, `src/lib/quest.ts`). */
+  quest?: import("@/lib/quest").Quest; cards?: import("@/lib/quest").KnowledgeCard[]; objectives?: string[]; successCriteria?: string[]; teacherNotes?: string; duration?: number; stages: Stage[] };
 
 /** Бул блок стадияны бүтүрүү үчүн жооп талап кылабы. */
 export function isInteractive(b: Block) {

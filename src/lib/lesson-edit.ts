@@ -3,6 +3,7 @@ import {defaultSheet,sheetError} from "@/lib/sheet";
 import { missionError } from "@/lib/missions";
 import { validSlides } from "@/lib/presentation";
 import { isSkillId } from "@/lib/skills";
+import { isLevel, questIssues, questStructureError } from "@/lib/quest";
 /** Сабак конструктору үчүн жардамчылар. Серверде да, браузерде да колдонулат. */
 import { STAGE_KEYS, FIVE_E_META, isGraded, type Block, type LessonContent, type StageKey } from "@/lib/lesson-types";
 
@@ -122,6 +123,7 @@ export function validateLesson(title: string, content: LessonContent): Issue[] {
     if (!content.objectives?.some(x => x.trim())) out.push({ stage: -1, message: "Окуу максатын жазыңыз." });
     if (!content.successCriteria?.some(x => x.trim())) out.push({ stage: -1, message: "Ийгилик критерийин жазыңыз." });
   }
+  for (const message of questIssues(content)) out.push({ stage: -1, message });
   content.stages.forEach((st, si) => {
     const add = (message: string, blockId?: string) => out.push({ stage: si, blockId, message });
     const missionIssue=missionError(st);if(missionIssue)add(missionIssue);
@@ -143,6 +145,7 @@ export function validateLesson(title: string, content: LessonContent): Issue[] {
     for (const b of st.blocks) {
       const bad = (m: string) => add(m, b.id);
       if ("xp" in b && isGraded(b) && b.xp !== undefined && !(b.xp >= 0)) bad("XP терс сан болбосун.");
+      if (b.level !== undefined && st.key !== "reinforce") bad("Татаалдык деңгээли Колдонуу бөлүгүндө гана коюлат.");
       if (b.teamwork && b.collaboration !== "individual" && b.collaboration) {
         if (blank(b.teamwork.instructions) || blank(b.teamwork.outcome)) bad("Бирге иштөө кадамдарын жана жалпы жыйынтыкты жазыңыз.");
         if (b.teamwork.roles.length !== b.teamwork.size || b.teamwork.roles.some(x => blank(x))) bad("Ар бир катышуучуга роль жазыңыз.");
@@ -232,11 +235,14 @@ export function checkStructure(content: unknown): string | null {
   if (c.model !== undefined && c.model !== "5e") return "Сабактын модели туура эмес.";
   for (const values of [c.objectives, c.successCriteria]) if (values !== undefined && (!Array.isArray(values) || values.length > 20 || values.some(x => typeof x !== "string" || x.length > 1000))) return "Максаттар же критерийлер туура эмес.";
   if (c.teacherNotes !== undefined && (typeof c.teacherNotes !== "string" || c.teacherNotes.length > 20000)) return "Мугалимдин нускамасы туура эмес.";
+  const questError = questStructureError(c);
+  if (questError) return questError;
   const ids = new Set<string>();
   for (const s of c.stages) {
     if (!Array.isArray(s.blocks)) return "Сабактын форматы туура эмес.";
     for (const b of s.blocks) {
       if (!b || typeof b.id !== "string" || !b.id || !(b.type in BLOCK_LABELS)) return "Белгисиз блок бар.";
+      if (b.level !== undefined && !isLevel(b.level)) return "Татаалдык деңгээли 1–3 болсун.";
       // Оюндун суроолору сабактын ичинде сакталбайт — топтомго шилтеме гана.
       if (b.type === "game" && (typeof b.setId !== "string" || b.setId.length > 36 || typeof b.title !== "string" || b.title.length > 150 || "questions" in b || "answerKey" in b)) return "Оюн блогунун форматы туура эмес.";
       if ([b.support, b.extension].some(x => x !== undefined && (typeof x !== "string" || x.length > 10000)) || (b.collaboration !== undefined && !["individual", "pair", "group"].includes(b.collaboration))) return "Тапшырманын жардамы же иштөө режими туура эмес.";

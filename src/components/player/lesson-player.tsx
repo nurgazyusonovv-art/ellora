@@ -15,6 +15,8 @@ import { ENGAGEMENT_LEVELS } from "@/lib/lesson-types";
 
 import Link from "next/link";
 import { Icon } from "@/components/icons";
+import { KnowledgeCardView } from "@/components/knowledge-card";
+import { LEVELS, STATIONS } from "@/lib/quest";
 import { CoinIcon } from "@/components/coin-profile";
 import { STAGE_COINS } from "@/lib/coins";
 import { AutoRefresh } from "@/components/auto-refresh";
@@ -296,6 +298,22 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
         </div>
       </header>
       <h1 className="text-xl font-medium sm:text-2xl">{title}</h1>
+      {content.quest && (
+        <details open={view === 0} className="group rounded-lg border border-accent/25 bg-accent-soft/60 p-4">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2.5 [&::-webkit-details-marker]:hidden">
+            <Icon name="target" size={18} className="shrink-0 text-accent" />
+            <span className="min-w-0 flex-1">
+              <span className="block font-mono text-[11px] uppercase tracking-[0.08em] text-accent-dark">Миссия</span>
+              <span className="block font-medium break-words">{content.quest.title}</span>
+            </span>
+            <span className="text-xs text-muted group-open:hidden">Окуяны ачуу</span>
+          </summary>
+          <div className="mt-3 flex flex-col gap-2 border-t border-accent/20 pt-3 text-[15px]">
+            <RichText text={content.quest.story} />
+            <p className="text-sm"><b className="font-medium">Максат:</b> {content.quest.goal}</p>
+          </div>
+        </details>
+      )}
 
       {content.model === "5e" && view === 0 && <div className="grid gap-4 rounded-lg border border-line bg-surface p-4 sm:grid-cols-2"><div><h2 className="mb-2 text-sm font-medium">Сабактын максаты</h2><ul className="list-disc pl-5 text-sm">{content.objectives?.map(x => <li key={x}>{x}</li>)}</ul></div><div><h2 className="mb-2 text-sm font-medium">Ийгилик критерийлери</h2><ul className="list-disc pl-5 text-sm">{content.successCriteria?.map(x => <li key={x}>{x}</li>)}</ul></div></div>}
       <nav aria-label="Сабактын бөлүктөрү" className="lesson-stage-nav sticky top-0 z-10 -mx-4 border-b border-line bg-surface-2/90 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
@@ -319,7 +337,7 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
                   <span className="font-mono text-[11px] text-muted">
                     {i + 1}/5 {done && <span className="font-bold text-good">✓</span>}
                   </span>
-                  <span title={stageMeta(content, s.key).label} className="w-full truncate text-xs font-medium sm:text-sm">{stageMeta(content, s.key).label}</span>
+                  <span title={stageMeta(content, s.key).label} className="w-full truncate text-xs font-medium sm:text-sm">{content.quest ? STATIONS[s.key] : stageMeta(content, s.key).label}</span>
                 </button>
               </li>
             );
@@ -353,7 +371,7 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
           {finished && isExit && <FinishCard score={finished.score} total={finished.total} xp={xp} backHref={backHref} preview={preview} growth={lessonGrowth({ ...content, stages }, answers)} />}
           <div className="flex flex-col gap-1.5">
             <span className="font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
-              {view + 1}-бөлүк · {stageMeta(content, st.key).label} · ~{st.minutes} мүн
+              {view + 1}-бөлүк · {content.quest ? `${STATIONS[st.key]} (${stageMeta(content, st.key).label})` : stageMeta(content, st.key).label} · ~{st.minutes} мүн
               {attempt && coins !== null && <span className="ml-2 normal-case text-amber">Биринчи жолу бүтүргөндө +{STAGE_COINS[view]} монета</span>}
             </span>
             <h2 className="text-xl font-medium">{st.title}</h2>
@@ -364,6 +382,7 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
           {!explainReady && <div className="flex flex-col gap-3 rounded-xl bg-accent-soft p-4 text-sm border border-accent/20"><p>Адегенде байкооңду өз сөзүң менен түшүндүрүп көр. Жообуңду жөнөткөндөн кийин толук түшүндүрмө ачылат.</p>{explanation.hasPresentation && <><p>Бул бөлүктө слайддык презентация бар. Аны көрүп, андан кийин да өз жообуңду жаза аласың.</p>{!presentationOpened[st.key] && <Button type="button" className="self-start" onClick={()=>setPresentationOpened(all=>({...all,[st.key]:true}))}>Презентацияны көрүү</Button>}</>}</div>}
           {explanation.blocks.map(b=>missionStudentBlock(st,b)).map((b) => (
             <div key={b.id} id={`block-${b.id}`} className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4 shadow-xs sm:p-5">
+              {b.level && <span className={cx("self-start rounded-full border px-2 py-0.5 font-mono text-[11px]", b.level === 3 ? "border-lilac/30 bg-lilac-soft text-lilac" : b.level === 2 ? "border-accent/25 bg-accent-soft text-accent-dark" : "border-good/25 bg-good-soft text-good")}>{LEVELS[b.level]}</span>}
               {st.key === "discover" && b.type === "open" && b.engagement && <p className="text-sm font-semibold text-accent">{b.engagement.level}. {ENGAGEMENT_LEVELS[b.engagement.level]} · {b.engagement.kind === "activity" ? "Кызыктуу тапшырма" : "Суроо"}</p>}
               {st.mission&&isInteractive(b)&&<p className="text-sm font-semibold text-accent">{missionChallenge(st,b.id)?"Жеке иш · ЖИ жана кеңешсиз, бир жолу тапшырылат":"Миссиянын машыгуусу"}</p>}
               {!missionAllows(st,b.id,answers)&&<p className="rounded-xl bg-surface-2 p-3 text-sm border border-line">Адегенде миссиянын мурунку тапшырмасын бүтүр. Андан кийин бул кадам ачылат.</p>}
@@ -385,6 +404,16 @@ export function LessonPlayer({ title, content, backHref, attempt, assignmentId, 
               {isExit && !stageDone(st, answers) && <span className="text-sm text-muted">Бардык суроолорго жооп бер.</span>}
             </div>
           )}
+          {/* Түшүндүрүү бүткөндө билим карталары ачылат (2-этап). */}
+          {st.key === "practice" && !!content.cards?.length && (unlocked > view ? (
+            <div className="flex flex-col gap-3" role="status">
+              <p className="flex items-center gap-2 text-sm font-medium text-accent-dark"><Icon name="star" size={16} className="fill-current text-amber" /> Жаңы билим {content.cards.length > 1 ? "карталары ачылды" : "картасы ачылды"}{attempt ? " — Билим китебиңе кошулду" : ""}</p>
+              <div className="grid gap-3 sm:grid-cols-2">{content.cards.map((k) => <KnowledgeCardView key={k.id} card={k} />)}</div>
+              {attempt && <Link href="/student/cards" className="self-start text-sm font-medium text-accent hover:underline">Билим китебин ачуу →</Link>}
+            </div>
+          ) : (
+            <p className="rounded-md border border-dashed border-accent/30 bg-surface p-3 text-sm text-muted">Бул бөлүктү бүтүргөндө {content.cards.length} билим картасы ачылат.</p>
+          ))}
         </section>
       )}
 
